@@ -1,0 +1,24 @@
+{
+  "name": "@office/shell",
+  "version": "0.0.1",
+  "private": true,
+  "main": "./dist/main/main.js",
+  "scripts": {
+    "build": "tsc -b",
+    "typecheck": "tsc -p tsconfig.test.json",
+    "test": "vitest run --passWithNoTests",
+    "start": "electron .",
+    "dev": "node scripts/dev.mjs"
+  },
+  "dependencies": {
+    "@office/agents": "workspace:*",
+    "@office/coordination": "workspace:*",
+    "@office/protocol": "workspace:*",
+    "@office/simulator": "workspace:*",
+    "@office/store": "workspace:*",
+    "zod": "4.4.3"
+  },
+  "devDependencies": {
+    "electron": "44.0.0"
+  }
+}
