@@ -86,7 +86,8 @@ export type CommandInput<N extends CommandName> = z.input<Commands[N]['input']>;
 export type CommandArgs<N extends CommandName> = z.infer<Commands[N]['input']>;
 export type CommandResult<N extends CommandName> = z.infer<Commands[N]['output']>;
 
-export const COMMAND_NAMES = Object.keys(commands).sort() as CommandName[];
-
 export const isCommandName = (value: unknown): value is CommandName =>
   typeof value === 'string' && Object.hasOwn(commands, value);
+
+/** `Object.keys` devolve `string[]`; o proprio guard e quem estreita. */
+export const COMMAND_NAMES: CommandName[] = Object.keys(commands).filter(isCommandName).sort();

@@ -38,10 +38,11 @@ export type EventPayload<T extends EventType = EventType> = z.infer<EventPayload
 /** Payload como se escreve na emissao: defaults ainda opcionais. */
 export type EventPayloadInput<T extends EventType = EventType> = z.input<EventPayloadSchemas[T]>;
 
-export const EVENT_TYPES = Object.keys(eventPayloads).sort() as EventType[];
-
 export const isEventType = (value: unknown): value is EventType =>
   typeof value === 'string' && Object.hasOwn(eventPayloads, value);
+
+/** `Object.keys` devolve `string[]`; o proprio guard e quem estreita. */
+export const EVENT_TYPES: EventType[] = Object.keys(eventPayloads).filter(isEventType).sort();
 
 /** Campos comuns a todo evento. Atribuidos pelo event store, nunca por quem emite. */
 export const envelopeMetaSchema = z.object({
