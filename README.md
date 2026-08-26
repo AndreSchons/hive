@@ -7,9 +7,12 @@ mesmo repositorio, com a execucao visualizada como um escritorio 3D isometrico.
 
 ```
 pnpm install
-pnpm build
 pnpm app
 ```
+
+No Linux, se a janela nao abrir (`FATAL` sobre o SUID sandbox ou SIGSEGV logo no
+inicio), use `pnpm app:nosandbox` ou ajuste o `chrome-sandbox` como descrito em
+[CLAUDE.md](./CLAUDE.md).
 
 Escolha uma pasta de projeto, escreva uma task e a execucao simulada roda o fluxo
 inteiro -- plano, contrato, trabalho em paralelo, verificacao, e uma pergunta que

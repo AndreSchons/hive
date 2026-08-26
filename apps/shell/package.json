@@ -9,7 +9,8 @@
     "test": "vitest run --passWithNoTests",
     "start": "electron .",
     "dev": "node scripts/dev.mjs",
-    "postinstall": "install-electron"
+    "postinstall": "install-electron",
+    "start:nosandbox": "electron . --no-sandbox"
   },
   "dependencies": {
     "@office/agents": "workspace:*",

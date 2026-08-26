@@ -78,7 +78,8 @@ pnpm build       # todos os pacotes
 pnpm typecheck
 pnpm test
 pnpm dev         # vite + electron com recarga
-pnpm app         # abre o app com o hub ja compilado
+pnpm app         # compila e abre o app
+pnpm app:nosandbox   # idem, sem o sandbox do Chromium (ver nota de Linux)
 pnpm --filter @office/simulator start -- --db <caminho> --project <pasta>
 ```
 
@@ -102,5 +103,8 @@ sudo chown root:root node_modules/.pnpm/electron@*/node_modules/electron/dist/ch
 sudo chmod 4755 node_modules/.pnpm/electron@*/node_modules/electron/dist/chrome-sandbox
 ```
 
-Sem isso o app aborta na inicializacao. `--no-sandbox` contorna, mas desliga o
-sandbox do Chromium e nao deve virar padrao.
+Sem isso o app aborta na inicializacao -- em algumas maquinas com `FATAL` sobre
+o SUID sandbox, em outras com SIGSEGV logo depois da inicializacao do GTK.
+
+`pnpm app:nosandbox` contorna para desenvolver. Desliga o sandbox do Chromium,
+entao serve para rodar na propria maquina e nao para virar o caminho padrao.

@@ -11,8 +11,9 @@
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
     "dev": "turbo run dev",
-    "app": "pnpm --filter @office/shell start",
-    "simulate": "pnpm --filter @office/simulator start"
+    "app": "turbo run build && pnpm --filter @office/shell start",
+    "simulate": "pnpm --filter @office/simulator start",
+    "app:nosandbox": "turbo run build && pnpm --filter @office/shell start:nosandbox"
   },
   "devDependencies": {
     "@types/node": "26.3.0",
