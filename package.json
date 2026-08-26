@@ -3,18 +3,18 @@
   "private": true,
   "version": "0.0.1",
   "packageManager": "pnpm@11.24.0",
-  "engines": { "node": ">=20" },
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "build": "turbo run build",
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
     "dev": "turbo run dev",
     "app": "pnpm --filter @office/shell start",
-    "simulate": "pnpm --filter @office/simulator start",
-    "rebuild:native": "electron-rebuild -f -w better-sqlite3 -m ."
+    "simulate": "pnpm --filter @office/simulator start"
   },
   "devDependencies": {
-    "@electron/rebuild": "4.2.0",
     "@types/node": "26.3.0",
     "turbo": "2.10.12",
     "typescript": "5.9.3",
