@@ -1,0 +1,11 @@
+packages:
+  - "apps/*"
+  - "packages/*"
+  - "tools/*"
+
+# pnpm 10+ bloqueia scripts de postinstall por padrao. Estes tres precisam rodar:
+# electron baixa o binario, better-sqlite3 e esbuild compilam.
+onlyBuiltDependencies:
+  - better-sqlite3
+  - electron
+  - esbuild
