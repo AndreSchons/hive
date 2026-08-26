@@ -61,33 +61,45 @@ export async function runScriptedDemo(options: ScriptedDemoOptions): Promise<Run
 
     const answered = await waitForAnswer(store, runId, answerTimeoutMs);
     if (!answered) {
-      store.append(runId, {
-        type: 'run.failed',
-        payload: {
-          reason: 'A execucao simulada parou de esperar a resposta.',
-          detail: `nenhum human.answered em ${Math.round(answerTimeoutMs / 1000)}s`,
+      store.closeRun(
+        runId,
+        {
+          type: 'run.failed',
+          payload: {
+            reason: 'A execucao simulada parou de esperar a resposta.',
+            detail: `nenhum human.answered em ${Math.round(answerTimeoutMs / 1000)}s`,
+          },
         },
-      });
-      store.finishRun(runId, 'failed');
+        'failed',
+      );
       return runId;
     }
 
-    for (const event of script.afterAnswer) {
+    // O ultimo evento do roteiro e `run.completed`: ele fecha a execucao junto,
+    // para o log e a tabela nunca discordarem.
+    const terminal = script.afterAnswer[script.afterAnswer.length - 1];
+    for (const event of script.afterAnswer.slice(0, -1)) {
       store.append(runId, event);
       await pause(stepDelayMs);
     }
-    store.finishRun(runId, 'completed');
+    if (terminal === undefined) {
+      throw new Error('o roteiro nao tem evento final');
+    }
+    store.closeRun(runId, terminal, 'completed');
   } catch (error) {
     // Falha do proprio simulador vira evento tambem: o hub nao pode ficar com
     // uma execucao pendurada em 'running' para sempre.
-    store.append(runId, {
-      type: 'run.failed',
-      payload: {
-        reason: 'A execucao simulada foi interrompida por um erro.',
-        detail: error instanceof Error ? error.message : String(error),
+    store.closeRun(
+      runId,
+      {
+        type: 'run.failed',
+        payload: {
+          reason: 'A execucao simulada foi interrompida por um erro.',
+          detail: error instanceof Error ? error.message : String(error),
+        },
       },
-    });
-    store.finishRun(runId, 'failed');
+      'failed',
+    );
     throw error;
   }
 

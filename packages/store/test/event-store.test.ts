@@ -206,6 +206,32 @@ describe('leitura e replay', () => {
   });
 });
 
+describe('closeRun', () => {
+  it('grava o evento terminal e fecha a execucao de uma vez so', () => {
+    store.append(runId, started());
+    const sealed = store.closeRun(
+      runId,
+      draft('run.completed', { summary: 'pronto', durationMs: 10, tasksCompleted: 1 }),
+      'completed',
+      777,
+    );
+
+    expect(sealed.seq).toBe(2);
+    const summary = store.getRun(runId);
+    expect(summary?.status).toBe('completed');
+    expect(summary?.endedAt).toBe(777);
+  });
+
+  it('nao fecha a execucao se o evento terminal for invalido', () => {
+    store.append(runId, started());
+    const invalid = JSON.parse(JSON.stringify({ type: 'run.completed', payload: {} }));
+
+    expect(() => store.closeRun(runId, invalid, 'completed')).toThrow();
+    expect(store.getRun(runId)?.status).toBe('running');
+    expect(store.lastSeq(runId)).toBe(1);
+  });
+});
+
 describe('integridade do log', () => {
   it('recusa UPDATE em events', () => {
     store.append(runId, started());

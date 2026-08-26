@@ -149,6 +149,30 @@ export class EventStore {
     }
   }
 
+  /**
+   * Grava o evento terminal e fecha a execucao na mesma transacao.
+   *
+   * Separar os dois abre uma janela em que o log ja diz `run.completed` e a
+   * tabela `runs` ainda diz `running`. Quem le pelo log e quem le pela tabela
+   * precisam concordar sempre, inclusive no instante entre um e outro.
+   */
+  closeRun(
+    runId: RunId,
+    event: AnyEventDraft,
+    status: Exclude<RunStatus, 'running'>,
+    at = Date.now(),
+  ): AnyEvent {
+    const close = this.db.transaction((): AnyEvent => {
+      const [sealed] = this.appendMany(runId, [event], at);
+      if (sealed === undefined) {
+        throw new Error('closeRun nao devolveu evento');
+      }
+      this.finishRun(runId, status, at);
+      return sealed;
+    });
+    return close();
+  }
+
   /** Eventos da execucao com seq maior que `afterSeq`, em ordem. */
   read(runId: RunId, afterSeq = 0, limit = 5000): AnyEvent[] {
     const rows = this.db
