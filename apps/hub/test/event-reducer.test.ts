@@ -1,0 +1,168 @@
+import { describe, expect, it } from 'vitest';
+import { newRunId, parseEvent, SCHEMA_VERSION, type AnyEvent } from '@office/protocol';
+import { buildScriptedRun } from '@office/simulator';
+import { applyAll, applyEvent, emptyWorld, FEED_LIMIT } from '../src/state/event-reducer';
+import { describeEvent } from '../src/state/describe';
+
+const runId = newRunId();
+
+/** Sela drafts como o event store faria, para o redutor ver eventos de verdade. */
+function seal(drafts: readonly { type: string; payload: unknown }[], from = 0): AnyEvent[] {
+  return drafts.map((draft, index) =>
+    parseEvent({
+      schemaVersion: SCHEMA_VERSION,
+      id: `evt_${from + index + 1}`,
+      runId,
+      seq: from + index + 1,
+      ts: 1_700_000_000_000 + index * 1000,
+      ...draft,
+    }),
+  );
+}
+
+const script = buildScriptedRun(runId, '/tmp/projeto', 'Adicionar login');
+const beforeBlock = seal(script.beforeBlock);
+const afterAnswer = seal(script.afterAnswer, beforeBlock.length);
+
+describe('applyEvent', () => {
+  it('parte de um mundo vazio', () => {
+    expect(emptyWorld.status).toBe('idle');
+    expect(emptyWorld.feed).toEqual([]);
+  });
+
+  it('reconstroi o mundo ate o bloqueio', () => {
+    const world = applyAll(emptyWorld, beforeBlock);
+
+    expect(world.runId).toBe(runId);
+    expect(world.status).toBe('running');
+    expect(world.goal).toBe('Adicionar login');
+    expect(Object.keys(world.agents)).toHaveLength(3);
+    expect(world.plan?.subtasks).toHaveLength(3);
+    expect(world.contracts).toHaveLength(1);
+  });
+
+  it('deixa a pergunta pendente quando o agente trava', () => {
+    const world = applyAll(emptyWorld, beforeBlock);
+
+    expect(world.question).not.toBeNull();
+    expect(world.question?.options.length).toBeGreaterThanOrEqual(2);
+    expect(world.agents[script.frontend]?.state).toBe('blocked');
+  });
+
+  it('limpa a pergunta quando a resposta chega pelo log', () => {
+    const world = applyAll(applyAll(emptyWorld, beforeBlock), afterAnswer);
+
+    expect(world.question).toBeNull();
+    expect(world.status).toBe('completed');
+    expect(world.agents[script.frontend]?.state).toBe('done');
+  });
+
+  it('leva toda subtask do plano a concluida no fim', () => {
+    const world = applyAll(applyAll(emptyWorld, beforeBlock), afterAnswer);
+    const statuses = Object.values(world.tasks).map((task) => task.status);
+
+    expect(statuses).toHaveLength(3);
+    expect(statuses.every((status) => status === 'done')).toBe(true);
+  });
+
+  it('guarda quem atribuiu e para quem', () => {
+    const world = applyAll(emptyWorld, beforeBlock);
+    const assigned = Object.values(world.tasks).filter((task) => task.assignedTo !== null);
+
+    expect(assigned.length).toBeGreaterThan(0);
+    for (const task of assigned) {
+      expect(task.assignedBy).toBe(script.manager);
+    }
+  });
+
+  it('devolve a task para o agente quando o portao falha', () => {
+    const upToFailure: AnyEvent[] = [];
+    for (const event of [...beforeBlock, ...afterAnswer]) {
+      upToFailure.push(event);
+      if (event.type === 'gate.failed') break;
+    }
+
+    const world = applyAll(emptyWorld, upToFailure);
+    const failedGate = upToFailure[upToFailure.length - 1];
+    if (failedGate?.type !== 'gate.failed') throw new Error('esperava gate.failed');
+
+    // Nem 'done' nem 'failed': volta a ser trabalho em andamento.
+    expect(world.tasks[failedGate.payload.taskId]?.status).toBe('running');
+  });
+
+  it('ignora evento repetido ou fora de ordem', () => {
+    const world = applyAll(emptyWorld, beforeBlock);
+    const first = beforeBlock[0];
+    if (first === undefined) throw new Error('roteiro vazio');
+
+    const again = applyEvent(world, first);
+    expect(again).toBe(world);
+    expect(again.feed).toHaveLength(world.feed.length);
+  });
+
+  it('recomeca do zero quando chega outra execucao', () => {
+    const world = applyAll(emptyWorld, beforeBlock);
+    const other = parseEvent({
+      schemaVersion: SCHEMA_VERSION,
+      id: 'evt_outro',
+      runId: newRunId(),
+      seq: 1,
+      ts: Date.now(),
+      type: 'run.started',
+      payload: { projectPath: '/tmp/projeto', goal: 'Outra coisa', startedBy: 'human' },
+    });
+
+    const next = applyEvent(world, other);
+    expect(next.goal).toBe('Outra coisa');
+    expect(Object.keys(next.agents)).toHaveLength(0);
+    expect(next.feed).toHaveLength(1);
+  });
+
+  it('e puro: nao muda o estado que recebeu', () => {
+    const world = applyAll(emptyWorld, beforeBlock);
+    const snapshot = JSON.stringify(world);
+    applyAll(world, afterAnswer);
+    expect(JSON.stringify(world)).toBe(snapshot);
+  });
+
+  it('reproduz o mesmo mundo em qualquer lote', () => {
+    const todos = [...beforeBlock, ...afterAnswer];
+    const deUmaVez = applyAll(emptyWorld, todos);
+
+    let emLotes = emptyWorld;
+    for (let index = 0; index < todos.length; index += 7) {
+      emLotes = applyAll(emLotes, todos.slice(index, index + 7));
+    }
+    expect(JSON.stringify(emLotes)).toBe(JSON.stringify(deUmaVez));
+  });
+
+  it('nao deixa o feed crescer sem limite', () => {
+    const muitos = seal(
+      Array.from({ length: FEED_LIMIT + 50 }, () => ({
+        type: 'task.progress',
+        payload: { taskId: 'tsk_x', agentId: script.frontend, note: 'andando' },
+      })),
+    );
+    expect(applyAll(emptyWorld, muitos).feed).toHaveLength(FEED_LIMIT);
+  });
+});
+
+describe('describeEvent', () => {
+  it('descreve todo evento do roteiro sem vazar termo tecnico na frase', () => {
+    for (const event of [...beforeBlock, ...afterAnswer]) {
+      const item = describeEvent(event);
+      expect(item.text.length).toBeGreaterThan(0);
+      expect(item.text).not.toMatch(/undefined|\[object|Error:|\.ts\(\d/);
+    }
+  });
+
+  it('separa o detalhe tecnico do texto principal', () => {
+    const failure = afterAnswer.find((event) => event.type === 'gate.failed');
+    if (failure === undefined) throw new Error('esperava gate.failed no roteiro');
+
+    const item = describeEvent(failure);
+    expect(item.tone).toBe('bad');
+    expect(item.detail).toMatch(/Login\.tsx/);
+    expect(item.text).not.toMatch(/Login\.tsx/);
+  });
+});
