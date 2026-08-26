@@ -5,6 +5,10 @@ import { registerIpc, unregisterIpc } from './ipc';
 import { databasePath } from './paths';
 import { createWindow } from './window';
 
+// O nome do pacote e "@office/shell", e a barra viraria diretorio dentro de
+// userData. Fixa aqui, antes de qualquer getPath.
+app.setName('agent-office');
+
 let db: Db | null = null;
 let bridge: EventBridge | null = null;
 

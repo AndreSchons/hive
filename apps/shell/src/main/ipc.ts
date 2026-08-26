@@ -52,11 +52,19 @@ function buildHandlers(context: IpcContext): Handlers {
   const { events, app, bridge } = context;
 
   return {
-    'project.pick': () => pickProject(context.window(), app),
+    'project.pick': async () => {
+      const project = await pickProject(context.window(), app);
+      // Seguir o projeto, e nao uma execucao: assim uma execucao disparada de
+      // fora (o simulador pelo terminal) tambem aparece na janela.
+      if (project !== null) bridge.followProject(project.path);
+      return project;
+    },
 
     'project.open': (raw) => {
       const { path } = commands['project.open'].input.parse(raw);
-      return openProject(app, path);
+      const project = openProject(app, path);
+      bridge.followProject(project.path);
+      return project;
     },
 
     'project.recent': (raw) => {

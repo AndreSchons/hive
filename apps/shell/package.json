@@ -8,7 +8,8 @@
     "typecheck": "tsc -p tsconfig.test.json",
     "test": "vitest run --passWithNoTests",
     "start": "electron .",
-    "dev": "node scripts/dev.mjs"
+    "dev": "node scripts/dev.mjs",
+    "postinstall": "install-electron"
   },
   "dependencies": {
     "@office/agents": "workspace:*",
@@ -20,5 +21,6 @@
   },
   "devDependencies": {
     "electron": "44.0.0"
-  }
+  },
+  "productName": "Agent Office"
 }

@@ -4,6 +4,8 @@ import { IPC_CHANNELS } from '@office/protocol';
 import { EventStore } from '@office/store';
 
 const POLL_INTERVAL_MS = 200;
+/** Procurar execucao nova e mais barato de fazer raramente do que a cada tick. */
+const DISCOVER_EVERY_MS = 1000;
 
 /**
  * Leva os eventos novos do log ate a janela.
@@ -17,6 +19,10 @@ export class EventBridge {
   private cursor = 0;
   private runId: RunId | null = null;
   private delivering = false;
+  private projectPath: string | null = null;
+  /** Quando passamos a seguir a execucao atual. Filtra execucoes antigas. */
+  private followingSince = 0;
+  private lastDiscovery = 0;
 
   constructor(
     private readonly store: EventStore,
@@ -27,6 +33,18 @@ export class EventBridge {
   follow(runId: RunId, fromSeq = 0): void {
     this.runId = runId;
     this.cursor = fromSeq;
+    this.followingSince = Date.now();
+    this.ensureRunning();
+  }
+
+  /**
+   * Passa a acompanhar o projeto: qualquer execucao nova dele vira a execucao
+   * seguida. E o que faz o simulador disparado pelo terminal aparecer na janela
+   * -- e amanha e o que faz uma execucao iniciada de fora aparecer tambem.
+   */
+  followProject(projectPath: string): void {
+    this.projectPath = projectPath;
+    this.lastDiscovery = 0;
     this.ensureRunning();
   }
 
@@ -36,6 +54,7 @@ export class EventBridge {
       this.timer = null;
     }
     this.runId = null;
+    this.projectPath = null;
   }
 
   private ensureRunning(): void {
@@ -46,7 +65,8 @@ export class EventBridge {
 
   private tick(): void {
     // Uma leitura por vez: se o disco travar, nao empilha tick em cima de tick.
-    if (this.delivering || this.runId === null) return;
+    if (this.delivering) return;
+    if (this.runId === null && this.projectPath === null) return;
     if (this.window.isDestroyed()) {
       this.stop();
       return;
@@ -54,6 +74,9 @@ export class EventBridge {
 
     this.delivering = true;
     try {
+      this.discover();
+      if (this.runId === null) return;
+
       const events = this.store.read(this.runId, this.cursor);
       if (events.length > 0) {
         this.deliver(this.runId, events);
@@ -66,6 +89,26 @@ export class EventBridge {
     } finally {
       this.delivering = false;
     }
+  }
+
+  /**
+   * Troca para a execucao mais recente do projeto, se houver uma mais nova do
+   * que a que estamos seguindo. A comparacao por horario evita duas armadilhas:
+   * voltar para uma execucao antiga, e roubar o foco de uma execucao que acabou
+   * de ser seguida mas ainda nao gravou a primeira linha.
+   */
+  private discover(): void {
+    if (this.projectPath === null) return;
+
+    const now = Date.now();
+    if (now - this.lastDiscovery < DISCOVER_EVERY_MS) return;
+    this.lastDiscovery = now;
+
+    const latest = this.store.latestRunOf(this.projectPath);
+    if (latest === null || latest.runId === this.runId) return;
+    if (latest.startedAt < this.followingSince) return;
+
+    this.follow(latest.runId, 0);
   }
 
   private deliver(runId: RunId, events: readonly AnyEvent[]): void {
