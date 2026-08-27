@@ -50,6 +50,12 @@ estragar. Antes de escrever:
   tecnico vai em `detail`, nunca no corpo da frase.
 - O `switch` do redutor e exaustivo por tipo de evento. Tipo novo no protocol
   quebra a compilacao aqui de proposito -- trate, nao adicione `default`.
+- `pnpm dev` com `?demo` na URL mostra o escritorio cheio no navegador, sem
+  Electron nem ponte: `src/demo.ts` semeia a store com o roteiro do simulador
+  (so em dev; no build de producao some). E o caminho para revisao visual.
+- O vite resolve `@office/protocol` e `@office/simulator` pelos fontes TS
+  (`resolve.alias`): os dists sao CJS e o interop nao enxerga os nomes
+  re-exportados. Os tipos continuam vindo dos `.d.ts`.
 
 ## Fronteiras entre pacotes
 
