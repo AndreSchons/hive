@@ -103,8 +103,9 @@ export function applyEvent(state: WorldState, event: AnyEvent): WorldState {
 
     case 'agent.spawned': {
       const { agentId, role, displayName, worktreePath, branch } = event.payload;
-      return withAgent(base, agentId, () => ({
-        agentId, role, displayName, worktreePath, branch: branch ?? null,
+      // `worktree.created` chega antes e e quem sabe o branch; a CLI nao sabe.
+      return withAgent(base, agentId, (agent) => ({
+        agentId, role, displayName, worktreePath, branch: branch ?? agent.branch,
         state: 'idle', currentTaskId: null, lastSaid: null, present: true,
       }));
     }
@@ -173,10 +174,17 @@ export function applyEvent(state: WorldState, event: AnyEvent): WorldState {
     case 'human.answered':
       return base.question?.questionId === event.payload.questionId ? { ...base, question: null } : base;
 
+    case 'worktree.created':
+      return withAgent(base, event.payload.agentId, (agent) => ({
+        ...agent, branch: event.payload.branch, worktreePath: event.payload.path,
+      }));
+
     case 'tool.call':
     case 'tool.result':
     case 'file.changed':
+    case 'worktree.conflict':
     case 'worktree.merged':
+    case 'worktree.removed':
       return base;
 
     case 'budget.warning':

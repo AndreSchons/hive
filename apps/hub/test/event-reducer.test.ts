@@ -147,6 +147,75 @@ describe('applyEvent', () => {
   });
 });
 
+/**
+ * Isolamento por worktree visto de fora: o hub nao sabe o que e git, mas
+ * precisa mostrar de quem e cada copia e quando dois trabalhos se cruzam.
+ */
+describe('worktree', () => {
+  const agentId = script.frontend;
+
+  it('guarda a copia do agente mesmo chegando antes de ele entrar', () => {
+    // `worktree.created` vem primeiro e e quem sabe o branch: a CLI nao sabe.
+    const world = applyAll(
+      emptyWorld,
+      seal([
+        {
+          type: 'worktree.created',
+          payload: { agentId, path: '/copias/frontend', branch: 'office/frontend', base: 'main' },
+        },
+        {
+          type: 'agent.spawned',
+          payload: {
+            agentId, role: 'frontend', displayName: 'Interface', adapter: 'kimi',
+            worktreePath: '/copias/frontend',
+          },
+        },
+      ]),
+    );
+
+    expect(world.agents[agentId]?.branch).toBe('office/frontend');
+    expect(world.agents[agentId]?.displayName).toBe('Interface');
+  });
+
+  it('conta o conflito sem despejar nome de arquivo na frase principal', () => {
+    const [conflito] = seal([
+      {
+        type: 'worktree.conflict',
+        payload: {
+          agentId, taskId: 'tsk_x', branch: 'office/frontend', into: 'main',
+          files: ['src/telas/Login.tsx'],
+        },
+      },
+    ]);
+    if (conflito === undefined) throw new Error('esperava o evento de conflito');
+
+    const item = describeEvent(conflito);
+    expect(item.tone).toBe('warn');
+    expect(item.text).not.toMatch(/Login\.tsx/);
+    expect(item.detail).toMatch(/Login\.tsx/);
+  });
+
+  it('diz quando foi um agente que juntou os dois trabalhos', () => {
+    const [sozinho, juntado] = seal([
+      {
+        type: 'worktree.merged',
+        payload: { agentId, taskId: 'tsk_x', branch: 'office/a', into: 'main', filesChanged: 2 },
+      },
+      {
+        type: 'worktree.merged',
+        payload: {
+          agentId, taskId: 'tsk_x', branch: 'office/b', into: 'main', filesChanged: 2,
+          resolvedBy: script.manager,
+        },
+      },
+    ]);
+    if (sozinho === undefined || juntado === undefined) throw new Error('esperava os dois merges');
+
+    expect(describeEvent(sozinho).text).not.toMatch(/juntou os dois/);
+    expect(describeEvent(juntado).text).toMatch(/juntou os dois/);
+  });
+});
+
 describe('describeEvent', () => {
   it('descreve todo evento do roteiro sem vazar termo tecnico na frase', () => {
     for (const event of [...beforeBlock, ...afterAnswer]) {

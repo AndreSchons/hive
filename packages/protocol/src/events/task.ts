@@ -7,8 +7,12 @@ export const taskEventPayloads = {
     taskId,
     title: z.string().min(1),
     role: roleId,
-    /** Quem atribuiu e para quem: o 3D precisa dos dois para animar a entrega. */
-    assignedBy: agentId,
+    /**
+     * Quem atribuiu e para quem: o 3D precisa dos dois para animar a entrega.
+     * Enquanto nao ha gerente, quem monta a fila e a propria pessoa -- o mesmo
+     * vocabulario que `run.started.startedBy` ja usa.
+     */
+    assignedBy: z.union([agentId, z.literal('human')]),
     assignedTo: agentId,
     dependsOn: z.array(taskId).default([]),
   }),

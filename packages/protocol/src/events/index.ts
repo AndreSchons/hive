@@ -9,6 +9,7 @@ import { planEventPayloads } from './plan';
 import { runEventPayloads } from './run';
 import { taskEventPayloads } from './task';
 import { workEventPayloads } from './work';
+import { worktreeEventPayloads } from './worktree';
 
 export { blockCauseSchema, type BlockCause } from './human';
 
@@ -29,6 +30,7 @@ export const eventPayloads = {
   ...interactionEventPayloads,
   ...humanEventPayloads,
   ...workEventPayloads,
+  ...worktreeEventPayloads,
   ...limitEventPayloads,
 } as const;
 
@@ -97,7 +99,10 @@ export const eventSchema = z.discriminatedUnion('type', [
   envelope('tool.call'),
   envelope('tool.result'),
   envelope('file.changed'),
+  envelope('worktree.created'),
+  envelope('worktree.conflict'),
   envelope('worktree.merged'),
+  envelope('worktree.removed'),
   envelope('budget.warning'),
   envelope('budget.exceeded'),
   envelope('loop.detected'),
@@ -128,7 +133,10 @@ export const eventDraftSchema = z.discriminatedUnion('type', [
   unsealed('tool.call'),
   unsealed('tool.result'),
   unsealed('file.changed'),
+  unsealed('worktree.created'),
+  unsealed('worktree.conflict'),
   unsealed('worktree.merged'),
+  unsealed('worktree.removed'),
   unsealed('budget.warning'),
   unsealed('budget.exceeded'),
   unsealed('loop.detected'),

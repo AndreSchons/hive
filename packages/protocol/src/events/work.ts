@@ -35,11 +35,4 @@ export const workEventPayloads = {
     linesAdded: z.number().int().nonnegative().default(0),
     linesRemoved: z.number().int().nonnegative().default(0),
   }),
-  'worktree.merged': z.object({
-    agentId,
-    taskId,
-    branch: z.string().min(1),
-    into: z.string().min(1),
-    filesChanged: z.number().int().nonnegative(),
-  }),
 } as const;

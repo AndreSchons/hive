@@ -82,8 +82,28 @@ export function describeEvent(event: AnyEvent): FeedItem {
       return item(event.payload.summary, event.payload.ok ? 'neutral' : 'bad', event.payload.detail);
     case 'file.changed':
       return item(`${CHANGE_LABEL[event.payload.change]} ${event.payload.path}`);
+
+    case 'worktree.created':
+      return item('Foi trabalhar numa copia separada do projeto');
+    case 'worktree.conflict': {
+      const { files } = event.payload;
+      return item(
+        `Dois agentes mexeram ${files.length === 1 ? 'no mesmo arquivo' : 'nos mesmos arquivos'} e nao deu para juntar sozinho`,
+        'warn',
+        files.join('\n'),
+      );
+    }
     case 'worktree.merged':
-      return item(`Juntou o trabalho ao projeto (${event.payload.filesChanged} arquivos)`, 'good');
+      return item(
+        event.payload.resolvedBy === undefined
+          ? `Juntou o trabalho ao projeto (${event.payload.filesChanged} arquivos)`
+          : `Um agente juntou os dois trabalhos e integrou (${event.payload.filesChanged} arquivos)`,
+        'good',
+      );
+    case 'worktree.removed':
+      return event.payload.reason === 'merged'
+        ? item('Fechou a copia de trabalho')
+        : item('Descartou a copia sem integrar nada', 'warn');
 
     case 'budget.warning':
       return item(`Chegando no limite de ${BUDGET_LABEL[event.payload.kind]}`, 'warn');
