@@ -5,6 +5,7 @@ import {
   commands,
   isCommandName,
   newRunId,
+  roleId,
   rosterSchema,
   type CommandFailure,
   type CommandName,
@@ -85,7 +86,12 @@ function buildHandlers(context: IpcContext): Handlers {
 
     'run.start': async (raw) => {
       const { projectPath, goal } = commands['run.start'].input.parse(raw);
-      const runId = await runs.start({ projectPath, goal });
+      // A fila com dono por tarefa ainda nao existe na tela: por enquanto o que
+      // o hub pede vira uma fila de um, tocada pelo papel que trabalha sozinho.
+      const runId = await runs.start({
+        projectPath,
+        tasks: [{ goal, role: roleId.parse('executor') }],
+      });
       // Segue a execucao assim que ela existe: o primeiro evento ja chega na
       // janela sem precisar de um segundo comando.
       bridge.follow(runId, 0);

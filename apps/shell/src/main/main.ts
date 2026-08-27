@@ -1,5 +1,6 @@
+import { join } from 'node:path';
 import { BrowserWindow, app } from 'electron';
-import { ClaudeAdapter, createAdapterRegistry } from '@office/agents';
+import { ClaudeAdapter, GitWorktreeManager, KimiAdapter, createAdapterRegistry } from '@office/agents';
 import { AppStore, EventStore, openDatabase, type Db } from '@office/store';
 import { EventBridge } from './event-bridge';
 import { DEFAULT_ROSTER, registerIpc, unregisterIpc } from './ipc';
@@ -24,7 +25,15 @@ function boot(): void {
 
   const window = createWindow();
   bridge = new EventBridge(events, window);
-  runs = new RunSupervisor(events, createAdapterRegistry([new ClaudeAdapter()]), DEFAULT_ROSTER);
+  // As copias de trabalho ficam fora do repositorio: dentro dele apareceriam
+  // como pasta nao rastreada no `git status` de quem esta usando o projeto.
+  runs = new RunSupervisor(
+    events,
+    createAdapterRegistry([new ClaudeAdapter(), new KimiAdapter()]),
+    DEFAULT_ROSTER,
+    new GitWorktreeManager(),
+    join(app.getPath('userData'), 'worktrees'),
+  );
 
   registerIpc({
     events,
