@@ -3,7 +3,7 @@ import { useFrame } from '@react-three/fiber';
 import { Group } from 'three';
 import type { Placement } from '../office/placements';
 import { buildPath, DOOR_WORLD, type WorldPoint } from '../office/layout';
-import { ToonMaterial } from '../office/toon';
+import { OVERLAY_LAYER, ToonMaterial } from '../office/toon';
 import { SpawnPuff } from './SpawnPuff';
 
 /** Duracao da fumaca e do squash, na entrada e na saida. */
@@ -210,6 +210,19 @@ export function Character({ placement, departing }: CharacterProps) {
 
   return (
     <group ref={root} position={[rig.current.x, 0, rig.current.z]}>
+      {/* Marcador de chao: anel discreto na cor do agente, para identificar
+          quem e quem a distancia. Overlay: nao imprime na sombra de contato. */}
+      <mesh
+        ref={(mesh) => {
+          if (mesh !== null) mesh.layers.set(OVERLAY_LAYER);
+        }}
+        position={[0, 0.03, 0]}
+        rotation={[-Math.PI / 2, 0, 0]}
+      >
+        <ringGeometry args={[0.3, 0.42, 32]} />
+        <meshBasicMaterial color={placement.color} transparent opacity={0.5} depthWrite={false} />
+      </mesh>
+
       <group ref={squash} scale={[1.36, 0.2, 1.36]}>
         <group ref={body}>
           {/* Corpo em capsula, sem pescoco: a cabeca afunda nele. */}
