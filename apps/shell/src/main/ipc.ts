@@ -16,15 +16,18 @@ import {
 import { AppStore, EventStore } from '@office/store';
 import { runScriptedDemo } from '@office/simulator';
 import type { EventBridge } from './event-bridge';
+import type { RunSupervisor } from './run-supervisor';
 import { openProject, pickProject } from './project-dialog';
 
 /**
  * Roster inicial. E configuracao, nao constante do sistema: mora aqui so ate
  * existir a tela onde o usuario edita papeis e associa cada um a uma CLI.
  */
-const DEFAULT_ROSTER: Roster = rosterSchema.parse([
+export const DEFAULT_ROSTER: Roster = rosterSchema.parse([
   { id: 'gerente', title: 'Gerente', adapter: 'claude', model: 'opus', canDelegate: true,
     description: 'Decompoe a task, publica contratos, valida entregas e integra.' },
+  { id: 'executor', title: 'Agente', adapter: 'claude', canDelegate: false,
+    description: 'Executa uma tarefa sozinho, direto na pasta do projeto.' },
   { id: 'frontend', title: 'Interface e 3D', adapter: 'kimi', canDelegate: false,
     description: 'Telas, componentes e o escritorio 3D.' },
   { id: 'backend', title: 'Backend', adapter: 'claude', canDelegate: false,
@@ -37,6 +40,7 @@ export interface IpcContext {
   readonly events: EventStore;
   readonly app: AppStore;
   readonly bridge: EventBridge;
+  readonly runs: RunSupervisor;
   readonly window: () => BrowserWindow | null;
 }
 
@@ -49,7 +53,7 @@ export interface IpcContext {
 type Handlers = { [N in CommandName]: (raw: unknown) => CommandResult<N> | Promise<CommandResult<N>> };
 
 function buildHandlers(context: IpcContext): Handlers {
-  const { events, app, bridge } = context;
+  const { events, app, bridge, runs } = context;
 
   return {
     'project.pick': async () => {
@@ -79,15 +83,19 @@ function buildHandlers(context: IpcContext): Handlers {
 
     'roster.get': () => DEFAULT_ROSTER,
 
-    'run.start': () => {
-      // O orquestrador real entra aqui. Ate la, recusar e mais honesto do que
-      // abrir uma execucao que nunca sai do lugar.
-      throw new Error(
-        'A execucao com agentes reais ainda nao esta ligada. Use a execucao simulada para ver o fluxo inteiro.',
-      );
+    'run.start': async (raw) => {
+      const { projectPath, goal } = commands['run.start'].input.parse(raw);
+      const runId = await runs.start({ projectPath, goal });
+      // Segue a execucao assim que ela existe: o primeiro evento ja chega na
+      // janela sem precisar de um segundo comando.
+      bridge.follow(runId, 0);
+      return { runId };
     },
 
-    'run.cancel': () => ({ cancelled: false }),
+    'run.cancel': (raw) => {
+      const { runId } = commands['run.cancel'].input.parse(raw);
+      return { cancelled: runs.cancel(runId) };
+    },
 
     'run.list': (raw) => {
       const { projectPath, limit } = commands['run.list'].input.parse(raw);
@@ -105,6 +113,12 @@ function buildHandlers(context: IpcContext): Handlers {
     'human.answer': (raw) => {
       const { runId, questionId, answer, optionId } = commands['human.answer'].input.parse(raw);
       if (!events.hasRun(runId)) return { accepted: false };
+
+      // Execucao viva: a resposta destrava o agente, e quem grava o
+      // `human.answered` e o adaptador -- o log continua sendo a unica fonte
+      // da verdade. Sem execucao viva sobra o caminho do simulador, que le a
+      // resposta do proprio log.
+      if (runs.answer(runId, questionId, answer, optionId)) return { accepted: true };
 
       events.append(runId, {
         type: 'human.answered',

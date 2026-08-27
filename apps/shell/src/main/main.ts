@@ -1,7 +1,9 @@
 import { BrowserWindow, app } from 'electron';
+import { ClaudeAdapter, createAdapterRegistry } from '@office/agents';
 import { AppStore, EventStore, openDatabase, type Db } from '@office/store';
 import { EventBridge } from './event-bridge';
-import { registerIpc, unregisterIpc } from './ipc';
+import { DEFAULT_ROSTER, registerIpc, unregisterIpc } from './ipc';
+import { RunSupervisor } from './run-supervisor';
 import { databasePath } from './paths';
 import { createWindow } from './window';
 
@@ -11,6 +13,7 @@ app.setName('agent-office');
 
 let db: Db | null = null;
 let bridge: EventBridge | null = null;
+let runs: RunSupervisor | null = null;
 
 function boot(): void {
   const path = databasePath();
@@ -21,17 +24,22 @@ function boot(): void {
 
   const window = createWindow();
   bridge = new EventBridge(events, window);
+  runs = new RunSupervisor(events, createAdapterRegistry([new ClaudeAdapter()]), DEFAULT_ROSTER);
 
   registerIpc({
     events,
     app: appStore,
     bridge,
+    runs,
     window: () => (window.isDestroyed() ? null : window),
   });
 
   window.on('closed', () => {
     bridge?.stop();
     bridge = null;
+    // Nao deixa subprocesso de agente orfao rodando depois da janela fechar.
+    runs?.stop();
+    runs = null;
   });
 }
 
@@ -63,6 +71,7 @@ if (!app.requestSingleInstanceLock()) {
 
   app.on('will-quit', () => {
     unregisterIpc();
+    runs?.stop();
     bridge?.stop();
     db?.close();
     db = null;
