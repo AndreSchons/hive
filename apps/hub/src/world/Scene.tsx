@@ -3,9 +3,12 @@ import { Canvas, useThree } from '@react-three/fiber';
 import { ContactShadows, OrbitControls } from '@react-three/drei';
 import { MOUSE } from 'three';
 import { AgentCharacters } from './characters/AgentCharacters';
+import { Bookshelves } from './office/Bookshelf';
 import { Floor } from './office/Floor';
 import { Furniture } from './office/Furniture';
+import { WallDecor } from './office/WallDecor';
 import { Walls } from './office/Walls';
+import { Windows } from './office/Windows';
 import { Lights } from './Lights';
 import { BACKGROUND } from './office/palette';
 import { OVERLAY_LAYER } from './office/toon';
@@ -53,6 +56,9 @@ export function Scene() {
       <Lights />
       <Floor />
       <Walls />
+      <Windows />
+      <Bookshelves />
+      <WallDecor />
       <Furniture />
       <AgentCharacters />
       <OverlayLayer />

@@ -4,6 +4,8 @@ import { InstancedMesh, Object3D } from 'three';
 export interface InstanceItem {
   readonly position: readonly [number, number, number];
   readonly rotationY?: number;
+  /** Escala por instancia: pecas de tamanhos diferentes com uma geometria so. */
+  readonly scale?: readonly [number, number, number];
 }
 
 interface InstancesProps {
@@ -26,6 +28,8 @@ export function Instances({ items, children }: InstancesProps) {
     items.forEach((item, index) => {
       dummy.position.set(item.position[0], item.position[1], item.position[2]);
       dummy.rotation.set(0, item.rotationY ?? 0, 0);
+      const scale = item.scale ?? [1, 1, 1];
+      dummy.scale.set(scale[0], scale[1], scale[2]);
       dummy.updateMatrix();
       mesh.setMatrixAt(index, dummy.matrix);
     });

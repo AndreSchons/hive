@@ -90,6 +90,19 @@ export const PENDANT_LAMPS: readonly WorldPoint[] = [
   { x: 4, z: 4 },
 ];
 
+/** As duas janelas da parede norte: vaos reais na parede segmentada. */
+export interface WindowSpot {
+  readonly centerX: number;
+  readonly width: number;
+  readonly sillY: number;
+  readonly topY: number;
+}
+
+export const WINDOWS: readonly WindowSpot[] = [
+  { centerX: -2.4, width: 2.4, sillY: 0.95, topY: 2.65 },
+  { centerX: 2.4, width: 2.4, sillY: 0.95, topY: 2.65 },
+];
+
 /**
  * Fileira de espera para quando ha mais agentes vivos do que mesas: encostados
  * na borda sul aberta, deixando a coluna da porta livre.
