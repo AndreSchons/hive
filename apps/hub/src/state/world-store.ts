@@ -20,6 +20,7 @@ interface HubState {
   pickProject(): Promise<void>;
   openProject(path: string): Promise<void>;
   closeProject(): void;
+  startRun(goal: string): Promise<void>;
   startSimulation(goal: string): Promise<void>;
   answerQuestion(answer: string, optionId?: string): Promise<void>;
   dismissFailure(): void;
@@ -73,6 +74,19 @@ export const useHub = create<HubState>((set, get) => ({
 
   closeProject() {
     set({ project: null, world: emptyWorld, failure: null });
+  },
+
+  async startRun(goal: string) {
+    const project = get().project;
+    if (project === null) return;
+
+    set({ busy: true, failure: null, world: emptyWorld });
+    const response = await invoke('run.start', { projectPath: project.path, goal });
+    set({ busy: false });
+
+    // CLI ausente ou sem login volta como frase, nao como excecao: e o unico
+    // lugar onde o usuario descobre que falta instalar alguma coisa.
+    if (!response.ok) set({ failure: response.error });
   },
 
   async startSimulation(goal: string) {

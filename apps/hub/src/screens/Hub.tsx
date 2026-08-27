@@ -14,7 +14,8 @@ const STATUS_LABEL = {
 } as const;
 
 export function Hub() {
-  const { project, world, busy, failure, startSimulation, answerQuestion, closeProject, dismissFailure } =
+  const { project, world, busy, failure, startRun,
+    startSimulation, answerQuestion, closeProject, dismissFailure } =
     useHub();
 
   const agents = useMemo(() => Object.values(world.agents), [world.agents]);
@@ -42,10 +43,18 @@ export function Hub() {
         </header>
 
         <div className="border-b border-edge px-4 py-4">
-          <TaskInput disabled={busy || running} onSubmit={(goal) => void startSimulation(goal)} />
+          <TaskInput disabled={busy || running} onSubmit={(goal) => void startRun(goal)} />
           <p className="mt-2 text-[11px] leading-snug text-muted">
-            Os agentes reais ainda nao estao ligados: por enquanto isto roda uma execucao simulada
-            com a mesma forma da de verdade.
+            Um agente trabalha direto nesta pasta e para para perguntar quando precisar.{' '}
+            <button
+              type="button"
+              disabled={busy || running}
+              onClick={() => void startSimulation('Execucao simulada')}
+              className="underline underline-offset-2 hover:text-ink disabled:opacity-40"
+            >
+              Ver uma execucao simulada
+            </button>{' '}
+            para conhecer o fluxo com varios agentes, que ainda nao esta ligado.
           </p>
         </div>
 
