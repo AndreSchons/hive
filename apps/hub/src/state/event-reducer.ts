@@ -5,6 +5,8 @@ export interface AgentView {
   readonly agentId: string;
   readonly role: string;
   readonly displayName: string;
+  /** Qual CLI executa este agente. E o que responde "qual IA esta fazendo isso". */
+  readonly adapter: string;
   readonly state: AgentState;
   readonly worktreePath: string;
   readonly branch: string | null;
@@ -102,10 +104,10 @@ export function applyEvent(state: WorldState, event: AnyEvent): WorldState {
       return { ...base, contracts: [...base.contracts, event.payload.contract] };
 
     case 'agent.spawned': {
-      const { agentId, role, displayName, worktreePath, branch } = event.payload;
+      const { agentId, role, displayName, adapter, worktreePath, branch } = event.payload;
       // `worktree.created` chega antes e e quem sabe o branch; a CLI nao sabe.
       return withAgent(base, agentId, (agent) => ({
-        agentId, role, displayName, worktreePath, branch: branch ?? agent.branch,
+        agentId, role, displayName, adapter, worktreePath, branch: branch ?? agent.branch,
         state: 'idle', currentTaskId: null, lastSaid: null, present: true,
       }));
     }
@@ -224,6 +226,7 @@ function seedTasks(plan: Plan): Record<string, TaskView> {
 const UNKNOWN_AGENT: Omit<AgentView, 'agentId'> = {
   role: 'desconhecido',
   displayName: 'Agente',
+  adapter: '',
   state: 'idle',
   worktreePath: '',
   branch: null,

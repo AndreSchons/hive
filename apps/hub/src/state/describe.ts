@@ -114,6 +114,19 @@ export function describeEvent(event: AnyEvent): FeedItem {
   }
 }
 
+/**
+ * Nome da CLI por tras de um papel. O id e aberto (papeis sao configuracao),
+ * entao um adaptador que este mapa nao conhece aparece pelo proprio id em vez
+ * de sumir da tela.
+ */
+const ADAPTER_LABEL: Record<string, string> = {
+  claude: 'Claude Code',
+  kimi: 'Kimi',
+  mock: 'Simulado',
+};
+
+export const adapterLabel = (adapter: string): string => ADAPTER_LABEL[adapter] ?? adapter;
+
 export const STATE_LABEL = {
   idle: 'livre',
   thinking: 'pensando',

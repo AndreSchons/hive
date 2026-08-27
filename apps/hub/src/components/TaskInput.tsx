@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import type { RoleDefinition } from '@office/protocol';
+import { adapterLabel } from '../state/describe';
 
 export interface TaskInputProps {
   readonly disabled: boolean;
@@ -11,6 +12,9 @@ export interface TaskInputProps {
  * Uma tarefa e quem vai fazer. Enquanto nao existe gerente que divida sozinho,
  * a atribuicao e da propria pessoa -- entao ela precisa estar aqui, ao lado do
  * que esta sendo pedido, e nao escondida numa tela de configuracao.
+ *
+ * A opcao mostra o papel **e** a CLI por tras dele. Escolher "Interface e 3D"
+ * sem saber que isso e o Kimi seria escolher no escuro.
  */
 export function TaskInput({ disabled, roles, onAdd }: TaskInputProps) {
   const [text, setText] = useState('');
@@ -53,7 +57,7 @@ export function TaskInput({ disabled, roles, onAdd }: TaskInputProps) {
         >
           {roles.map((option) => (
             <option key={option.id} value={option.id}>
-              {option.title}
+              {option.title} · {adapterLabel(option.adapter)}
             </option>
           ))}
         </select>

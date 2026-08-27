@@ -2,6 +2,7 @@ export interface QueuedTask {
   readonly goal: string;
   readonly role: string;
   readonly roleTitle: string;
+  readonly adapterTitle: string;
 }
 
 export interface TaskQueueProps {
@@ -30,7 +31,9 @@ export function TaskQueue({ items, disabled, onRemove, onStart }: TaskQueueProps
             <span className="mt-0.5 shrink-0 text-muted tabular-nums">{index + 1}.</span>
             <span className="min-w-0 flex-1">
               <span className="line-clamp-2">{item.goal}</span>
-              <span className="text-muted">{item.roleTitle}</span>
+              <span className="text-muted">
+                {item.roleTitle} · {item.adapterTitle}
+              </span>
             </span>
             <button
               type="button"

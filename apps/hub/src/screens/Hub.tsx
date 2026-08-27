@@ -4,6 +4,7 @@ import { EventFeed } from '../components/EventFeed';
 import { HumanQuestion } from '../components/HumanQuestion';
 import { TaskInput } from '../components/TaskInput';
 import { TaskQueue } from '../components/TaskQueue';
+import { adapterLabel } from '../state/describe';
 import { useHub } from '../state/world-store';
 import { Scene } from '../world';
 
@@ -24,10 +25,14 @@ export function Hub() {
 
   const queued = useMemo(
     () =>
-      queue.map((item) => ({
-        ...item,
-        roleTitle: roles.find((role) => role.id === item.role)?.title ?? item.role,
-      })),
+      queue.map((item) => {
+        const definition = roles.find((role) => role.id === item.role);
+        return {
+          ...item,
+          roleTitle: definition?.title ?? item.role,
+          adapterTitle: adapterLabel(definition?.adapter ?? ''),
+        };
+      }),
     [queue, roles],
   );
 

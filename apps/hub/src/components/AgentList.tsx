@@ -1,5 +1,5 @@
 import type { AgentState } from '@office/protocol';
-import { STATE_LABEL } from '../state/describe';
+import { STATE_LABEL, adapterLabel } from '../state/describe';
 import type { AgentView, TaskView } from '../state/event-reducer';
 
 const STATE_DOT: Record<AgentState, string> = {
@@ -33,6 +33,11 @@ export function AgentList({ agents, tasks }: AgentListProps) {
             <div className="flex items-center gap-2">
               <span className={`size-2 shrink-0 rounded-full ${STATE_DOT[agent.state]}`} />
               <span className="truncate text-sm font-medium">{agent.displayName}</span>
+              {agent.adapter !== '' && (
+                <span className="shrink-0 rounded border border-edge px-1.5 py-px text-[10px] text-muted">
+                  {adapterLabel(agent.adapter)}
+                </span>
+              )}
               <span className="ml-auto shrink-0 text-[11px] text-muted">{STATE_LABEL[agent.state]}</span>
             </div>
 

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { newRunId, parseEvent, SCHEMA_VERSION, type AnyEvent } from '@office/protocol';
 import { buildScriptedRun } from '@office/simulator';
 import { applyAll, applyEvent, emptyWorld, FEED_LIMIT } from '../src/state/event-reducer';
-import { describeEvent } from '../src/state/describe';
+import { adapterLabel, describeEvent } from '../src/state/describe';
 
 const runId = newRunId();
 
@@ -233,5 +233,43 @@ describe('describeEvent', () => {
     expect(item.tone).toBe('bad');
     expect(item.detail).toMatch(/Login\.tsx/);
     expect(item.text).not.toMatch(/Login\.tsx/);
+  });
+});
+
+/**
+ * "Qual IA esta fazendo isso" precisa ter resposta na tela. O papel nomeia o
+ * personagem; a CLI e um dado separado, e nenhum dos dois pode sequestrar o
+ * campo do outro.
+ */
+describe('qual CLI executa o agente', () => {
+  it('guarda o papel como nome e a CLI como dado a parte', () => {
+    const world = applyAll(
+      emptyWorld,
+      seal([
+        {
+          type: 'agent.spawned',
+          payload: {
+            agentId: script.frontend, role: 'frontend', displayName: 'Interface e 3D',
+            adapter: 'kimi', worktreePath: '/copias/frontend',
+          },
+        },
+      ]),
+    );
+
+    const agent = world.agents[script.frontend];
+    expect(agent?.displayName).toBe('Interface e 3D');
+    expect(agent?.adapter).toBe('kimi');
+  });
+});
+
+describe('adapterLabel', () => {
+  it('traduz o id da CLI para um nome que a pessoa reconhece', () => {
+    expect(adapterLabel('kimi')).toBe('Kimi');
+    expect(adapterLabel('claude')).toBe('Claude Code');
+  });
+
+  it('mostra o id cru em vez de sumir com uma CLI que nao conhece', () => {
+    // Papeis sao configuracao: um adaptador novo nao pode virar um espaco vazio.
+    expect(adapterLabel('gemini')).toBe('gemini');
   });
 });
