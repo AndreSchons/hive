@@ -36,6 +36,12 @@ export type AdapterProbe =
 export interface AgentRunRequest {
   readonly agentId: AgentId;
   readonly role: RoleId;
+  /**
+   * Nome do papel para exibir ("Backend"). Sem ele o adaptador cai no nome da
+   * propria CLI, que e o que o personagem no 3D **nao** deve se chamar: qual
+   * CLI rodou ja viaja em `agent.spawned.adapter`, separado.
+   */
+  readonly displayName?: string;
   /** Subtask sendo executada. Vai nos eventos que o adaptador emite. */
   readonly taskId?: TaskId;
   /** Alias de modelo repassado a CLI. Ausente = default da propria CLI. */

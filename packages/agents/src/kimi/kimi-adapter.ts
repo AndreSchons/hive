@@ -1,8 +1,5 @@
 import { execFile } from 'node:child_process';
-import {
-  adapterId,
-  type AdapterId,
-} from '@office/protocol';
+import { adapterId, type AdapterId } from '@office/protocol';
 import type {
   AdapterCapabilities,
   AdapterProbe,
@@ -10,10 +7,10 @@ import type {
   AgentRun,
   AgentRunRequest,
 } from '../adapter';
-import { ClaudeRun } from './claude-run';
+import { KimiRun } from './kimi-run';
 
-export interface ClaudeAdapterOptions {
-  /** Caminho do executavel. Por padrao o `claude` que estiver no PATH. */
+export interface KimiAdapterOptions {
+  /** Caminho do executavel. Por padrao o `kimi` que estiver no PATH. */
   readonly executable?: string;
   readonly probeTimeoutMs?: number;
 }
@@ -26,19 +23,19 @@ const capabilities: AdapterCapabilities = {
 };
 
 /**
- * A CLI do Claude Code que a pessoa ja tem instalada no terminal.
+ * O Kimi que a pessoa ja tem instalado, falado pelo Agent Client Protocol.
  *
  * Nao ha runtime de agente aqui e nao se chama API de modelo: o adaptador roda
- * o `claude` como processo filho e converte o stream dele em eventos.
+ * `kimi acp` como processo filho e converte o protocolo dele em eventos.
  */
-export class ClaudeAdapter implements AgentAdapter {
-  readonly id: AdapterId = adapterId.parse('claude');
-  readonly displayName = 'Claude Code';
+export class KimiAdapter implements AgentAdapter {
+  readonly id: AdapterId = adapterId.parse('kimi');
+  readonly displayName = 'Kimi';
   readonly capabilities = capabilities;
   private readonly executable: string;
 
-  constructor(private readonly options: ClaudeAdapterOptions = {}) {
-    this.executable = options.executable ?? 'claude';
+  constructor(private readonly options: KimiAdapterOptions = {}) {
+    this.executable = options.executable ?? 'kimi';
   }
 
   probe(): Promise<AdapterProbe> {
@@ -46,14 +43,14 @@ export class ClaudeAdapter implements AgentAdapter {
     return new Promise<AdapterProbe>((resolve) => {
       execFile(this.executable, ['--version'], { timeout }, (error, stdout) => {
         if (error) {
-          // CLI ausente ou sem permissao e estado esperado, nao excecao: o hub
-          // precisa mostrar isso como uma frase, nao como uma falha.
+          // CLI ausente e estado esperado, nao excecao: o hub mostra isso como
+          // uma frase, e a pessoa descobre que falta instalar alguma coisa.
           resolve({
             available: false,
             reason:
-              'nodeError' in error && (error as NodeJS.ErrnoException).code === 'ENOENT'
-                ? 'O Claude Code nao esta instalado neste computador.'
-                : `Nao consegui rodar o Claude Code: ${error.message}`,
+              (error as NodeJS.ErrnoException).code === 'ENOENT'
+                ? 'O Kimi nao esta instalado neste computador.'
+                : `Nao consegui rodar o Kimi: ${error.message}`,
           });
           return;
         }
@@ -64,7 +61,7 @@ export class ClaudeAdapter implements AgentAdapter {
   }
 
   start(request: AgentRunRequest): AgentRun {
-    return new ClaudeRun(
+    return new KimiRun(
       request,
       {
         agentId: request.agentId,
