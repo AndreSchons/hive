@@ -8,6 +8,8 @@ export {
   type AgentRun,
   type AgentRunRequest,
 } from './adapter';
+export { git, gitOrThrow, lines, type GitResult } from './git/git';
+export { GitWorktreeManager, branchFor, BRANCH_PREFIX, type RepositoryCheck } from './git/git-worktree';
 export { ClaudeAdapter, type ClaudeAdapterOptions } from './claude/claude-adapter';
 export { ClaudeRun, type ClaudeRunOptions } from './claude/claude-run';
 export { parseCliLine, type CliLine } from './claude/cli-messages';

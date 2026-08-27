@@ -5,10 +5,12 @@ import type { AgentId } from '@office/protocol';
  * criada a partir de um branch base; dois agentes nunca compartilham diretorio.
  * A integracao e etapa explicita do gerente, nunca efeito colateral.
  *
- * Só os tipos por enquanto -- a implementacao entra junto com os adaptadores reais.
+ * `GitWorktreeManager` (em `git/`) e a implementacao.
  */
 export interface Worktree {
   readonly agentId: AgentId;
+  /** Repositorio de onde a copia saiu. E nele que o merge acontece. */
+  readonly repositoryPath: string;
   /** Caminho absoluto da copia. Vira o `cwd` do subprocesso. */
   readonly path: string;
   readonly branch: string;
@@ -22,6 +24,12 @@ export interface CreateWorktreeInput {
   readonly repositoryPath: string;
   readonly base: string;
   readonly branch: string;
+  /**
+   * Onde a copia vive. Fica **fora** do repositorio de proposito: dentro dele a
+   * pasta apareceria como nao rastreada no `git status` da base, e um agente
+   * poderia acabar commitando a worktree do outro.
+   */
+  readonly path: string;
 }
 
 export interface WorktreeDiff {
