@@ -9,9 +9,11 @@ import { Walls } from './office/Walls';
 import { Lights } from './Lights';
 import { BACKGROUND } from './office/palette';
 
-// Camera ortografica em angulo fixo: ~35 graus de elevacao, 45 de azimute.
+// Camera ortografica em angulo fixo: ~28 graus de elevacao, 45 de azimute.
+// Baixa o bastante para as paredes do diorama aparecerem, alta o bastante
+// para o chao continuar legivel.
 const CAMERA_DISTANCE = 30;
-const ELEVATION = (35 * Math.PI) / 180;
+const ELEVATION = (28 * Math.PI) / 180;
 const AZIMUTH = Math.PI / 4;
 const cameraPosition: [number, number, number] = [
   Math.cos(ELEVATION) * Math.sin(AZIMUTH) * CAMERA_DISTANCE,

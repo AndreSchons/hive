@@ -1,13 +1,19 @@
 /**
- * Planta baixa do escritorio: grade de tiles, porta, mesas, plantas e os
- * caminhos entre eles. Tudo aqui e dado puro ou funcao pura -- e o que
+ * Planta baixa do escritorio-diorama: grade de tiles, porta, mesas, lounge e
+ * os pontos fixos de mobilia. Tudo aqui e dado puro ou funcao pura -- e o que
  * permite provar em teste que toda mesa e alcancavel a partir da porta.
  *
  * A grade tem GRID_SIZE x GRID_SIZE tiles de 1 unidade. O tile (col, row) tem
  * centro no mundo em (col - GRID_SIZE/2 + 0.5, row - GRID_SIZE/2 + 0.5).
- * +x aponta para leste, +z para sul; a camera olha do sudeste.
+ * +x aponta para leste, +z para sul. A camera olha do sudeste, entao as
+ * paredes de fundo (norte e oeste) formam o L do diorama e a frente fica
+ * aberta -- nenhum personagem fica atras de parede por construcao.
  */
 export const GRID_SIZE = 16;
+
+/** Altura cheia das paredes de fundo. */
+export const WALL_HEIGHT = 3;
+export const WALL_THICKNESS = 0.35;
 
 export interface Tile {
   readonly col: number;
@@ -19,7 +25,7 @@ export interface WorldPoint {
   readonly z: number;
 }
 
-/** Tile da porta, na borda sul: o ponto de spawn de todo mundo. */
+/** Tile da porta, na borda sul aberta: o ponto de spawn de todo mundo. */
 export const DOOR: Tile = { col: 8, row: GRID_SIZE - 1 };
 
 export interface DeskSpot {
@@ -33,42 +39,60 @@ export interface DeskSpot {
   readonly rotationY: number;
 }
 
-// Mesas encostadas nas paredes norte, oeste e leste, viradas para dentro.
-// O corredor central (col 8) e as fileiras de cada mesa ficam livres, entao
-// o caminho da porta ate qualquer mesa e sempre reto ou em L.
-const northDesks: DeskSpot[] = [3, 5, 7, 9, 11, 13].map((col) => ({
+// Seis mesas em duas baias encostadas nas paredes de fundo, viradas para elas.
+// O corredor central (col 8) e as fileiras de cada mesa ficam livres, entao o
+// caminho da porta ate qualquer mesa e sempre reto ou em L.
+const northDesks: DeskSpot[] = [5, 8, 11].map((col) => ({
   tile: { col, row: 1 },
   chair: { col, row: 2 },
   stand: { col, row: 3 },
   rotationY: Math.PI,
 }));
 
-const westDesks: DeskSpot[] = [5, 8, 11].map((row) => ({
+const westDesks: DeskSpot[] = [8, 10, 12].map((row) => ({
   tile: { col: 1, row },
   chair: { col: 2, row },
   stand: { col: 3, row },
   rotationY: -Math.PI / 2,
 }));
 
-const eastDesks: DeskSpot[] = [5, 8, 11].map((row) => ({
-  tile: { col: 14, row },
-  chair: { col: 13, row },
-  stand: { col: 12, row },
-  rotationY: Math.PI / 2,
-}));
+export const DESKS: readonly DeskSpot[] = [...northDesks, ...westDesks];
 
-export const DESKS: readonly DeskSpot[] = [...northDesks, ...westDesks, ...eastDesks];
+/** Tres plantas de chao, em tamanhos diferentes (grande, media, pequena). */
+export const PLANT_SPOTS: readonly { readonly tile: Tile; readonly scale: number }[] = [
+  { tile: { col: 14, row: 2 }, scale: 1 },
+  { tile: { col: 2, row: 13 }, scale: 0.75 },
+  { tile: { col: 14, row: 14 }, scale: 0.5 },
+];
 
-export const PLANT_SPOTS: readonly Tile[] = [
-  { col: 1, row: 1 },
-  { col: 14, row: 1 },
-  { col: 1, row: 13 },
-  { col: 14, row: 13 },
+/** Estantes altas, uma em cada parede de fundo. */
+export const BOOKSHELVES: readonly { readonly center: WorldPoint; readonly rotationY: number }[] = [
+  { center: { x: -6, z: -7.1 }, rotationY: 0 },
+  { center: { x: -7.1, z: 6.5 }, rotationY: Math.PI / 2 },
+];
+
+/** Aparador baixo encostado na parede oeste, com uma planta em cima. */
+export const SIDEBOARD = { center: { x: -7.05, z: -2 }, rotationY: Math.PI / 2 } as const;
+
+/** Lounge no canto sudeste: tapete com poltronas e mesinha. */
+export const LOUNGE = {
+  rug: { center: { x: 4, z: 4 }, size: 4 } as const,
+  armchairs: [
+    { center: { x: 2.8, z: 2.8 }, rotationY: (3 * Math.PI) / 4 },
+    { center: { x: 5.2, z: 5.2 }, rotationY: -Math.PI / 4 },
+  ] as const,
+  coffeeTable: { center: { x: 4, z: 4 } } as const,
+};
+
+/** Luminarias pendentes: uma sobre a baia norte, outra sobre o lounge. */
+export const PENDANT_LAMPS: readonly WorldPoint[] = [
+  { x: -1.2, z: -4.2 },
+  { x: 4, z: 4 },
 ];
 
 /**
  * Fileira de espera para quando ha mais agentes vivos do que mesas: encostados
- * na parede sul, deixando a coluna da porta livre.
+ * na borda sul aberta, deixando a coluna da porta livre.
  */
 export const OVERFLOW_SPOTS: readonly { readonly tile: Tile; readonly rotationY: number }[] = [
   2, 3, 4, 5, 6, 7, 9, 10, 11, 12, 13,
@@ -76,10 +100,16 @@ export const OVERFLOW_SPOTS: readonly { readonly tile: Tile; readonly rotationY:
 
 const tileKey = (tile: Tile): string => `${tile.col},${tile.row}`;
 
-/** Tiles que bloqueiam caminhada: mesas, cadeiras e plantas. */
+/** Tiles que bloqueiam caminhada: mesas, cadeiras, plantas, aparador e lounge. */
 export const OCCUPIED_TILES: ReadonlySet<string> = new Set([
   ...DESKS.flatMap((desk) => [tileKey(desk.tile), tileKey(desk.chair)]),
-  ...PLANT_SPOTS.map(tileKey),
+  ...PLANT_SPOTS.map((spot) => tileKey(spot.tile)),
+  tileKey({ col: 0, row: 4 }),
+  tileKey({ col: 0, row: 5 }),
+  tileKey({ col: 0, row: 6 }),
+  tileKey({ col: 10, row: 10 }),
+  tileKey({ col: 11, row: 11 }),
+  tileKey({ col: 13, row: 13 }),
 ]);
 
 export function tileToWorld(tile: Tile): WorldPoint {

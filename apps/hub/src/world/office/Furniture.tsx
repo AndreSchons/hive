@@ -56,7 +56,7 @@ for (const desk of DESKS) {
 const plantPots: InstanceItem[] = [];
 const plantBushes: InstanceItem[] = [];
 for (const spot of PLANT_SPOTS) {
-  const { x, z } = tileToWorld(spot);
+  const { x, z } = tileToWorld(spot.tile);
   plantPots.push({ position: [x, 0.17, z] });
   plantBushes.push({ position: [x, 0.6, z] });
   plantBushes.push({ position: [x + 0.12, 0.86, z - 0.08] });

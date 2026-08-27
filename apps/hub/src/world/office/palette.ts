@@ -4,6 +4,9 @@
  */
 export const FLOOR_A = '#F4EFE6';
 export const FLOOR_B = '#EDE6DA';
+// Paredes do diorama: verde-azulado, com a oeste mais clara para dar profundidade.
+export const WALL_NORTH = '#2F6B6B';
+export const WALL_WEST = '#3B7F7C';
 export const WALL = '#E3D9C9';
 export const FURNITURE = '#C98A52';
 export const FURNITURE_DARK = '#A96F3D';

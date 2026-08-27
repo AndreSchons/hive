@@ -13,8 +13,8 @@ import {
 const key = (col: number, row: number) => `${col},${row}`;
 
 describe('layout do escritorio', () => {
-  it('tem 12 mesas dentro da grade', () => {
-    expect(DESKS).toHaveLength(12);
+  it('tem 6 mesas dentro da grade', () => {
+    expect(DESKS).toHaveLength(6);
     for (const desk of DESKS) {
       for (const tile of [desk.tile, desk.chair, desk.stand]) {
         expect(tile.col).toBeGreaterThanOrEqual(0);
