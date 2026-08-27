@@ -109,14 +109,72 @@ A politica de permissao (`claude/permission.ts`) libera leitura e escrita dentro
 da pasta do projeto e escala o resto. As fixtures em `packages/agents/test/`
 sao NDJSON gravado da CLI de verdade: e contra elas que o parser e testado.
 
+## Como a CLI do Kimi entra
+
+`packages/agents/src/kimi/` fala **Agent Client Protocol** (`kimi acp`), JSON-RPC
+2.0 em NDJSON pelos dois sentidos. O modo obvio -- `kimi -p --output-format
+stream-json` -- foi descartado depois de lido o binario, e vale registrar por que
+antes que alguem tente de novo:
+
+- O modo prompt chama `setMode("auto")`, que o proprio `--help` descreve como
+  *"fully autonomous, the agent will not ask questions"*. **Nunca bloqueia.**
+- `writeThinkingDelta()` tem corpo vazio: em JSON o pensamento e descartado.
+- Resultado de ferramenta vira string crua, sem contagem de linha nem sinal de erro.
+- Nao existe `--input-format`: stdin nao e canal, entao `answer()` e impossivel.
+
+Pelo ACP tudo isso existe. Tres detalhes que o codigo depende:
+
+- **O bloco de diff chega no update `in_progress`, nunca no `completed`.** Quem
+  olhasse so a frame final nunca veria mudanca de arquivo nenhuma.
+- **`Write` nao manda bloco de diff.** So `rawInput.content`. Criar e sobrescrever
+  sao indistinguiveis pelo stream, entao `AcpTranslator` recebe um `exists`
+  injetado e pergunta ao disco **antes** da escrita -- no `in_progress`, que
+  chega antes de o arquivo mudar.
+- **A resposta JSON-RPC nao pode ser descrita como "`method` ausente".** Uma chave
+  declarada como `z.undefined()` continua obrigatoria no Zod, e toda resposta era
+  descartada em silencio. A uniao tenta pedido e notificacao primeiro; a resposta
+  e o que sobra.
+
+Os ids de opcao de permissao (`approve_once`, `reject`) sao do Kimi e viajam no
+proprio pedido -- nunca invente um.
+
+A politica de permissao e **uma so** (`packages/agents/src/permission.ts`), com
+entrada agnostica de CLI. O que o sistema deixa um agente fazer nao pode depender
+de qual CLI ele e.
+
+Ajuda que as duas usem os mesmos nomes de ferramenta (`Read`, `Write`, `Edit`,
+`Bash`, `Glob`, `Grep`, `WebSearch`), entao `tool-summary.ts` e as listas de
+`permission.ts` valem para as duas sem traducao. O `kind` do ACP entra como rede
+de seguranca para o que nao estiver nessas listas, nao como caminho principal.
+
+## Isolamento e integracao
+
+`GitWorktreeManager` (`packages/agents/src/git/`) roda `git` de verdade. Conflito,
+arvore suja e pasta sem repositorio sao **respostas**, nunca excecoes.
+
+- A worktree mora **fora** do repositorio (`<userData>/worktrees/<runId>/<agentId>`).
+  Dentro dele ela apareceria como pasta nao rastreada no `git status` de quem usa
+  o projeto, e um agente poderia commitar a copia do outro.
+- **Quem commita e o supervisor**, nao a CLI: o agente nao commita sozinho e a
+  politica escala `Bash`. Sem isso nao existe o que mergear.
+- `merge` conflitado deixa o merge **em curso** de proposito. E o que permite
+  resolver depois sem refazer nada -- e e literalmente "detectar e parar".
+- Antes de fechar um merge resolvido, `commitMerge` estagia e so entao procura
+  marcador `<<<<<<<`. Checar o indice primeiro reprovaria quem resolveu direito.
+  Essa checagem prova ausencia de marcador, **nao** que a juncao ficou correta.
+
+Conflito nunca e resolvido sozinho: o sistema para, emite `worktree.conflict` e
+pergunta. So depois de a pessoa autorizar e que um agente e mandado juntar.
+
 ## O que ainda nao existe
 
-Personagens, animacoes e pathfinding no 3D. Worktrees, gerente e segundo agente
-(`run.start` roda **um** agente direto na pasta do projeto). Adaptador do Kimi.
-Implementacoes de `coordination` (so os tipos). Portoes de verificacao rodando de
-verdade. Autenticacao. Empacotamento para distribuicao.
+Personagens, animacoes e pathfinding no 3D. Gerente e planejamento automatico (a
+fila e montada pela pessoa e roda em sequencia, sem paralelismo). Implementacoes
+de `coordination` (so os tipos). Portoes de verificacao rodando de verdade --
+nada roda `test`/`build` na worktree, que aliais nasce sem `node_modules`.
+Autenticacao. Empacotamento para distribuicao.
 
-`dev.simulate` continua sendo o unico jeito de ver o fluxo multiagente inteiro.
+`dev.simulate` continua sendo o unico jeito de ver o fluxo com gerente e contrato.
 
 ## Nota de ambiente (Linux)
 
