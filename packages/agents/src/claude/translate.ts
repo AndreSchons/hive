@@ -10,7 +10,7 @@ import {
 } from '@office/protocol';
 import type { CliLine } from './cli-messages';
 import { fileChangeFrom } from './patch';
-import { capSummary, describeToolCall, describeToolResult } from './tool-summary';
+import { capSummary, describeToolCall, describeToolResult } from '../tool-summary';
 
 export interface TranslateContext {
   readonly agentId: AgentId;

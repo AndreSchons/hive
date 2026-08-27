@@ -9,7 +9,7 @@ import type { AgentOutcome, AgentRun, AgentRunRequest } from '../adapter';
 import { AsyncQueue } from '../process/async-queue';
 import { LineSplitter, parseLine } from '../process/stream-json';
 import { parseCliLine, type CliLine } from './cli-messages';
-import { decidePermission, type PermissionDecision } from './permission';
+import { decidePermission, type PermissionDecision } from '../permission';
 import { StreamTranslator, maxCostUsd, type TranslateContext } from './translate';
 
 export interface ClaudeRunOptions {

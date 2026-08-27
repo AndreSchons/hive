@@ -12,6 +12,10 @@ import { describeToolCall } from './tool-summary';
  * O criterio e "seguro e dentro da pasta": ler e escrever dentro do projeto
  * escolhido passa sozinho, porque parar a cada arquivo tornaria o produto
  * inusavel. Sair da pasta, rodar comando ou tocar a rede para o agente.
+ *
+ * A politica e **uma so para todas as CLIs**. Cada adaptador traduz o pedido da
+ * sua CLI para `PermissionRequest` e recebe a mesma decisao de volta: o que o
+ * sistema deixa um agente fazer nao pode depender de qual CLI ele e.
  */
 export type PermissionDecision =
   | { readonly kind: 'allow' }
@@ -30,16 +34,29 @@ export type PermissionDecision =
       readonly ask?: { readonly questionText: string; readonly input: unknown };
     };
 
+/**
+ * Classe da ferramenta quando a CLI ja informa (o ACP manda `kind`). Sem ela,
+ * quem classifica e o nome da ferramenta.
+ */
+export type ToolKind =
+  | 'read' | 'edit' | 'delete' | 'move' | 'search' | 'execute' | 'think' | 'fetch' | 'other';
+
 export interface PermissionRequest {
   readonly toolName: string;
   readonly input: unknown;
   readonly requiresUserInteraction: boolean;
+  readonly kind?: ToolKind;
+  /** Caminhos que a propria CLI ja resolveu. Tem precedencia sobre o input cru. */
+  readonly paths?: readonly string[];
 }
 
 /** Leem sem efeito colateral e sem sair da maquina. */
 const READ_ONLY = new Set(['Read', 'Glob', 'Grep', 'NotebookRead', 'TodoWrite']);
 /** Escrevem em arquivo: liberadas so dentro da pasta do projeto. */
 const FILE_WRITERS = new Set(['Edit', 'Write', 'NotebookEdit']);
+
+const READ_ONLY_KINDS = new Set<ToolKind>(['read', 'search', 'think']);
+const FILE_WRITER_KINDS = new Set<ToolKind>(['edit', 'delete', 'move']);
 
 const pathInput = z.object({
   file_path: z.string().optional(),
@@ -84,6 +101,15 @@ function resolveHonestly(path: string): string {
 export function isInside(root: string, path: string): boolean {
   const rel = relative(resolveHonestly(root), resolveHonestly(path));
   return rel.length > 0 && !rel.startsWith('..') && !isAbsolute(rel);
+}
+
+/** Os caminhos que este pedido toca, venham da CLI ja resolvidos ou do input cru. */
+function targetPaths(request: PermissionRequest): string[] {
+  if (request.paths !== undefined && request.paths.length > 0) return [...request.paths];
+  const fields = pathInput.safeParse(request.input);
+  if (!fields.success) return [];
+  const { file_path: file, notebook_path: notebook, path } = fields.data;
+  return [file ?? notebook ?? path].filter((value): value is string => value !== undefined);
 }
 
 const ALLOW_DENY = [
@@ -134,20 +160,23 @@ export function decidePermission(
     };
   }
 
-  if (READ_ONLY.has(toolName)) return { kind: 'allow' };
+  if (READ_ONLY.has(toolName) || (request.kind !== undefined && READ_ONLY_KINDS.has(request.kind))) {
+    return { kind: 'allow' };
+  }
 
-  if (FILE_WRITERS.has(toolName)) {
-    const fields = pathInput.safeParse(input);
-    const target = fields.success
-      ? (fields.data.file_path ?? fields.data.notebook_path ?? fields.data.path)
-      : undefined;
-    if (target !== undefined && isInside(projectPath, target)) return { kind: 'allow' };
+  if (FILE_WRITERS.has(toolName) || (request.kind !== undefined && FILE_WRITER_KINDS.has(request.kind))) {
+    const targets = targetPaths(request);
+    // Renomear toca dois caminhos, e basta um deles estar fora para escalar.
+    if (targets.length > 0 && targets.every((target) => isInside(projectPath, target))) {
+      return { kind: 'allow' };
+    }
 
     const { summary } = describeToolCall(toolName, input, projectPath);
+    const fora = targets.find((target) => !isInside(projectPath, target));
     return askPermission(
-      target === undefined
+      fora === undefined
         ? 'O agente quer mexer num arquivo que nao consegui identificar. Pode?'
-        : `O agente quer mexer em ${target}, que esta fora da pasta do projeto. Pode?`,
+        : `O agente quer mexer em ${fora}, que esta fora da pasta do projeto. Pode?`,
       `${summary}. Arquivos fora da pasta escolhida nao entram sozinhos.`,
     );
   }
