@@ -6,6 +6,9 @@ import { AgentCharacters } from './characters/AgentCharacters';
 import { Bookshelves } from './office/Bookshelf';
 import { Floor } from './office/Floor';
 import { Furniture } from './office/Furniture';
+import { Lamps } from './office/Lamps';
+import { Lounge } from './office/Lounge';
+import { Plants } from './office/Plants';
 import { WallDecor } from './office/WallDecor';
 import { Walls } from './office/Walls';
 import { Windows } from './office/Windows';
@@ -60,6 +63,9 @@ export function Scene() {
       <Bookshelves />
       <WallDecor />
       <Furniture />
+      <Plants />
+      <Lamps />
+      <Lounge />
       <AgentCharacters />
       <OverlayLayer />
 

@@ -4,6 +4,9 @@ import { InstancedMesh, Object3D } from 'three';
 export interface InstanceItem {
   readonly position: readonly [number, number, number];
   readonly rotationY?: number;
+  /** Inclinacao para frente aplicada DEPOIS do rotationY (ordem YXZ): e o
+   *  que faz a folha da planta abrir em leque para fora do vaso. */
+  readonly rotationX?: number;
   /** Escala por instancia: pecas de tamanhos diferentes com uma geometria so. */
   readonly scale?: readonly [number, number, number];
 }
@@ -25,9 +28,10 @@ export function Instances({ items, children }: InstancesProps) {
   useLayoutEffect(() => {
     const mesh = ref.current;
     const dummy = new Object3D();
+    dummy.rotation.order = 'YXZ';
     items.forEach((item, index) => {
       dummy.position.set(item.position[0], item.position[1], item.position[2]);
-      dummy.rotation.set(0, item.rotationY ?? 0, 0);
+      dummy.rotation.set(item.rotationX ?? 0, item.rotationY ?? 0, 0);
       const scale = item.scale ?? [1, 1, 1];
       dummy.scale.set(scale[0], scale[1], scale[2]);
       dummy.updateMatrix();

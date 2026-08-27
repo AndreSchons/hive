@@ -16,6 +16,8 @@ export const WOOD_DARK = '#8B5A2B';
 export const FLOOR_A = '#D9A968';
 export const FLOOR_B = '#CF9E5F';
 export const RUG = '#9E4A42';
+export const RUG_DARK = '#8A3F38';
+export const LAMP_DARK = '#3E3633';
 
 // Acentos chapados.
 export const TERRACOTTA = '#C0453B';
