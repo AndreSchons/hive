@@ -135,13 +135,25 @@ class MockRun implements AgentRun {
       if (taskId) await this.emit(draft('task.started', { taskId, agentId, title: shorten(prompt) }));
 
       await this.emit(state('thinking', 'working'));
+      const callId = `call_${agentId}_1`;
       await this.emit(
         draft('tool.call', {
           agentId,
           ...(taskId ? { taskId } : {}),
+          callId,
           tool: 'Edit',
           target: 'src/exemplo.ts',
           summary: 'Ajustando o arquivo principal',
+        }),
+      );
+      await this.emit(
+        draft('tool.result', {
+          agentId,
+          ...(taskId ? { taskId } : {}),
+          callId,
+          tool: 'Edit',
+          ok: true,
+          summary: 'Arquivo ajustado',
         }),
       );
       await this.emit(

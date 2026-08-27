@@ -10,6 +10,8 @@ import { runEventPayloads } from './run';
 import { taskEventPayloads } from './task';
 import { workEventPayloads } from './work';
 
+export { blockCauseSchema, type BlockCause } from './human';
+
 /** Versao do formato do envelope. Muda so em quebra incompativel. */
 export const SCHEMA_VERSION = 1 as const;
 
@@ -93,6 +95,7 @@ export const eventSchema = z.discriminatedUnion('type', [
   envelope('human.question_raised'),
   envelope('human.answered'),
   envelope('tool.call'),
+  envelope('tool.result'),
   envelope('file.changed'),
   envelope('worktree.merged'),
   envelope('budget.warning'),
@@ -123,6 +126,7 @@ export const eventDraftSchema = z.discriminatedUnion('type', [
   unsealed('human.question_raised'),
   unsealed('human.answered'),
   unsealed('tool.call'),
+  unsealed('tool.result'),
   unsealed('file.changed'),
   unsealed('worktree.merged'),
   unsealed('budget.warning'),

@@ -153,9 +153,11 @@ export function buildScriptedRun(runId: RunId, projectPath: string, goal: string
     draft('task.started', { taskId: uiTask, agentId: frontend, title: 'Tela de login' }),
     state(frontend, 'idle', 'working'),
 
-    draft('tool.call', { agentId: backend, taskId: apiTask, tool: 'Write', target: 'src/api/sessao.ts', summary: 'Criando a rota de sessao' }),
+    draft('tool.call', { agentId: backend, taskId: apiTask, callId: 'call_api_1', tool: 'Write', target: 'src/api/sessao.ts', summary: 'Criando a rota de sessao' }),
+    draft('tool.result', { agentId: backend, taskId: apiTask, callId: 'call_api_1', tool: 'Write', ok: true, summary: 'Rota criada' }),
     draft('file.changed', { agentId: backend, taskId: apiTask, path: 'src/api/sessao.ts', change: 'created', linesAdded: 84, linesRemoved: 0 }),
-    draft('tool.call', { agentId: frontend, taskId: uiTask, tool: 'Write', target: 'src/telas/Login.tsx', summary: 'Montando o formulario' }),
+    draft('tool.call', { agentId: frontend, taskId: uiTask, callId: 'call_ui_1', tool: 'Write', target: 'src/telas/Login.tsx', summary: 'Montando o formulario' }),
+    draft('tool.result', { agentId: frontend, taskId: uiTask, callId: 'call_ui_1', tool: 'Write', ok: true, summary: 'Formulario criado' }),
     draft('file.changed', { agentId: frontend, taskId: uiTask, path: 'src/telas/Login.tsx', change: 'created', linesAdded: 120, linesRemoved: 0 }),
     draft('task.progress', { taskId: apiTask, agentId: backend, note: 'Rota criada, escrevendo os testes', ratio: 0.6 }),
 
@@ -190,7 +192,8 @@ export function buildScriptedRun(runId: RunId, projectPath: string, goal: string
 
   const afterAnswer: AnyEventDraft[] = [
     state(frontend, 'blocked', 'working', 'Retomando com a resposta'),
-    draft('tool.call', { agentId: frontend, taskId: uiTask, tool: 'Edit', target: 'src/telas/Login.tsx', summary: 'Aplicando a decisao na tela' }),
+    draft('tool.call', { agentId: frontend, taskId: uiTask, callId: 'call_ui_2', tool: 'Edit', target: 'src/telas/Login.tsx', summary: 'Aplicando a decisao na tela' }),
+    draft('tool.result', { agentId: frontend, taskId: uiTask, callId: 'call_ui_2', tool: 'Edit', ok: true, summary: 'Decisao aplicada' }),
     draft('file.changed', { agentId: frontend, taskId: uiTask, path: 'src/telas/Login.tsx', change: 'modified', linesAdded: 31, linesRemoved: 4 }),
     draft('gate.started', { gateId: uiGate.id, taskId: uiTask, agentId: frontend, kind: 'typecheck', command: uiGate.command }),
     draft('gate.failed', {

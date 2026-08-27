@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { agentId, taskId } from '../ids';
 
-const budgetKind = z.enum(['turns', 'time']);
+const budgetKind = z.enum(['turns', 'time', 'cost']);
 
 export const limitEventPayloads = {
   'budget.warning': z.object({

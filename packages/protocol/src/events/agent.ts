@@ -12,7 +12,10 @@ export const agentEventPayloads = {
     model: z.string().optional(),
     /** Diretorio isolado do agente. Dois agentes nunca compartilham o mesmo. */
     worktreePath: z.string().min(1),
-    branch: z.string().min(1),
+    /** Ausente enquanto o agente roda direto na pasta, sem worktree propria. */
+    branch: z.string().min(1).optional(),
+    /** Sessao da CLI. E a chave para retomar esta mesma conversa depois. */
+    sessionId: z.string().min(1).optional(),
   }),
   'agent.state_changed': z.object({
     agentId,

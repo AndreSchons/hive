@@ -1,5 +1,20 @@
 import { useState } from 'react';
+import type { BlockCause } from '@office/protocol';
 import type { PendingQuestion } from '../state/event-reducer';
+
+/**
+ * A mesma parada tem leituras diferentes: pedir autorizacao para mexer em algo
+ * nao e a mesma coisa que perguntar uma preferencia. O rotulo prepara a pessoa
+ * para o tipo de decisao que ela vai tomar.
+ */
+const CAUSE_LABEL: Record<BlockCause, string> = {
+  agent_asked: 'Preciso da sua ajuda',
+  permission: 'Preciso da sua autorizacao',
+  gate_failed: 'A verificacao nao passou',
+  budget: 'Cheguei no limite',
+  merge_conflict: 'Dois trabalhos se cruzaram',
+  agent_crashed: 'Algo deu errado',
+};
 
 export interface HumanQuestionProps {
   readonly question: PendingQuestion;
@@ -18,7 +33,9 @@ export function HumanQuestion({ question, onAnswer }: HumanQuestionProps) {
   return (
     <div className="absolute inset-0 z-20 flex items-center justify-center bg-floor/85 p-6 backdrop-blur-sm">
       <div className="w-full max-w-xl rounded-2xl border border-ask/40 bg-panel p-6 shadow-2xl">
-        <p className="text-xs font-medium tracking-wide text-ask uppercase">Preciso da sua ajuda</p>
+        <p className="text-xs font-medium tracking-wide text-ask uppercase">
+          {CAUSE_LABEL[question.cause]}
+        </p>
 
         <h2 className="mt-3 text-xl leading-snug font-medium text-balance">{question.question}</h2>
         <p className="mt-2 text-sm text-muted">{question.context}</p>

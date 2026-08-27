@@ -1,4 +1,4 @@
-import type { AgentState, AnyEvent, Contract, Plan } from '@office/protocol';
+import type { AgentState, AnyEvent, BlockCause, Contract, Plan } from '@office/protocol';
 import { describeEvent, type FeedItem } from './describe';
 
 export interface AgentView {
@@ -7,7 +7,7 @@ export interface AgentView {
   readonly displayName: string;
   readonly state: AgentState;
   readonly worktreePath: string;
-  readonly branch: string;
+  readonly branch: string | null;
   readonly currentTaskId: string | null;
   /** Ultima frase dita. Vai virar balao de fala no escritorio 3D. */
   readonly lastSaid: string | null;
@@ -31,6 +31,7 @@ export interface PendingQuestion {
   readonly questionId: string;
   readonly question: string;
   readonly context: string;
+  readonly cause: BlockCause;
   readonly options: readonly { readonly id: string; readonly label: string }[];
   readonly allowFreeText: boolean;
   readonly askedBy: string | null;
@@ -103,7 +104,7 @@ export function applyEvent(state: WorldState, event: AnyEvent): WorldState {
     case 'agent.spawned': {
       const { agentId, role, displayName, worktreePath, branch } = event.payload;
       return withAgent(base, agentId, () => ({
-        agentId, role, displayName, worktreePath, branch,
+        agentId, role, displayName, worktreePath, branch: branch ?? null,
         state: 'idle', currentTaskId: null, lastSaid: null, present: true,
       }));
     }
@@ -158,11 +159,11 @@ export function applyEvent(state: WorldState, event: AnyEvent): WorldState {
       return base;
 
     case 'human.question_raised': {
-      const { questionId, question, context, options, allowFreeText, askedBy } = event.payload;
+      const { questionId, question, context, cause, options, allowFreeText, askedBy } = event.payload;
       return {
         ...base,
         question: {
-          questionId, question, context,
+          questionId, question, context, cause,
           options: [...options],
           allowFreeText,
           askedBy: askedBy ?? null,
@@ -173,6 +174,7 @@ export function applyEvent(state: WorldState, event: AnyEvent): WorldState {
       return base.question?.questionId === event.payload.questionId ? { ...base, question: null } : base;
 
     case 'tool.call':
+    case 'tool.result':
     case 'file.changed':
     case 'worktree.merged':
       return base;
@@ -216,7 +218,7 @@ const UNKNOWN_AGENT: Omit<AgentView, 'agentId'> = {
   displayName: 'Agente',
   state: 'idle',
   worktreePath: '',
-  branch: '',
+  branch: null,
   currentTaskId: null,
   lastSaid: null,
   present: true,

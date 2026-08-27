@@ -77,6 +77,9 @@ export function describeEvent(event: AnyEvent): FeedItem {
 
     case 'tool.call':
       return item(event.payload.summary);
+    case 'tool.result':
+      // Sucesso e o caso comum e nao merece destaque: so a falha se destaca.
+      return item(event.payload.summary, event.payload.ok ? 'neutral' : 'bad', event.payload.detail);
     case 'file.changed':
       return item(`${CHANGE_LABEL[event.payload.change]} ${event.payload.path}`);
     case 'worktree.merged':
@@ -110,4 +113,4 @@ const GATE_LABEL = {
 
 const CHANGE_LABEL = { created: 'Criou', modified: 'Mudou', deleted: 'Apagou' } as const;
 
-const BUDGET_LABEL = { turns: 'tentativas', time: 'tempo' } as const;
+const BUDGET_LABEL = { turns: 'tentativas', time: 'tempo', cost: 'custo' } as const;
