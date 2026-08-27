@@ -1,6 +1,6 @@
 import type { AgentState } from '@office/protocol';
 import type { AgentView } from '../../state/event-reducer';
-import { agentColor, hashString } from './palette';
+import { agentColor, HAIR_TONES, hashString, PANTS_TONES, SKIN_TONES } from './palette';
 import { allocateDesks, OVERFLOW_DESK } from './deskAllocator';
 import {
   DESKS,
@@ -17,10 +17,20 @@ import {
  */
 export type BaseAnim = 'idle' | 'think' | 'type';
 
+/** A aparencia da pessoa: pele, cabelo e calca. A camisa fica com a cor do agente. */
+export interface Appearance {
+  readonly skin: string;
+  readonly hair: string;
+  /** 0 chapeu, 1 curto, 2 franja lateral, 3 coque. */
+  readonly hairStyle: number;
+  readonly pants: string;
+}
+
 export interface Placement {
   readonly agentId: string;
   readonly displayName: string;
   readonly color: string;
+  readonly appearance: Appearance;
   /** false quando `agent.despawned` ja chegou: toca a saida e some. */
   readonly present: boolean;
   /** Posicao alvo no mundo: a cadeira (trabalhando) ou o pe da mesa. */
@@ -75,7 +85,9 @@ export function derivePlacements(agents: Readonly<Record<string, AgentView>>): r
     let rotationY: number;
     if (desk !== undefined) {
       target = tileToWorld(seated ? desk.chair : desk.stand);
-      rotationY = desk.rotationY;
+      // Sentado olha para a mesa; em pe, de costas para ela, olhando a sala
+      // (e o rosto, para a camera).
+      rotationY = seated ? desk.rotationY : desk.rotationY + Math.PI;
     } else {
       // Sem mesa: fileira de espera junto a parede sul, olhando para a sala.
       const spot = OVERFLOW_SPOTS[overflowOrder % OVERFLOW_SPOTS.length];
@@ -87,11 +99,19 @@ export function derivePlacements(agents: Readonly<Record<string, AgentView>>): r
     const hash = hashString(agent.agentId);
     const angle = (hash % 628) / 100;
     const radius = 0.2 + (((hash >>> 8) % 100) / 100) * 0.35;
+    // Hash separado para a aparencia, para nao casar com a cor nem com a mesa.
+    const look = hashString(`${agent.agentId}:aparencia`);
 
     return {
       agentId: agent.agentId,
       displayName: agent.displayName,
       color: agentColor(agent.agentId),
+      appearance: {
+        skin: SKIN_TONES[look % SKIN_TONES.length] ?? SKIN_TONES[0],
+        hair: HAIR_TONES[(look >>> 3) % HAIR_TONES.length] ?? HAIR_TONES[0],
+        hairStyle: (look >>> 6) % 4,
+        pants: PANTS_TONES[(look >>> 9) % PANTS_TONES.length] ?? PANTS_TONES[0],
+      },
       present: agent.present,
       target,
       rotationY,

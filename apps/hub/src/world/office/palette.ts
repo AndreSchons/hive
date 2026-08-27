@@ -33,6 +33,13 @@ export const PLANT = '#58A45C';
 export const PUFF = '#FFFFFF';
 export const BACKGROUND = CREAM;
 
+// Gente: pele, cabelo e roupa dos personagens. A camisa fica com a cor do
+// agente (e ela quem identifica quem e quem); o resto varia por pessoa.
+export const SKIN_TONES = ['#F2C89F', '#D9A06B', '#A06B42'] as const;
+export const HAIR_TONES = ['#241F1C', '#4A3220', '#8A4A2B', '#D9A45B', '#8A8A8A'] as const;
+export const PANTS_TONES = ['#323E52', '#4A3A2C'] as const;
+export const DARK = '#241F1C';
+
 /**
  * Cor de cada agente. O indice vem do hash do agentId: a mesma execucao
  * sempre pinta os mesmos personagens iguais, em qualquer maquina.

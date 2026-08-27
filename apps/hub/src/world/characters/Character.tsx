@@ -3,6 +3,7 @@ import { useFrame } from '@react-three/fiber';
 import { Group } from 'three';
 import type { Placement } from '../office/placements';
 import { buildPath, DOOR_WORLD, type WorldPoint } from '../office/layout';
+import { DARK } from '../office/palette';
 import { OVERLAY_LAYER, ToonMaterial } from '../office/toon';
 import { SpawnPuff } from './SpawnPuff';
 
@@ -88,9 +89,56 @@ interface CharacterProps {
   readonly departing: boolean;
 }
 
+/** Cabelo por estilo, em coordenadas da cabeca (raio 0.3, frente +z). */
+function Hair({ style, color }: { readonly style: number; readonly color: string }) {
+  const cap = (
+    <mesh position={[0, 0.09, -0.03]} scale={[1.06, 0.78, 1.06]}>
+      <sphereGeometry args={[0.3, 20, 14]} />
+      <ToonMaterial color={color} />
+    </mesh>
+  );
+
+  switch (style) {
+    case 1:
+      // Curto, rente ao topo da cabeca.
+      return (
+        <mesh position={[0, 0.17, -0.01]} scale={[1.02, 0.55, 1.02]}>
+          <sphereGeometry args={[0.3, 20, 14]} />
+          <ToonMaterial color={color} />
+        </mesh>
+      );
+    case 2:
+      // Franja lateral caindo na testa.
+      return (
+        <group>
+          {cap}
+          <mesh position={[0.16, 0.14, 0.16]} scale={[1, 0.7, 1]}>
+            <sphereGeometry args={[0.12, 12, 10]} />
+            <ToonMaterial color={color} />
+          </mesh>
+        </group>
+      );
+    case 3:
+      // Coque no alto, atras.
+      return (
+        <group>
+          {cap}
+          <mesh position={[0, 0.3, -0.12]}>
+            <sphereGeometry args={[0.11, 12, 10]} />
+            <ToonMaterial color={color} />
+          </mesh>
+        </group>
+      );
+    default:
+      return cap;
+  }
+}
+
 /**
- * O personagem: chibi procedural de primitivas (cabeca esferica grande, corpo
- * em capsula sem pescoco, dois bracos curtos), colorido pela cor do agente.
+ * O personagem: chibi procedural de primitivas. Cabeca esferica grande com
+ * rosto e cabelo, camisa na cor do agente (e ela quem identifica quem e quem),
+ * calca e sapatos, dois bracos curtos sem maos. A aparencia (pele, cabelo,
+ * calca) e deterministica por agentId, como a mesa e a cor.
  *
  * Toda animacao roda aqui dentro em useFrame mutando refs -- posicao,
  * waypoints, fase e pose nunca passam por setState. O componente so
@@ -225,18 +273,38 @@ export function Character({ placement, departing }: CharacterProps) {
 
       <group ref={squash} scale={[1.36, 0.2, 1.36]}>
         <group ref={body}>
-          {/* Corpo em capsula, sem pescoco: a cabeca afunda nele. */}
-          <mesh position={[0, 0.44, 0]}>
-            <capsuleGeometry args={[0.23, 0.3, 6, 14]} />
+          {/* Calca e sapatos. */}
+          <mesh position={[0, 0.3, 0]}>
+            <capsuleGeometry args={[0.21, 0.16, 6, 14]} />
+            <ToonMaterial color={placement.appearance.pants} />
+          </mesh>
+          {[-0.11, 0.11].map((x) => (
+            <mesh key={x} position={[x, 0.04, 0.05]}>
+              <boxGeometry args={[0.14, 0.08, 0.2]} />
+              <ToonMaterial color={DARK} />
+            </mesh>
+          ))}
+
+          {/* Camisa na cor do agente, cobrindo a cintura da calca. */}
+          <mesh position={[0, 0.5, 0]}>
+            <capsuleGeometry args={[0.23, 0.18, 6, 14]} />
             <ToonMaterial color={placement.color} />
           </mesh>
 
-          {/* Cabeca esferica grande: ~45% da altura total. */}
+          {/* Cabeca esferica grande (~45% da altura), sem pescoco: afunda na
+              camisa. Pele por tom, cabelo por estilo, rosto virado para +z. */}
           <group ref={head} position={[0, 0.86, 0]}>
             <mesh>
               <sphereGeometry args={[0.3, 24, 18]} />
-              <ToonMaterial color={placement.color} />
+              <ToonMaterial color={placement.appearance.skin} />
             </mesh>
+            <Hair style={placement.appearance.hairStyle} color={placement.appearance.hair} />
+            {[-0.1, 0.1].map((x) => (
+              <mesh key={x} position={[x, 0.02, 0.265]}>
+                <sphereGeometry args={[0.035, 10, 8]} />
+                <meshBasicMaterial color={DARK} />
+              </mesh>
+            ))}
           </group>
 
           {/* Bracos em capsulas curtas, pendurados no ombro; sem maos. */}

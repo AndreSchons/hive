@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { AgentState } from '@office/protocol';
 import type { AgentView } from '../src/state/event-reducer';
 import { derivePlacements } from '../src/world/office/placements';
-import { AGENT_COLORS, agentColor } from '../src/world/office/palette';
+import { AGENT_COLORS, agentColor, HAIR_TONES, PANTS_TONES, SKIN_TONES } from '../src/world/office/palette';
 import { DESKS, tileToWorld } from '../src/world/office/layout';
 
 function agent(agentId: string, state: AgentState, present = true): AgentView {
@@ -36,6 +36,32 @@ describe('agentColor', () => {
   });
 });
 
+describe('aparencia do personagem', () => {
+  it('e deterministica por agentId e sai dos tons da paleta', () => {
+    const primeiro = single('idle').appearance;
+    const deNovo = single('idle').appearance;
+
+    expect(primeiro).toEqual(deNovo);
+    expect(SKIN_TONES).toContain(primeiro.skin);
+    expect(HAIR_TONES).toContain(primeiro.hair);
+    expect(PANTS_TONES).toContain(primeiro.pants);
+    expect(primeiro.hairStyle).toBeGreaterThanOrEqual(0);
+    expect(primeiro.hairStyle).toBeLessThan(4);
+  });
+
+  it('varia entre pessoas diferentes', () => {
+    const placements = derivePlacements({
+      agt_a: agent('agt_a', 'idle'),
+      agt_b: agent('agt_b', 'idle'),
+      agt_c: agent('agt_c', 'idle'),
+      agt_d: agent('agt_d', 'idle'),
+    });
+    const assinaturas = new Set(placements.map((p) => JSON.stringify(p.appearance)));
+    // Quatro pessoas com a mesma aparencia seria suspeito de hash quebrado.
+    expect(assinaturas.size).toBeGreaterThan(1);
+  });
+});
+
 describe('derivePlacements', () => {
   it('working senta na cadeira digitando', () => {
     const placement = single('working');
@@ -50,7 +76,7 @@ describe('derivePlacements', () => {
     expect(placement.rotationY).toBe(desk?.rotationY);
   });
 
-  it('idle fica em pe no pe da mesa', () => {
+  it('idle fica em pe no pe da mesa, de costas para ela e com o rosto para a sala', () => {
     const placement = single('idle');
     expect(placement.anim).toBe('idle');
     expect(placement.seated).toBe(false);
@@ -60,6 +86,7 @@ describe('derivePlacements', () => {
         && tileToWorld(candidate.stand).z === placement.target.z,
     );
     expect(desk).toBeDefined();
+    expect(placement.rotationY).toBeCloseTo((desk?.rotationY ?? 0) + Math.PI, 5);
   });
 
   it('thinking fica em pe com bob lento', () => {
