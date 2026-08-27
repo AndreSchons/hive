@@ -84,8 +84,12 @@ export type AgentOutcome =
  */
 export interface AgentRun extends AsyncIterable<AnyEventDraft> {
   readonly agentId: AgentId;
-  /** Entrega a resposta do humano e retoma de onde parou. */
-  answer(answer: string): void;
+  /**
+   * Entrega a resposta do humano e retoma de onde parou. `optionId` e o id da
+   * opcao escolhida -- num pedido de permissao ele e `allow` ou `deny`, e e o
+   * que separa autorizar de recusar com uma explicacao.
+   */
+  answer(answer: string, optionId?: string): void;
   /** Encerra o subprocesso. Idempotente. */
   cancel(reason: string): void;
   readonly outcome: Promise<AgentOutcome>;
