@@ -77,9 +77,21 @@ function WindowUnit({ spot }: { readonly spot: WindowSpot }) {
         <boxGeometry args={[spot.width, 0.06, 0.1]} />
         <ToonMaterial color={CREAM} />
       </mesh>
-      <mesh position={[0, spot.sillY - 0.07, proud + 0.04]}>
+      <mesh ref={setOverlay} position={[0, spot.sillY - 0.07, proud + 0.04]}>
         <boxGeometry args={[spot.width + 0.24, 0.06, 0.26]} />
         <ToonMaterial color={CREAM} />
+      </mesh>
+
+      {/* O feixe de luz da janela ate o chao, mais a mancha clara onde ele
+          termina: planos semitransparentes, fora da sombra de contato.
+          Truque barato, efeito grande. */}
+      <mesh ref={setOverlay} position={[0, 0.81, 1.45]} rotation={[-Math.PI / 3.1, 0, 0]}>
+        <planeGeometry args={[spot.width - 0.5, 3]} />
+        <meshBasicMaterial color="#FFF4D6" transparent opacity={0.2} depthWrite={false} side={DoubleSide} />
+      </mesh>
+      <mesh ref={setOverlay} position={[0, 0.035, 2.6]} rotation={[-Math.PI / 2, 0, 0]}>
+        <planeGeometry args={[spot.width - 0.3, 1.5]} />
+        <meshBasicMaterial color="#FFF4D6" transparent opacity={0.13} depthWrite={false} />
       </mesh>
     </group>
   );
