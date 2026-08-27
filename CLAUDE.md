@@ -83,14 +83,40 @@ pnpm app:nosandbox   # idem, sem o sandbox do Chromium (ver nota de Linux)
 pnpm --filter @office/simulator start -- --db <caminho> --project <pasta>
 ```
 
+## Como a CLI do Claude Code entra
+
+`packages/agents/src/claude/` roda a CLI ja instalada como processo filho, em
+NDJSON nos dois sentidos. Tres detalhes que custaram para descobrir e que o
+codigo depende:
+
+- **`--permission-prompt-tool stdio` nao e opcional.** Sem essa flag a CLI decide
+  permissao sozinha e so avisa depois. Com ela, a CLI **suspende o agente** e
+  manda `control_request/can_use_tool`, e so continua quando escrevemos um
+  `control_response` no stdin. E dai que sai o estado `blocked` de verdade.
+- **Pergunta de produto chega pelo mesmo canal.** `AskUserQuestion` vem como
+  `can_use_tool` com `requires_user_interaction: true` e as opcoes estruturadas.
+  A resposta volta em `updatedInput.answers`, **chaveada pelo texto da pergunta**,
+  e o input original tem que ir inteiro junto -- a ferramenta revalida os campos
+  dela (`header`, `multiSelect`).
+- **Fechar o stdin no `result` e obrigatorio.** Enquanto ele estiver aberto a CLI
+  espera outro turno e nunca sai, e a execucao nunca fecha.
+
+O conteudo do pensamento vem redigido (so a assinatura): da para saber *que* o
+agente pensou, nunca *o que*. Cancelamento chega como `error_during_execution`
+com exit 1, igual a uma queda -- quem separa os dois e `terminal_reason`.
+
+A politica de permissao (`claude/permission.ts`) libera leitura e escrita dentro
+da pasta do projeto e escala o resto. As fixtures em `packages/agents/test/`
+sao NDJSON gravado da CLI de verdade: e contra elas que o parser e testado.
+
 ## O que ainda nao existe
 
-Personagens, animacoes e pathfinding no 3D. Adaptadores reais de CLI (a interface
-esta desenhada para eles, so ha `MockAdapter`). Implementacoes de `coordination`
-(so os tipos). Prompts de agente. Autenticacao. Empacotamento para distribuicao.
+Personagens, animacoes e pathfinding no 3D. Worktrees, gerente e segundo agente
+(`run.start` roda **um** agente direto na pasta do projeto). Adaptador do Kimi.
+Implementacoes de `coordination` (so os tipos). Portoes de verificacao rodando de
+verdade. Autenticacao. Empacotamento para distribuicao.
 
-`run.start` recusa explicitamente com uma frase para o usuario ate o orquestrador
-existir. Use a execucao simulada (`dev.simulate`) para ver o fluxo inteiro.
+`dev.simulate` continua sendo o unico jeito de ver o fluxo multiagente inteiro.
 
 ## Nota de ambiente (Linux)
 
