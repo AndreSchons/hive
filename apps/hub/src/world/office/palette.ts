@@ -1,28 +1,47 @@
 /**
- * Paleta da direcao visual: low-poly arredondado, cores vivas, humor de jogo
- * casual isometrico. Tudo que a cena pinta sai daqui.
+ * Paleta da direcao visual: ilustracao de escritorio em tres dimensoes.
+ * Paredes verde-azuladas, madeira quente, acentos chapados. Tudo que a cena
+ * pinta sai daqui.
  */
-export const FLOOR_A = '#F4EFE6';
-export const FLOOR_B = '#EDE6DA';
-// Paredes do diorama: verde-azulado, com a oeste mais clara para dar profundidade.
+
+// Paredes do diorama: a oeste um tom mais claro para dar profundidade.
 export const WALL_NORTH = '#2F6B6B';
 export const WALL_WEST = '#3B7F7C';
-export const WALL = '#E3D9C9';
-export const FURNITURE = '#C98A52';
-export const FURNITURE_DARK = '#A96F3D';
+
+// Madeira dos moveis e o rodape escuro.
+export const WOOD = '#B5743C';
+export const WOOD_DARK = '#8B5A2B';
+
+// Piso de madeira clara em duas faixas de tom (tabuas), tapete do lounge.
+export const FLOOR_A = '#D9A968';
+export const FLOOR_B = '#CF9E5F';
+export const RUG = '#9E4A42';
+
+// Acentos chapados.
+export const TERRACOTTA = '#C0453B';
+export const MUSTARD = '#E8B04B';
+export const CREAM = '#F2E6D0';
+
+// Estofados do lounge.
+export const UPHOLSTERY_GREEN = '#3F6B4A';
+export const UPHOLSTERY_BLUE = '#3D5A8A';
+
 export const SCREEN = '#3B3F4A';
-export const PLANT = '#63B77C';
+export const PLANT = '#58A45C';
 export const PUFF = '#FFFFFF';
-export const BACKGROUND = '#E6DFD2';
+export const BACKGROUND = CREAM;
 
 /**
  * Cor de cada agente. O indice vem do hash do agentId: a mesma execucao
  * sempre pinta os mesmos personagens iguais, em qualquer maquina.
+ *
+ * Todas contrastam com o verde-azulado das paredes de proposito: identificar
+ * quem e quem a distancia e funcao do produto.
  */
 export const AGENT_COLORS = [
   '#FF6B5A', // coral
   '#FFC93C', // amarelo
-  '#2EC4B6', // turquesa
+  '#F2609E', // rosa
   '#7C6BF5', // roxo
   '#4ADE80', // verde
   '#4C9AFF', // azul

@@ -1,15 +1,16 @@
 /**
- * Iluminacao do escritorio: ambiente forte para as cores ficarem vivas, mais
- * uma direcional para dar volume. Sem shadow map -- a sombra de contato vem
- * do ContactShadows na cena, que combina mais com o visual e custa menos.
+ * Iluminacao do escritorio: a luz-chave vem do lado da camera, marcando bem o
+ * lado iluminado de quem a gente ve; um preenchimento fraco do lado das
+ * janelas da o contraluz. Ambiente forte para as sombras nao fecharem em
+ * preto. Sem shadow map -- o ContactShadows cuida do contato.
  */
 export function Lights() {
   return (
     <>
-      <ambientLight intensity={1.2} />
-      <hemisphereLight args={['#FFF6E8', '#E3D9C9', 0.5]} />
-      <directionalLight position={[6, 12, 4]} intensity={1.1} color="#FFF2DF" />
-      <directionalLight position={[-8, 6, -6]} intensity={0.3} color="#DFE9FF" />
+      <ambientLight intensity={0.85} />
+      <hemisphereLight args={['#FFF6E8', '#D9A968', 0.35]} />
+      <directionalLight position={[7, 12, 5]} intensity={1.5} color="#FFF1D6" />
+      <directionalLight position={[-6, 8, -7]} intensity={0.35} color="#DFE9FF" />
     </>
   );
 }

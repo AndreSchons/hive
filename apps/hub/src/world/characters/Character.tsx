@@ -3,6 +3,7 @@ import { useFrame } from '@react-three/fiber';
 import { Group } from 'three';
 import type { Placement } from '../office/placements';
 import { buildPath, DOOR_WORLD, type WorldPoint } from '../office/layout';
+import { ToonMaterial } from '../office/toon';
 import { SpawnPuff } from './SpawnPuff';
 
 /** Duracao da fumaca e do squash, na entrada e na saida. */
@@ -214,14 +215,14 @@ export function Character({ placement, departing }: CharacterProps) {
           {/* Corpo em capsula, sem pescoco: a cabeca afunda nele. */}
           <mesh position={[0, 0.44, 0]}>
             <capsuleGeometry args={[0.23, 0.3, 6, 14]} />
-            <meshLambertMaterial color={placement.color} />
+            <ToonMaterial color={placement.color} />
           </mesh>
 
           {/* Cabeca esferica grande: ~45% da altura total. */}
           <group ref={head} position={[0, 0.86, 0]}>
             <mesh>
               <sphereGeometry args={[0.3, 24, 18]} />
-              <meshLambertMaterial color={placement.color} />
+              <ToonMaterial color={placement.color} />
             </mesh>
           </group>
 
@@ -229,13 +230,13 @@ export function Character({ placement, departing }: CharacterProps) {
           <group ref={armLeft} position={[-0.3, 0.62, 0]}>
             <mesh position={[0, -0.14, 0]}>
               <capsuleGeometry args={[0.075, 0.22, 4, 10]} />
-              <meshLambertMaterial color={placement.color} />
+              <ToonMaterial color={placement.color} />
             </mesh>
           </group>
           <group ref={armRight} position={[0.3, 0.62, 0]}>
             <mesh position={[0, -0.14, 0]}>
               <capsuleGeometry args={[0.075, 0.22, 4, 10]} />
-              <meshLambertMaterial color={placement.color} />
+              <ToonMaterial color={placement.color} />
             </mesh>
           </group>
         </group>

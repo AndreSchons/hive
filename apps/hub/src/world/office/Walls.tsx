@@ -1,5 +1,6 @@
 import { WALL_HEIGHT, WALL_THICKNESS, GRID_SIZE, tileToWorld } from './layout';
 import { WALL_NORTH, WALL_WEST } from './palette';
+import { ToonMaterial } from './toon';
 
 /**
  * As paredes de fundo do diorama: norte e oeste em altura cheia, formando um
@@ -15,11 +16,11 @@ export function Walls() {
     <group>
       <mesh position={[0, WALL_HEIGHT / 2, north.z]}>
         <boxGeometry args={[GRID_SIZE, WALL_HEIGHT, WALL_THICKNESS]} />
-        <meshLambertMaterial color={WALL_NORTH} />
+        <ToonMaterial color={WALL_NORTH} />
       </mesh>
       <mesh position={[west.x, WALL_HEIGHT / 2, 0]}>
         <boxGeometry args={[WALL_THICKNESS, WALL_HEIGHT, GRID_SIZE]} />
-        <meshLambertMaterial color={WALL_WEST} />
+        <ToonMaterial color={WALL_WEST} />
       </mesh>
     </group>
   );

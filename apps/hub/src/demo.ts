@@ -15,16 +15,19 @@ export async function loadDemoWorld(): Promise<void> {
   const { buildScriptedRun } = await import('@office/simulator');
   const runId = newRunId();
   const script = buildScriptedRun(runId, '/tmp/demo', 'Escritorio demo');
-  const events: AnyEvent[] = script.beforeBlock.map((eventDraft, index) =>
-    parseEvent({
-      schemaVersion: SCHEMA_VERSION,
-      id: `evt_demo_${index + 1}`,
-      runId,
-      seq: index + 1,
-      ts: 1_700_000_000_000 + index * 1000,
-      ...eventDraft,
-    }),
-  );
+  const events: AnyEvent[] = script.beforeBlock
+    // Sem a pergunta ao humano: o modal dela tamparia a cena na captura.
+    .filter((eventDraft) => eventDraft.type !== 'human.question_raised')
+    .map((eventDraft, index) =>
+      parseEvent({
+        schemaVersion: SCHEMA_VERSION,
+        id: `evt_demo_${index + 1}`,
+        runId,
+        seq: index + 1,
+        ts: 1_700_000_000_000 + index * 1000,
+        ...eventDraft,
+      }),
+    );
 
   const project: ProjectRef = {
     path: '/tmp/demo',
@@ -32,5 +35,7 @@ export async function loadDemoWorld(): Promise<void> {
     lastOpenedAt: Date.now(),
     exists: true,
   };
-  useHub.setState({ project, world: applyAll(emptyWorld, events) });
+  // Sem ponte, as chamadas de IPC da montagem falham antes daqui: a falha e
+  // esperada em demo e nao deve sujar a tela.
+  useHub.setState({ project, world: applyAll(emptyWorld, events), failure: null });
 }

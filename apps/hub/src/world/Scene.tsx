@@ -1,5 +1,5 @@
-import { useRef, type ComponentRef } from 'react';
-import { Canvas } from '@react-three/fiber';
+import { useEffect, useRef, type ComponentRef } from 'react';
+import { Canvas, useThree } from '@react-three/fiber';
 import { ContactShadows, OrbitControls } from '@react-three/drei';
 import { MOUSE } from 'three';
 import { AgentCharacters } from './characters/AgentCharacters';
@@ -8,6 +8,7 @@ import { Furniture } from './office/Furniture';
 import { Walls } from './office/Walls';
 import { Lights } from './Lights';
 import { BACKGROUND } from './office/palette';
+import { OVERLAY_LAYER } from './office/toon';
 
 // Camera ortografica em angulo fixo: ~28 graus de elevacao, 45 de azimute.
 // Baixa o bastante para as paredes do diorama aparecerem, alta o bastante
@@ -23,6 +24,15 @@ const cameraPosition: [number, number, number] = [
 
 const PAN_LIMIT = 7;
 const clampPan = (value: number): number => Math.min(Math.max(value, -PAN_LIMIT), PAN_LIMIT);
+
+/** A camera principal enxerga a camada de overlays; a do ContactShadows, nao. */
+function OverlayLayer() {
+  const camera = useThree((state) => state.camera);
+  useEffect(() => {
+    camera.layers.enable(OVERLAY_LAYER);
+  }, [camera]);
+  return null;
+}
 
 /**
  * O escritorio. Este modulo nao conhece agente, CLI nem modelo: desenha o
@@ -45,6 +55,7 @@ export function Scene() {
       <Walls />
       <Furniture />
       <AgentCharacters />
+      <OverlayLayer />
 
       {/* Sombra de contato em vez de shadow map: mais barata e combina com o visual. */}
       <ContactShadows

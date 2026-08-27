@@ -1,6 +1,7 @@
 import { Instances, type InstanceItem } from './Instances';
 import { DESKS, PLANT_SPOTS, tileToWorld } from './layout';
-import { FURNITURE, FURNITURE_DARK, PLANT, SCREEN } from './palette';
+import { CREAM, PLANT, SCREEN, TERRACOTTA, WOOD, WOOD_DARK } from './palette';
+import { ToonMaterial } from './toon';
 
 const DESK_TOP_Y = 0.45;
 
@@ -68,43 +69,43 @@ export function Furniture() {
     <group>
       <Instances items={deskTops}>
         <boxGeometry args={[0.95, 0.09, 0.6]} />
-        <meshLambertMaterial color={FURNITURE} />
+        <ToonMaterial color={WOOD} />
       </Instances>
       <Instances items={deskPanels}>
         <boxGeometry args={[0.08, DESK_TOP_Y, 0.55]} />
-        <meshLambertMaterial color={FURNITURE_DARK} />
+        <ToonMaterial color={WOOD_DARK} />
       </Instances>
 
       <Instances items={chairSeats}>
         <boxGeometry args={[0.42, 0.09, 0.42]} />
-        <meshLambertMaterial color={FURNITURE_DARK} />
+        <ToonMaterial color={WOOD_DARK} />
       </Instances>
       <Instances items={chairBacks}>
         <boxGeometry args={[0.42, 0.42, 0.08]} />
-        <meshLambertMaterial color={FURNITURE_DARK} />
+        <ToonMaterial color={WOOD_DARK} />
       </Instances>
 
       <Instances items={monitorStands}>
         <boxGeometry args={[0.09, 0.18, 0.09]} />
-        <meshLambertMaterial color={FURNITURE_DARK} />
+        <ToonMaterial color={WOOD_DARK} />
       </Instances>
       <Instances items={monitorScreens}>
         <boxGeometry args={[0.52, 0.34, 0.06]} />
-        <meshLambertMaterial color={SCREEN} />
+        <ToonMaterial color={SCREEN} />
       </Instances>
 
       <Instances items={mugs}>
         <cylinderGeometry args={[0.05, 0.05, 0.1, 12]} />
-        <meshLambertMaterial color="#EFE7DA" />
+        <ToonMaterial color={CREAM} />
       </Instances>
 
       <Instances items={plantPots}>
         <cylinderGeometry args={[0.2, 0.26, 0.34, 12]} />
-        <meshLambertMaterial color={FURNITURE_DARK} />
+        <ToonMaterial color={TERRACOTTA} />
       </Instances>
       <Instances items={plantBushes}>
         <sphereGeometry args={[0.34, 18, 14]} />
-        <meshLambertMaterial color={PLANT} />
+        <ToonMaterial color={PLANT} />
       </Instances>
     </group>
   );

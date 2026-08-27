@@ -1,7 +1,8 @@
 import { useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
-import { Group, Mesh, MeshLambertMaterial } from 'three';
+import { Group, Mesh, MeshBasicMaterial } from 'three';
 import { PUFF } from '../office/palette';
+import { OVERLAY_LAYER } from '../office/toon';
 
 interface Particle {
   readonly dirX: number;
@@ -71,7 +72,7 @@ export function SpawnPuff({ mode }: SpawnPuffProps) {
       mesh.scale.setScalar(particle.size * (0.55 + 0.45 * eased));
 
       const material = mesh.material;
-      if (material instanceof MeshLambertMaterial) {
+      if (material instanceof MeshBasicMaterial) {
         material.opacity = 0.9 * (1 - t);
       }
     });
@@ -89,10 +90,12 @@ export function SpawnPuff({ mode }: SpawnPuffProps) {
           key={index}
           ref={(mesh) => {
             meshes.current[index] = mesh;
+            // Fumaca e overlay: nao pode imprimir mancha na sombra de contato.
+            if (mesh !== null) mesh.layers.set(OVERLAY_LAYER);
           }}
         >
           <sphereGeometry args={[1, 12, 10]} />
-          <meshLambertMaterial color={PUFF} transparent opacity={0.9} depthWrite={false} />
+          <meshBasicMaterial color={PUFF} transparent opacity={0.9} depthWrite={false} />
         </mesh>
       ))}
     </group>
