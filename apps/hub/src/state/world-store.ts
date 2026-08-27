@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { AnyEvent, ProjectRef } from '@office/protocol';
+import type { AnyEvent, ProjectRef, RoleDefinition } from '@office/protocol';
 import { invoke, onEvents } from '../ipc/bridge';
 import { applyAll, emptyWorld, type WorldState } from './event-reducer';
 
@@ -8,19 +8,30 @@ interface Failure {
   readonly detail?: string;
 }
 
+/** Uma tarefa na fila, ainda so no renderer: o log so conhece o que ja comecou. */
+export interface QueuedTask {
+  readonly goal: string;
+  readonly role: string;
+}
+
 interface HubState {
   readonly project: ProjectRef | null;
   readonly recents: readonly ProjectRef[];
+  readonly roles: readonly RoleDefinition[];
+  readonly queue: readonly QueuedTask[];
   readonly world: WorldState;
   readonly busy: boolean;
   readonly failure: Failure | null;
   readonly subscribed: boolean;
 
   loadRecents(): Promise<void>;
+  loadRoles(): Promise<void>;
+  addTask(goal: string, role: string): void;
+  removeTask(index: number): void;
   pickProject(): Promise<void>;
   openProject(path: string): Promise<void>;
   closeProject(): void;
-  startRun(goal: string): Promise<void>;
+  startRun(): Promise<void>;
   startSimulation(goal: string): Promise<void>;
   answerQuestion(answer: string, optionId?: string): Promise<void>;
   dismissFailure(): void;
@@ -31,10 +42,26 @@ interface HubState {
 export const useHub = create<HubState>((set, get) => ({
   project: null,
   recents: [],
+  roles: [],
+  queue: [],
   world: emptyWorld,
   busy: false,
   failure: null,
   subscribed: false,
+
+  async loadRoles() {
+    const response = await invoke('roster.get', {});
+    if (response.ok) set({ roles: response.data });
+    else set({ failure: response.error });
+  },
+
+  addTask(goal: string, role: string) {
+    set({ queue: [...get().queue, { goal, role }] });
+  },
+
+  removeTask(index: number) {
+    set({ queue: get().queue.filter((_, position) => position !== index) });
+  },
 
   async loadRecents() {
     const response = await invoke('project.recent', {});
@@ -73,20 +100,25 @@ export const useHub = create<HubState>((set, get) => ({
   },
 
   closeProject() {
-    set({ project: null, world: emptyWorld, failure: null });
+    set({ project: null, world: emptyWorld, queue: [], failure: null });
   },
 
-  async startRun(goal: string) {
-    const project = get().project;
-    if (project === null) return;
+  async startRun() {
+    const { project, queue } = get();
+    if (project === null || queue.length === 0) return;
 
     set({ busy: true, failure: null, world: emptyWorld });
-    const response = await invoke('run.start', { projectPath: project.path, goal });
+    const response = await invoke('run.start', { projectPath: project.path, tasks: [...queue] });
     set({ busy: false });
 
-    // CLI ausente ou sem login volta como frase, nao como excecao: e o unico
-    // lugar onde o usuario descobre que falta instalar alguma coisa.
-    if (!response.ok) set({ failure: response.error });
+    // CLI ausente, pasta que nao e repositorio ou arvore suja voltam como frase,
+    // nunca como excecao: e o unico lugar onde a pessoa descobre o que falta.
+    if (!response.ok) {
+      set({ failure: response.error });
+      return;
+    }
+    // A fila so sai da tela quando a execucao existe de verdade.
+    set({ queue: [] });
   },
 
   async startSimulation(goal: string) {

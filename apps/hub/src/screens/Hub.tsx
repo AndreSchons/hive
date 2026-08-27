@@ -3,6 +3,7 @@ import { AgentList } from '../components/AgentList';
 import { EventFeed } from '../components/EventFeed';
 import { HumanQuestion } from '../components/HumanQuestion';
 import { TaskInput } from '../components/TaskInput';
+import { TaskQueue } from '../components/TaskQueue';
 import { useHub } from '../state/world-store';
 import { Scene } from '../world';
 
@@ -14,12 +15,21 @@ const STATUS_LABEL = {
 } as const;
 
 export function Hub() {
-  const { project, world, busy, failure, startRun,
+  const { project, world, roles, queue, busy, failure, startRun, addTask, removeTask,
     startSimulation, answerQuestion, closeProject, dismissFailure } =
     useHub();
 
   const agents = useMemo(() => Object.values(world.agents), [world.agents]);
   const running = world.status === 'running';
+
+  const queued = useMemo(
+    () =>
+      queue.map((item) => ({
+        ...item,
+        roleTitle: roles.find((role) => role.id === item.role)?.title ?? item.role,
+      })),
+    [queue, roles],
+  );
 
   if (project === null) return null;
 
@@ -43,9 +53,16 @@ export function Hub() {
         </header>
 
         <div className="border-b border-edge px-4 py-4">
-          <TaskInput disabled={busy || running} onSubmit={(goal) => void startRun(goal)} />
+          <TaskInput disabled={busy || running} roles={roles} onAdd={addTask} />
+          <TaskQueue
+            items={queued}
+            disabled={busy || running}
+            onRemove={removeTask}
+            onStart={() => void startRun()}
+          />
           <p className="mt-2 text-[11px] leading-snug text-muted">
-            Um agente trabalha direto nesta pasta e para para perguntar quando precisar.{' '}
+            Cada tarefa roda numa copia separada do projeto e so entra depois de
+            integrada. Se dois trabalhos se cruzarem, eu paro e pergunto.{' '}
             <button
               type="button"
               disabled={busy || running}

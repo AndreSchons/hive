@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { questionId, runId } from './ids';
-import { rosterSchema } from './roles';
+import { roleId, rosterSchema } from './roles';
 
 /** Uma pasta de projeto ja escolhida pelo usuario. */
 export const projectRefSchema = z.object({
@@ -51,8 +51,18 @@ export const commands = {
     input: z.object({}),
     output: rosterSchema,
   },
+  /**
+   * Uma fila com dono por item, executada em sequencia. Um agente so e uma fila
+   * de um: nao sobra um segundo jeito de comecar uma execucao.
+   */
   'run.start': {
-    input: z.object({ projectPath: z.string().min(1), goal: z.string().min(1) }),
+    input: z.object({
+      projectPath: z.string().min(1),
+      tasks: z
+        .array(z.object({ goal: z.string().min(1), role: roleId }))
+        .min(1)
+        .max(8),
+    }),
     output: z.object({ runId }),
   },
   'run.cancel': {
