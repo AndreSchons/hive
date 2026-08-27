@@ -104,7 +104,9 @@ pnpm --filter @office/simulator start -- --db <caminho> --project <pasta>
 
 ## O que ainda nao existe
 
-Personagens, animacoes e pathfinding no 3D. Adaptadores reais de CLI (a interface
+Pathfinding no 3D (o movimento dos personagens segue caminhos em L sobre o
+layout fixo do escritorio). Animacoes proprias para `talking` e `blocked` (hoje
+caem no `idle`). Adaptadores reais de CLI (a interface
 esta desenhada para eles, so ha `MockAdapter`). Implementacoes de `coordination`
 (so os tipos). Prompts de agente. Autenticacao. Empacotamento para distribuicao.
 
