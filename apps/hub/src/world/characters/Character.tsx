@@ -2,28 +2,39 @@ import { useEffect, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { Group } from 'three';
 import type { Placement } from '../office/placements';
-import { buildPath, DOOR_WORLD, type WorldPoint } from '../office/layout';
+import { buildPath, buildRoute, DOOR_WORLD, type WorldPoint } from '../office/layout';
 import { billboardAnchor } from '../camera';
 import { DARK } from '../office/palette';
 import { OVERLAY_LAYER, ToonMaterial } from '../office/toon';
 import { SpawnPuff } from './SpawnPuff';
 import { ThoughtBubble } from './ThoughtBubble';
 
-/** Duracao da fumaca e do squash, na entrada e na saida. */
+/** Duracao da fumaca e do squash na entrada. */
 export const SPAWN_MS = 600;
-/** Tempo em cena depois do `agent.despawned`, cobrindo o rastro da fumaca. */
-export const DESPAWN_LINGER_MS = 720;
 
 const WALK_SPEED = 2.2;
 /** Quanto o corpo sobe para sentar na cadeira (o boneco nao tem pernas). */
 const SEAT_LIFT = 0.12;
+/**
+ * A poltrona e um pouco mais alta que a cadeira de trabalho: o assento dela
+ * termina em 0,405 e a almofada da cadeira em 0,385. Os dois centimetros de
+ * diferenca entram aqui -- errar isso deixa o boneco boiando acima do estofado.
+ */
+const ARMCHAIR_LIFT = SEAT_LIFT + 0.02;
+/**
+ * Sentar no tapete e descer. Sem pernas, a altura e a unica coisa que separa
+ * "sentado no chao" de "em pe": a calca afunda no tapete e o que sobra a vista
+ * e o tronco, que e como um chibi senta. Mais fundo que isto e a camisa que
+ * comeca a raspar o tapete.
+ */
+const FLOOR_SIT = -0.12;
 /** A nuvem de pensamento: ao lado da cabeca (topo em y 1.16) e um pouco acima. */
 const BUBBLE_RADIUS = 0.62;
 const BUBBLE_HEIGHT = 1.85;
 /** Pose da ancora antes do primeiro frame, com o personagem ainda sem girar. */
 const INITIAL_ANCHOR = billboardAnchor(0, BUBBLE_RADIUS, BUBBLE_HEIGHT);
 
-type Phase = 'spawning' | 'active' | 'despawning';
+type Phase = 'spawning' | 'active';
 type AnimMode = Placement['anim'] | 'walk';
 
 interface Pose {
@@ -87,13 +98,33 @@ function poseFor(mode: AnimMode, t: number): Pose {
       return { y: Math.sin(t * 1.1) * 0.012, leanX: 0, swayZ: Math.sin(t * 0.8) * 0.02, armL: 0, armR: 0, headTilt: Math.sin(t * 0.7) * 0.08 };
     case 'idle':
       return { y: Math.sin(t * 2) * 0.02, leanX: 0, swayZ: Math.sin(t * 1.3) * 0.03, armL: 0, armR: 0, headTilt: 0 };
+    case 'armchair':
+      // Recostado na poltrona, bracos nos apoios. Tudo mais lento que o idle em
+      // pe: e o que faz olhar para o lounge e ver descanso, nao espera.
+      return {
+        y: ARMCHAIR_LIFT + Math.sin(t * 1.4) * 0.012,
+        leanX: -0.13,
+        swayZ: Math.sin(t * 0.9) * 0.015,
+        armL: -0.28,
+        armR: -0.28,
+        headTilt: Math.sin(t * 0.6) * 0.05,
+      };
+    case 'floor':
+      // No tapete, apoiado nos bracos atras -- que e como se senta no chao sem
+      // ter pernas para cruzar.
+      return {
+        y: FLOOR_SIT + Math.sin(t * 1.4) * 0.01,
+        leanX: -0.2,
+        swayZ: Math.sin(t * 0.8) * 0.02,
+        armL: 0.5,
+        armR: 0.5,
+        headTilt: Math.sin(t * 0.5) * 0.06,
+      };
   }
 }
 
 interface CharacterProps {
   readonly placement: Placement;
-  /** true quando `agent.despawned` ja chegou: toca a saida e espera desmontar. */
-  readonly departing: boolean;
 }
 
 /** Cabelo por estilo, em coordenadas da cabeca (raio 0.3, frente +z). */
@@ -152,7 +183,7 @@ function Hair({ style, color }: { readonly style: number; readonly color: string
  * re-renderiza quando o placement muda (evento novo), e mesmo assim apenas
  * ajusta o alvo: quem anda e o frame.
  */
-export function Character({ placement, departing }: CharacterProps) {
+export function Character({ placement }: CharacterProps) {
   const root = useRef<Group>(null!);
   const squash = useRef<Group>(null!);
   const body = useRef<Group>(null!);
@@ -181,22 +212,25 @@ export function Character({ placement, departing }: CharacterProps) {
   const targetZ = placement.target.z;
   const facing = placement.rotationY;
 
-  // Alvo novo (sentou, levantou, trocou de mesa): replaneja o caminho em L a
-  // partir de onde o boneco esta agora.
+  /**
+   * As paradas do caminho atual, fora das dependencias do efeito de proposito.
+   *
+   * `derivePlacements` monta uma lista nova a cada render, e um render acontece
+   * toda vez que **qualquer** agente muda de estado. Se a lista entrasse nas
+   * dependencias, quem ja esta sentado no lounge replanejaria a rota a cada
+   * evento da execucao -- e sairia andando de volta para o corredor. Ela so
+   * muda junto com o alvo, que e quem manda replanejar.
+   */
+  const via = useRef(placement.via);
+  via.current = placement.via;
+
+  // Alvo novo (sentou, levantou, foi descansar): replaneja o caminho a partir
+  // de onde o boneco esta agora.
   useEffect(() => {
     const r = rig.current;
-    r.waypoints = [...buildPath({ x: r.x, z: r.z }, { x: targetX, z: targetZ })];
+    r.waypoints = [...buildRoute({ x: r.x, z: r.z }, via.current, { x: targetX, z: targetZ })];
     r.targetRot = facing;
   }, [targetX, targetZ, facing]);
-
-  useEffect(() => {
-    if (departing) {
-      const r = rig.current;
-      r.phase = 'despawning';
-      r.clock = 0;
-      r.waypoints = [];
-    }
-  }, [departing]);
 
   useFrame((_, deltaRaw) => {
     const delta = Math.min(deltaRaw, 0.05);
@@ -256,9 +290,8 @@ export function Character({ placement, departing }: CharacterProps) {
     bubbleAnchor.current.rotation.y = anchor.rotationY;
     bubbleAnchor.current.position.set(anchor.x, anchor.y, anchor.z);
 
-    // Squash and stretch sincronizado com a fumaca; ao sair, a animacao inverte.
-    const t = Math.min(r.clock / SPAWN_MS, 1);
-    const s = r.phase === 'spawning' ? squashScale(t) : r.phase === 'despawning' ? squashScale(1 - t) : 1;
+    // Squash and stretch sincronizado com a fumaca da chegada.
+    const s = r.phase === 'spawning' ? squashScale(Math.min(r.clock / SPAWN_MS, 1)) : 1;
     const sxz = 1 + (1 - s) * 0.45;
     squash.current.scale.set(sxz, s, sxz);
 
@@ -273,12 +306,14 @@ export function Character({ placement, departing }: CharacterProps) {
   return (
     <group ref={root} position={[rig.current.x, 0, rig.current.z]}>
       {/* Marcador de chao: anel discreto na cor do agente, para identificar
-          quem e quem a distancia. Overlay: nao imprime na sombra de contato. */}
+          quem e quem a distancia. Overlay: nao imprime na sombra de contato.
+          Fica acima do tapete do lounge (topo em 0,05), senao some justamente
+          de quem foi descansar -- e e ele que diz quem e quem. */}
       <mesh
         ref={(mesh) => {
           if (mesh !== null) mesh.layers.set(OVERLAY_LAYER);
         }}
-        position={[0, 0.03, 0]}
+        position={[0, 0.06, 0]}
         rotation={[-Math.PI / 2, 0, 0]}
       >
         <ringGeometry args={[0.3, 0.42, 32]} />
@@ -343,10 +378,9 @@ export function Character({ placement, departing }: CharacterProps) {
         <ThoughtBubble agentId={placement.agentId} visible={placement.anim === 'think'} />
       </group>
 
-      {/* A fumaca do nascimento toca uma vez ao montar; a da saida monta junto
-          com o departing e cobre o squash invertido. */}
-      <SpawnPuff mode="in" />
-      {departing && <SpawnPuff mode="out" />}
+      {/* A fumaca da chegada, uma vez so ao montar. Nao existe fumaca de saida:
+          ninguem sai do escritorio -- quem termina vai para o lounge. */}
+      <SpawnPuff />
     </group>
   );
 }

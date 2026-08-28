@@ -14,21 +14,17 @@ interface Particle {
   readonly duration: number;
 }
 
-interface SpawnPuffProps {
-  /** `in` expande do centro; `out` e a mesma animacao ao contrario (despawn). */
-  readonly mode: 'in' | 'out';
-}
-
 /**
- * A fumaca do spawn/despawn: 8 a 12 esferas brancas que nascem no ponto,
- * expandem com ease-out subindo um pouco e somem em ~600ms. Escalas e atrasos
- * levemente aleatorios para nao parecer mecanico -- aleatorio so na
- * apresentacao, gerado uma vez por puff, nunca no estado do mundo.
+ * A fumaca da chegada: 8 a 12 esferas brancas que nascem no ponto, expandem com
+ * ease-out subindo um pouco e somem em ~600ms. Escalas e atrasos levemente
+ * aleatorios para nao parecer mecanico -- aleatorio so na apresentacao, gerado
+ * uma vez por puff, nunca no estado do mundo.
  *
- * Toca sozinha ao montar e se esconde ao terminar; quem monta/desmonta e o
- * Character.
+ * So existe entrada: ninguem sai do escritorio, entao nao ha fumaca de saida.
+ *
+ * Toca sozinha ao montar e se esconde ao terminar; quem monta e o Character.
  */
-export function SpawnPuff({ mode }: SpawnPuffProps) {
+export function SpawnPuff() {
   const group = useRef<Group>(null!);
   const meshes = useRef<(Mesh | null)[]>([]);
   const clock = useRef(0);
@@ -62,8 +58,7 @@ export function SpawnPuff({ mode }: SpawnPuffProps) {
       const t = Math.min(Math.max((clock.current - particle.delay) / particle.duration, 0), 1);
       if (t < 1) alive = true;
 
-      const k = mode === 'in' ? t : 1 - t;
-      const eased = 1 - Math.pow(1 - k, 3);
+      const eased = 1 - Math.pow(1 - t, 3);
       mesh.position.set(
         particle.dirX * eased * particle.spread,
         0.35 + particle.dirY * eased * particle.spread + t * 0.2,

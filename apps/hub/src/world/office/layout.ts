@@ -84,6 +84,44 @@ export const LOUNGE = {
   coffeeTable: { center: { x: 4, z: 4 } } as const,
 };
 
+/**
+ * Onde quem terminou vai descansar.
+ *
+ * Quem entrega nao some do escritorio: levanta da mesa, atravessa a sala e
+ * senta no lounge enquanto os outros seguem trabalhando. E o que faz a tela
+ * contar o progresso sozinha -- quanta gente ja acabou se ve de relance, sem
+ * ler nada.
+ *
+ * A ordem importa: quem termina primeiro pega a poltrona, e os seguintes vao
+ * para o tapete. Como a fila so cresce pelo fim, ninguem que ja sentou muda de
+ * lugar quando o proximo chega.
+ *
+ * Todo ponto aqui obedece a duas regras que o teste de layout cobra: o caminho
+ * em L da porta ate ele nao pisa em movel nenhum, e a distancia para os
+ * vizinhos e maior que a largura de um boneco.
+ */
+export interface LoungeSeat {
+  readonly point: WorldPoint;
+  /** Rotacao Y de quem esta sentado: todo mundo olhando para a mesinha. */
+  readonly rotationY: number;
+  /** `armchair` senta mais alto e recostado; `floor` senta no tapete. */
+  readonly kind: 'armchair' | 'floor';
+}
+
+/**
+ * As poltronas primeiro. O tapete e a fileira de tras do lounge -- os pontos
+ * ficam na metade sul dele porque o caminho em L entra pelo corredor da porta
+ * e cruza a linha da poltrona do norte antes de chegar la em cima.
+ */
+export const LOUNGE_SEATS: readonly LoungeSeat[] = [
+  { point: { x: 2.8, z: 2.8 }, rotationY: (3 * Math.PI) / 4, kind: 'armchair' },
+  { point: { x: 5.2, z: 5.2 }, rotationY: -Math.PI / 4, kind: 'armchair' },
+  { point: { x: 2.9, z: 5.3 }, rotationY: Math.atan2(1.1, -1.3), kind: 'floor' },
+  { point: { x: 4.0, z: 5.5 }, rotationY: Math.PI, kind: 'floor' },
+  { point: { x: 5.5, z: 4.3 }, rotationY: Math.atan2(-1.5, -0.3), kind: 'floor' },
+  { point: { x: 2.6, z: 4.0 }, rotationY: Math.atan2(1.4, 0), kind: 'floor' },
+];
+
 /** Luminarias pendentes: uma sobre a baia norte, outra sobre o lounge. */
 export const PENDANT_LAMPS: readonly WorldPoint[] = [
   { x: -1.2, z: -4.2 },
@@ -132,6 +170,55 @@ export function tileToWorld(tile: Tile): WorldPoint {
 export const DOOR_WORLD: WorldPoint = tileToWorld(DOOR);
 
 /**
+ * A coluna da porta: a unica livre da frente ao fundo da sala. Todo mundo entra
+ * por ela, e quem atravessa o escritorio volta a ela antes de cortar caminho.
+ */
+export const CORRIDOR_X: number = DOOR.col - GRID_SIZE / 2 + 0.5;
+
+/**
+ * Por onde passar para sair de um lugar de trabalho e atravessar a sala.
+ *
+ * O L de `buildPath` da conta da viagem porta -> mesa, que era a unica que
+ * existia. A **volta** e outra historia, e nao e detalhe: quem sai de uma mesa
+ * comeca dentro da fileira de cadeiras, e descer a propria coluna atravessa os
+ * colegas -- na baia oeste as tres cadeiras estao na mesma coluna, e na norte a
+ * mesinha do lounge fica bem na descida.
+ *
+ * A regra e a de um escritorio de verdade: **saia da baia pelo corredor**. O
+ * primeiro passo e o lugar em pe da propria mesa (`stand`), que ja e o vao
+ * livre em frente a ela; dali o corredor, e so entao o destino.
+ *
+ * `exit` ausente quer dizer que a pessoa nao estava em mesa nenhuma (estava na
+ * fileira de espera, ja no vao aberto); ai o corredor e alcancado direto, e
+ * `from` diz de que altura.
+ */
+export function aisleRoute(
+  exit: WorldPoint | undefined,
+  from: WorldPoint,
+  to: WorldPoint,
+): readonly WorldPoint[] {
+  const start = exit ?? from;
+  return dedupe([
+    ...(exit === undefined ? [] : [exit]),
+    { x: CORRIDOR_X, z: start.z },
+    { x: CORRIDOR_X, z: to.z },
+  ]);
+}
+
+const same = (a: WorldPoint, b: WorldPoint): boolean =>
+  Math.abs(a.x - b.x) < 1e-6 && Math.abs(a.z - b.z) < 1e-6;
+
+/** Ponto repetido vira parada morta no caminho: o boneco trava um frame nele. */
+function dedupe(points: readonly WorldPoint[]): WorldPoint[] {
+  const out: WorldPoint[] = [];
+  for (const point of points) {
+    const last = out[out.length - 1];
+    if (last === undefined || !same(last, point)) out.push(point);
+  }
+  return out;
+}
+
+/**
  * Caminho em L: primeiro anda em z (o corredor central leva da porta para
  * dentro), depois em x. O layout foi desenhado para essa ordem nunca cruzar
  * um tile ocupado -- o teste de layout prova isso para cada mesa.
@@ -145,8 +232,34 @@ export function buildPath(from: WorldPoint, to: WorldPoint): readonly WorldPoint
 }
 
 /**
- * Amostra o caminho tile a tile e confere se nao pisa em tile ocupado. O tile
- * de destino nao conta: sentar na cadeira e exatamente pisar nela.
+ * O caminho inteiro, de onde a pessoa esta ate o destino, passando pelas
+ * paradas obrigatorias. Cada trecho continua sendo um L de `buildPath`.
+ */
+export function buildRoute(
+  from: WorldPoint,
+  via: readonly WorldPoint[],
+  to: WorldPoint,
+): readonly WorldPoint[] {
+  const points: WorldPoint[] = [];
+  let current = from;
+  for (const stop of [...via, to]) {
+    points.push(...buildPath(current, stop));
+    current = stop;
+  }
+  // A posicao atual entra na limpeza e sai no fim: uma parada em cima de onde o
+  // boneco ja esta e um passo de tamanho zero, e ele fica um frame parado nela.
+  // Acontece de verdade -- quem esta em pe na propria mesa ja esta no primeiro
+  // ponto da rota de saida.
+  return dedupe([from, ...points]).slice(1);
+}
+
+/**
+ * Amostra o caminho tile a tile e confere se nao pisa em tile ocupado.
+ *
+ * Nem o tile de destino nem o de origem contam: sentar na cadeira e exatamente
+ * pisar nela, e sair dela tambem. Sem a isencao da origem, todo caminho que
+ * comeca numa cadeira seria recusado -- que e justamente a viagem de quem
+ * termina o trabalho e vai descansar.
  */
 export function pathIsClear(
   from: WorldPoint,
@@ -155,6 +268,7 @@ export function pathIsClear(
 ): boolean {
   const points: WorldPoint[] = [from, ...buildPath(from, to)];
   const destinationKey = `${Math.floor(to.x + GRID_SIZE / 2)},${Math.floor(to.z + GRID_SIZE / 2)}`;
+  const originKey = `${Math.floor(from.x + GRID_SIZE / 2)},${Math.floor(from.z + GRID_SIZE / 2)}`;
 
   for (let segment = 0; segment < points.length - 1; segment += 1) {
     const a = points[segment];
@@ -166,7 +280,7 @@ export function pathIsClear(
       const x = a.x + ((b.x - a.x) * step) / steps;
       const z = a.z + ((b.z - a.z) * step) / steps;
       const key = `${Math.floor(x + GRID_SIZE / 2)},${Math.floor(z + GRID_SIZE / 2)}`;
-      if (key === destinationKey) continue;
+      if (key === destinationKey || key === originKey) continue;
       if (occupied.has(key)) return false;
     }
   }

@@ -57,6 +57,10 @@ Regras que nao se negociam:
 - `apps/hub/src/world/` (o 3D) nao conhece agente, CLI nem modelo. Consome estado
   derivado de eventos e mapeia para animacao. Se um componente 3D precisa saber
   qual CLI rodou, o desenho esta errado.
+- **Ninguem sai do escritorio.** Quem entrega larga a mesa e vai descansar no
+  lounge, e fica la enquanto os outros trabalham -- e o que faz a tela contar o
+  progresso de relance. A fila de lugares e ordenada por `doneSeq` e so cresce
+  pelo fim: quem ja sentou nunca muda de lugar quando o proximo termina.
 - So `packages/store` toca SQLite. Nenhum outro pacote abre banco.
 - Nada escreve em `events` fora do `EventStore`. Triggers no banco recusam
   `UPDATE` e `DELETE` nessa tabela.
@@ -483,7 +487,10 @@ de acordo sobre o que cada um ia mexer.
 
 ## O que ainda nao existe
 
-Personagens, animacoes e pathfinding no 3D. `Assigner` continua so como tipo: o
+Pathfinding de verdade no 3D: o caminho continua sendo um L de dois trechos, e
+o unico desvio que existe e sair da baia pelo corredor (`aisleRoute`), que e o
+que a travessia ate o lounge exigiu. Movel novo no meio da sala pede rota nova
+escrita a mao. `Assigner` continua so como tipo: o
 executor paralelo mora no supervisor e usa `chooseCoRunnable` direto.
 Replanejamento automatico depois de subtask que falha (`Planner.revise` existe e
 ninguem chama ainda). Autenticacao. Empacotamento para distribuicao.

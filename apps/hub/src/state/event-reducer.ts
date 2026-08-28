@@ -21,6 +21,15 @@ export interface AgentView {
   /** Ultima frase dita. Vai virar balao de fala no escritorio 3D. */
   readonly lastSaid: string | null;
   readonly present: boolean;
+  /**
+   * O `seq` do evento em que este agente terminou. `null` enquanto trabalha.
+   *
+   * Serve para uma coisa so: ordenar quem ja acabou por **ordem de chegada ao
+   * descanso**. Ordenar pela ordem em que os agentes aparecem no mundo nao
+   * serve -- quem comecou antes nao termina antes, e ai um agente que ja estava
+   * sentado seria empurrado de lugar toda vez que outro terminasse.
+   */
+  readonly doneSeq: number | null;
 }
 
 export type TaskStatus = 'pending' | 'assigned' | 'running' | 'verifying' | 'done' | 'failed';
@@ -136,6 +145,7 @@ export function applyEvent(state: WorldState, event: AnyEvent): WorldState {
       return withAgent(base, agentId, (agent) => ({
         agentId, role, displayName, adapter, worktreePath, branch: branch ?? agent.branch,
         state: 'idle', currentTaskId: null, lastSaid: null, present: true,
+        doneSeq: null,
       }));
     }
     case 'agent.state_changed':
@@ -147,6 +157,9 @@ export function applyEvent(state: WorldState, event: AnyEvent): WorldState {
     case 'agent.despawned':
       return withAgent(base, event.payload.agentId, (agent) => ({
         ...agent, present: false, state: 'done', currentTaskId: null,
+        // O primeiro `despawned` manda: se o log repetir o evento, quem sentou
+        // primeiro continua sentado no mesmo lugar.
+        doneSeq: agent.doneSeq ?? event.seq,
       }));
     case 'agent.usage': {
       const { costUsd, inputTokens, outputTokens, cacheCreationTokens, cacheReadTokens } =
@@ -279,6 +292,7 @@ const UNKNOWN_AGENT: Omit<AgentView, 'agentId'> = {
   currentTaskId: null,
   lastSaid: null,
   present: true,
+  doneSeq: null,
 };
 
 function withAgent(
