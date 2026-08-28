@@ -19,6 +19,12 @@ const CAUSE_LABEL: Record<BlockCause, string> = {
 
 export interface HumanQuestionProps {
   readonly question: PendingQuestion;
+  /**
+   * Quantas outras esperam a vez. Com dois especialistas no ar os dois podem
+   * travar, e saber que ha mais uma depois desta e a diferenca entre "acabou" e
+   * "vem outra" -- sem isso a proxima aparece do nada.
+   */
+  readonly pendentes?: number;
   readonly onAnswer: (answer: string, optionId?: string) => void;
   /** O plano em revisao. So aparece quando a pergunta e o aval do gerente. */
   readonly children?: ReactNode;
@@ -29,7 +35,7 @@ export interface HumanQuestionProps {
  * produto, entao ocupa a tela inteira em vez de virar um aviso no canto: nada
  * mais acontece ate a pessoa responder.
  */
-export function HumanQuestion({ question, onAnswer, children }: HumanQuestionProps) {
+export function HumanQuestion({ question, pendentes = 0, onAnswer, children }: HumanQuestionProps) {
   const [text, setText] = useState('');
   const trimmed = text.trim();
 
@@ -42,6 +48,13 @@ export function HumanQuestion({ question, onAnswer, children }: HumanQuestionPro
 
         <h2 className="mt-3 text-xl leading-snug font-medium text-balance">{question.question}</h2>
         <p className="mt-2 text-sm text-muted">{question.context}</p>
+        {pendentes > 0 && (
+          <p className="mt-2 text-xs text-muted">
+            {pendentes === 1
+              ? 'Tem mais uma pergunta esperando depois desta.'
+              : `Tem mais ${pendentes} perguntas esperando depois desta.`}
+          </p>
+        )}
 
         {children}
 

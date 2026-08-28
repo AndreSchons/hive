@@ -1,11 +1,12 @@
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
   adapterId,
   draft,
+  parallelismGain,
   questionId,
   rosterSchema,
   type AdapterId,
@@ -21,7 +22,7 @@ import {
   type AgentRun,
   type AgentRunRequest,
 } from '@office/agents';
-import { CommandGateRunner, InstallWorktreePreparer } from '@office/coordination';
+import { CONTRACTS_DIR, CommandGateRunner, InstallWorktreePreparer } from '@office/coordination';
 import { EventStore, openDatabase } from '@office/store';
 import { RunSupervisor } from '../src/main/run-supervisor';
 
@@ -1271,5 +1272,311 @@ describe('quanto capricho a fila manual pede', () => {
     await drainAnswering(supervisor, runId, []);
 
     expect(adapter.recebidos[0]?.model).toBeUndefined();
+  });
+});
+
+/**
+ * Dois especialistas ao mesmo tempo.
+ *
+ * O agente falso segura a propria execucao ate ser solto, que e o unico jeito
+ * de provar sobreposicao: agente que termina na hora nunca se cruza com outro,
+ * e o teste passaria mesmo com o executor sequencial de antes.
+ */
+class Cronometro {
+  vivos = 0;
+  pico = 0;
+  /** Os contratos que cada agente encontrou na propria copia, por papel. */
+  readonly contratosVistos: Record<string, string> = {};
+}
+
+class ParaleloRun implements AgentRun {
+  readonly agentId;
+  readonly outcome: Promise<AgentOutcome>;
+  private readonly queue = new AsyncQueue<AnyEventDraft>();
+
+  constructor(request: AgentRunRequest, arquivo: string, relogio: Cronometro, seguraMs: number) {
+    this.agentId = request.agentId;
+    relogio.vivos += 1;
+    relogio.pico = Math.max(relogio.pico, relogio.vivos);
+
+    // O contrato tem que estar no disco **antes** de o agente comecar: e essa
+    // a diferenca entre combinado publicado e combinado disponivel.
+    const contrato = join(request.cwd, CONTRACTS_DIR, 'o-contrato.md');
+    relogio.contratosVistos[request.role] = existsSync(contrato)
+      ? readFileSync(contrato, 'utf8')
+      : '';
+
+    // Agente cria pasta quando precisa, como faria de verdade.
+    mkdirSync(dirname(join(request.cwd, arquivo)), { recursive: true });
+    writeFileSync(join(request.cwd, arquivo), `escrito por ${request.role}\n`);
+
+    this.queue.push(
+      draft('agent.spawned', {
+        agentId: request.agentId, role: request.role, displayName: 'Paralelo',
+        adapter: adapterId.parse('falso'), worktreePath: request.cwd,
+      }),
+      draft('agent.usage', {
+        agentId: request.agentId,
+        model: 'modelo-de-teste',
+        inputTokens: 1, outputTokens: 2, cacheCreationTokens: 3, cacheReadTokens: 4,
+        costUsd: 0.02,
+      }),
+    );
+
+    this.outcome = new Promise<AgentOutcome>((resolve) => {
+      setTimeout(() => {
+        relogio.vivos -= 1;
+        this.queue.push(draft('agent.despawned', { agentId: request.agentId, reason: 'finished' }));
+        this.queue.close();
+        resolve({ status: 'completed', summary: 'pronto', turns: 1 });
+      }, seguraMs);
+    });
+  }
+
+  [Symbol.asyncIterator]() {
+    return this.queue[Symbol.asyncIterator]();
+  }
+  answer(): void {}
+  cancel(): void {}
+}
+
+class ParaleloAdapter implements AgentAdapter {
+  readonly id: AdapterId = adapterId.parse('falso');
+  readonly displayName = 'Paralelo';
+  readonly capabilities = {
+    streamsJson: true, resumesSession: false, acceptsExtraDirs: false, reportsToolCalls: true,
+  };
+  readonly relogio = new Cronometro();
+
+  constructor(
+    private readonly plano: string,
+    private readonly arquivoPorPapel: Record<string, string>,
+    private readonly seguraMs = 120,
+  ) {}
+
+  probe() {
+    return Promise.resolve({ available: true as const, version: '0.0.0', executable: 'falso' });
+  }
+
+  start(request: AgentRunRequest): AgentRun {
+    if (request.readOnly === true) return new PlanRun(request, this.plano);
+    return new ParaleloRun(
+      request,
+      this.arquivoPorPapel[request.role] ?? ARQUIVO,
+      this.relogio,
+      this.seguraMs,
+    );
+  }
+}
+
+/** Dois passos sem dependencia entre si, cada um na sua area, com um contrato comum. */
+const planoParalelo = (paths: { alfa: string[]; beta: string[] }): string =>
+  JSON.stringify({
+    subtasks: [
+      {
+        id: 'lado-alfa',
+        title: 'Um lado',
+        description: 'Mexe de um lado.',
+        role: 'alfa',
+        allowedPaths: paths.alfa,
+        inputContracts: ['o-contrato'],
+        doneWhen: 'o arquivo de um lado existe',
+        gate: { kind: 'test', command: 'true' },
+      },
+      {
+        id: 'lado-beta',
+        title: 'Outro lado',
+        description: 'Mexe do outro lado.',
+        role: 'beta',
+        allowedPaths: paths.beta,
+        inputContracts: ['o-contrato'],
+        doneWhen: 'o arquivo do outro lado existe',
+        gate: { kind: 'test', command: 'true' },
+      },
+    ],
+    contracts: [
+      {
+        id: 'o-contrato',
+        kind: 'types',
+        title: 'Formato do arquivo',
+        body: 'uma linha dizendo quem escreveu',
+      },
+    ],
+  });
+
+function buildParalelo(plano: string, arquivos: Record<string, string>): {
+  supervisor: RunSupervisor;
+  adapter: ParaleloAdapter;
+} {
+  const adapter = new ParaleloAdapter(plano, arquivos);
+  return {
+    adapter,
+    supervisor: new RunSupervisor(
+      events,
+      createAdapterRegistry([adapter]),
+      ROSTER,
+      worktrees,
+      join(home, 'worktrees'),
+    ),
+  };
+}
+
+describe('dois especialistas ao mesmo tempo', () => {
+  const areasSeparadas = planoParalelo({ alfa: ['um'], beta: ['dois'] });
+  const arquivos = { alfa: 'um/dele.txt', beta: 'dois/dela.txt' };
+
+  beforeEach(() => {
+    execFileSync('mkdir', ['-p', join(repo, 'um'), join(repo, 'dois')]);
+    writeFileSync(join(repo, 'um', 'base.txt'), 'base\n');
+    writeFileSync(join(repo, 'dois', 'base.txt'), 'base\n');
+    g('add', '-A');
+    g('commit', '-m', 'areas');
+  });
+
+  it('roda os dois passos ao mesmo tempo quando as areas nao se encostam', async () => {
+    const { supervisor, adapter } = buildParalelo(areasSeparadas, arquivos);
+    const runId = await supervisor.startPlanned({ projectPath: repo, goal: 'os dois lados' });
+    const todos = await drain(supervisor, runId, 'comecar');
+
+    expect(typesOf(todos).at(-1)).toBe('run.completed');
+    // O que prova paralelismo: os dois estiveram no ar ao mesmo tempo.
+    expect(adapter.relogio.pico).toBe(2);
+  });
+
+  /**
+   * Contrato antes de paralelismo. Nao basta o evento sair antes: o arquivo tem
+   * que estar na copia dos **dois** quando cada um comeca, senao o segundo
+   * especialista descobre o combinado tarde demais para obedece-lo.
+   */
+  it('os dois encontram o contrato na propria copia antes de comecar', async () => {
+    const { supervisor, adapter } = buildParalelo(areasSeparadas, arquivos);
+    const runId = await supervisor.startPlanned({ projectPath: repo, goal: 'os dois lados' });
+    const todos = await drain(supervisor, runId, 'comecar');
+
+    expect(adapter.relogio.contratosVistos['alfa']).toContain('uma linha dizendo quem escreveu');
+    expect(adapter.relogio.contratosVistos['beta']).toContain('uma linha dizendo quem escreveu');
+
+    const tipos = typesOf(todos);
+    expect(tipos.filter((type) => type === 'contract.published')).toHaveLength(1);
+    // Publicado antes do **lote**, e nao antes de cada um: quando o primeiro
+    // agente recebe a tarefa, o combinado ja existe para os dois.
+    expect(tipos.indexOf('contract.published')).toBeLessThan(tipos.indexOf('task.assigned'));
+  });
+
+  /** Andaime do app nao vira commit no projeto de quem so pediu uma tarefa. */
+  it('o contrato nao entra no projeto da pessoa', async () => {
+    const { supervisor } = buildParalelo(areasSeparadas, arquivos);
+    const runId = await supervisor.startPlanned({ projectPath: repo, goal: 'os dois lados' });
+    await drain(supervisor, runId, 'comecar');
+
+    expect(existsSync(join(repo, '.office'))).toBe(false);
+    expect(g('log', '--name-only', '--pretty=format:')).not.toContain('.office');
+    expect(g('status', '--porcelain').trim()).toBe('');
+  });
+
+  it('mede o que correr junto economizou, e diz se compensou', async () => {
+    const { supervisor } = buildParalelo(areasSeparadas, arquivos);
+    const runId = await supervisor.startPlanned({ projectPath: repo, goal: 'os dois lados' });
+    const todos = await drain(supervisor, runId, 'comecar');
+
+    const medida = payloadsOf(todos, 'plan.measured')[0];
+    if (medida === undefined) throw new Error('esperava a medida');
+
+    expect(medida.peakParallel).toBe(2);
+    expect(medida.conflicts).toBe(0);
+    // Sobreposicao de verdade: a soma dos passos passou do relogio de parede.
+    expect(medida.sequentialMs).toBeGreaterThan(medida.wallMs);
+    expect(parallelismGain(medida).worthIt).toBe(true);
+  });
+
+  /**
+   * O caso que o paralelismo existe para nao piorar. Liberados pelo grafo, mas
+   * mexendo na mesma pasta: correr junto so adiantaria o conflito de merge.
+   */
+  it('poe na fila quem mexe na mesma area, mesmo sem dependencia', async () => {
+    const mesmaArea = planoParalelo({ alfa: ['um'], beta: ['um/mais/fundo'] });
+    const { supervisor, adapter } = buildParalelo(mesmaArea, {
+      alfa: 'um/dele.txt',
+      beta: 'um/mais/fundo/dela.txt',
+    });
+    const runId = await supervisor.startPlanned({ projectPath: repo, goal: 'os dois lados' });
+    const todos = await drain(supervisor, runId, 'comecar');
+
+    expect(typesOf(todos).at(-1)).toBe('run.completed');
+    expect(adapter.relogio.pico).toBe(1);
+
+    const medida = payloadsOf(todos, 'plan.measured')[0];
+    expect(medida?.peakParallel).toBe(1);
+    expect(medida?.heldForOverlap).toBeGreaterThan(0);
+  });
+
+  /**
+   * O plano jurou que as areas eram separadas e os dois mexeram no mesmo
+   * arquivo. E o caso que a medida existe para nomear: quem falhou foi a etapa
+   * de contrato, e o numero tem que dizer isso em vez de o sistema culpar a
+   * ideia de paralelizar.
+   */
+  it('colisao apesar das areas separadas conta como custo de juntar', async () => {
+    const { supervisor } = buildParalelo(areasSeparadas, { alfa: ARQUIVO, beta: ARQUIVO });
+    const runId = await supervisor.startPlanned({ projectPath: repo, goal: 'os dois lados' });
+    const todos = await drainAnswering(supervisor, runId, ['comecar', 'parar']);
+
+    expect(typesOf(todos)).toContain('worktree.conflict');
+
+    const medida = payloadsOf(todos, 'plan.measured')[0];
+    if (medida === undefined) throw new Error('esperava a medida mesmo com a execucao parada');
+
+    expect(medida.peakParallel).toBe(2);
+    expect(medida.conflicts).toBe(1);
+    // Desfazer colisao e parte de juntar, e nunca maior que o total de juntar.
+    // O veredito em si depende de quanto tempo a pessoa leva para responder, e
+    // por isso e medido onde ele mora (`parallelismGain`), nao aqui.
+    expect(medida.conflictMs).toBeGreaterThan(0);
+    expect(medida.mergeMs).toBeGreaterThanOrEqual(medida.conflictMs);
+    // Ninguem foi chamado para desfazer, entao desfazer nao custou nada -- e o
+    // que os dois especialistas gastaram trabalhando nao pode virar custo de
+    // colisao so por terem gastado enquanto ela estava aberta.
+    expect(medida.conflictCostUsd).toBe(0);
+    expect(payloadsOf(todos, 'agent.usage').length).toBeGreaterThan(0);
+  });
+
+  /**
+   * Uma subtask que estoura no nosso lado nao pode derrubar a outra que esta no
+   * ar: com `Promise.race`, uma excecao deixaria a irma trabalhando sozinha,
+   * fora do alcance de quem ia limpar as copias.
+   */
+  it('erro nosso num passo fecha a execucao sem deixar copia solta', async () => {
+    const { supervisor, adapter } = buildParalelo(areasSeparadas, arquivos);
+    const original = adapter.start.bind(adapter);
+    let primeiro = true;
+    adapter.start = (request: AgentRunRequest): AgentRun => {
+      if (request.readOnly !== true && primeiro) {
+        primeiro = false;
+        throw new Error('estourou do nosso lado');
+      }
+      return original(request);
+    };
+
+    const runId = await supervisor.startPlanned({ projectPath: repo, goal: 'os dois lados' });
+    const todos = await drain(supervisor, runId, 'comecar');
+
+    const falhou = todos.find((event) => event.type === 'run.failed');
+    if (falhou?.type !== 'run.failed') throw new Error('esperava a execucao falhar');
+    // A frase e respondivel por quem nao le codigo; o stack fica atras do clique.
+    expect(falhou.payload.reason).not.toContain('Error');
+
+    expect(g('worktree', 'list').trim().split('\n')).toHaveLength(1);
+    expect(g('branch', '--list', 'office/*').trim()).toBe('');
+    expect(g('status', '--porcelain').trim()).toBe('');
+  });
+
+  /** Plano que nao declara area nenhuma nao ganha paralelismo -- e nao aposta. */
+  it('sem area declarada continua um de cada vez', async () => {
+    const semAreas = planoParalelo({ alfa: [], beta: [] });
+    const { supervisor, adapter } = buildParalelo(semAreas, arquivos);
+    const runId = await supervisor.startPlanned({ projectPath: repo, goal: 'os dois lados' });
+    await drain(supervisor, runId, 'comecar');
+
+    expect(adapter.relogio.pico).toBe(1);
   });
 });

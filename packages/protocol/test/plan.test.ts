@@ -8,8 +8,10 @@ import {
   newGateId,
   newPlanId,
   newRunId,
+  parallelismGain,
   planSchema,
   readySubtasks,
+  type ParallelismMeasure,
   type Plan,
 } from '../src/index';
 
@@ -178,5 +180,49 @@ describe('planDraftSchema', () => {
       ?.items;
     // O modelo preenche isto; id de portao, orcamento e runId sao do sistema.
     expect(subtask?.['required']).toEqual(['id', 'title', 'description', 'role', 'doneWhen', 'gate']);
+  });
+});
+
+/**
+ * O veredito da medida de paralelismo. O criterio nao e "rodou junto", e
+ * **sobrou tempo**: juntar custa, e quando custa mais do que correr junto
+ * rendeu, quem falhou foi a etapa de contrato -- nao a ideia de paralelizar.
+ */
+describe('o que o paralelismo comprou', () => {
+  const medida = (extra: Partial<ParallelismMeasure>): ParallelismMeasure => ({
+    wallMs: 100,
+    sequentialMs: 100,
+    mergeMs: 0,
+    conflictMs: 0,
+    conflictCostUsd: 0,
+    conflicts: 0,
+    peakParallel: 1,
+    heldForOverlap: 0,
+    ...extra,
+  });
+
+  it('a economia e a diferenca entre a soma dos passos e o relogio de parede', () => {
+    expect(parallelismGain(medida({ wallMs: 60, sequentialMs: 100 })).savedMs).toBe(40);
+  });
+
+  it('fila nao economiza, e economia negativa nao existe', () => {
+    expect(parallelismGain(medida({ wallMs: 140, sequentialMs: 100 })).savedMs).toBe(0);
+  });
+
+  it('compensou quando sobrou mais tempo do que juntar custou', () => {
+    const gain = parallelismGain(medida({ wallMs: 60, sequentialMs: 100, mergeMs: 10 }));
+    expect(gain.worthIt).toBe(true);
+  });
+
+  /** O caso que a medida existe para nomear: o contrato nao segurou os dois lados. */
+  it('nao compensou quando juntar custou mais do que correr junto rendeu', () => {
+    const gain = parallelismGain(
+      medida({ wallMs: 60, sequentialMs: 100, mergeMs: 90, conflictMs: 80, conflicts: 1 }),
+    );
+    expect(gain.worthIt).toBe(false);
+  });
+
+  it('rodar junto sem economizar nada tambem nao compensa', () => {
+    expect(parallelismGain(medida({ wallMs: 100, sequentialMs: 100 })).worthIt).toBe(false);
   });
 });

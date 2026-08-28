@@ -156,9 +156,11 @@ export class GitWorktreeManager implements WorktreeManager {
    * Devolve falso quando o agente nao mudou nada.
    */
   async commitAll(worktree: Worktree, message: string): Promise<boolean> {
-    // `node_modules` fica de fora sempre, mesmo que o projeto nao o ignore: a
-    // preparacao instala dependencia dentro da copia, e um projeto sem
-    // `.gitignore` veria isso virar commit no repositorio de quem usa o app.
+    // `node_modules` e `.office` ficam de fora sempre, mesmo que o projeto nao
+    // os ignore: a preparacao instala dependencia dentro da copia e o gerente
+    // materializa os contratos ali, e um projeto sem `.gitignore` veria os dois
+    // virarem commit no repositorio de quem usa o app. Andaime do app nao vira
+    // decisao de projeto de quem so pediu uma tarefa.
     //
     // Estagiar tudo e **depois** tirar, em vez de excluir no `add`: um `add`
     // com pathspec explicito **falha** quando o pathspec alcanca arquivo que o
@@ -169,7 +171,9 @@ export class GitWorktreeManager implements WorktreeManager {
     // Sem `glob` o `**` do git tambem casa `/`, e `pkg/node_modules` escapava.
     // Nao lanca: sem nada estagiado nessas pastas, o reset nao tem o que fazer.
     await git(worktree.path, [
-      'reset', '-q', '--', ':(glob,top)**/node_modules/**', ':(glob,top)node_modules/**',
+      'reset', '-q', '--',
+      ':(glob,top)**/node_modules/**', ':(glob,top)node_modules/**',
+      ':(glob,top).office/**',
     ]);
     const staged = await git(worktree.path, ['diff', '--cached', '--quiet']);
     if (staged.code === 0) return false;

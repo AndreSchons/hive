@@ -23,6 +23,8 @@ export function Hub() {
 
   const agents = useMemo(() => Object.values(world.agents), [world.agents]);
   const running = world.status === 'running';
+  // A da frente. As outras aparecem depois que esta for respondida.
+  const pergunta = world.questions[0];
 
   const queued = useMemo(
     () =>
@@ -131,12 +133,16 @@ export function Hub() {
         )}
       </main>
 
-      {world.question && (
+      {/* Uma de cada vez, mesmo com dois especialistas travados: responder duas
+          coisas ao mesmo tempo e o oposto do que este produto promete. As
+          outras esperam a vez na fila. */}
+      {pergunta && (
         <HumanQuestion
-          question={world.question}
-          onAnswer={(answer, optionId) => void answerQuestion(answer, optionId)}
+          question={pergunta}
+          pendentes={world.questions.length - 1}
+          onAnswer={(answer, optionId) => void answerQuestion(pergunta.questionId, answer, optionId)}
         >
-          {world.question.cause === 'plan_review' && world.plan !== null && (
+          {pergunta.cause === 'plan_review' && world.plan !== null && (
             <PlanReview plan={world.plan} roles={roles} />
           )}
         </HumanQuestion>

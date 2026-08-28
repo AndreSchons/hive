@@ -43,8 +43,12 @@ import {
   OPTION_RESOLVE,
   OPTION_RETRY,
   OPTION_STOP,
+  chooseCoRunnable,
+  contractBrief,
+  contractPath,
   defaultGate,
   discoverGates,
+  materializeContracts,
   modelFor,
   shiftTier,
   type AnswerUse,
@@ -97,7 +101,8 @@ interface Unit {
   readonly role: RoleId;
   readonly taskId: TaskId;
   readonly allowedPaths: readonly string[];
-  readonly contracts: readonly string[];
+  /** Os combinados que valem para este passo. Viram arquivo na copia do agente. */
+  readonly contracts: readonly Contract[];
   readonly dependsOn: readonly TaskId[];
   /** Ausente so quando o projeto nao oferece nenhum comando de verificacao. */
   readonly gate: Gate | undefined;
@@ -111,6 +116,34 @@ interface PendingQuestion {
   readonly resolve: (choice: string) => void;
 }
 
+/**
+ * Fila de um so. Existe porque paralelismo nao vale para tudo: preparar a copia
+ * semeia um cache compartilhado e integrar mexe no repositorio da pessoa, e as
+ * duas coisas so funcionam uma de cada vez, mesmo com dois agentes no ar.
+ */
+class Lock {
+  private tail: Promise<unknown> = Promise.resolve();
+
+  run<T>(work: () => Promise<T>): Promise<T> {
+    // Encadeia sempre, inclusive depois de uma falha: um erro no trabalho de
+    // quem estava na frente nao pode deixar a fila fechada para sempre.
+    const next = this.tail.then(work, work);
+    this.tail = next.then(
+      () => undefined,
+      () => undefined,
+    );
+    return next;
+  }
+}
+
+/** O que uma subtask custou de relogio, para a medida de paralelismo. */
+interface Occupancy {
+  readonly taskId: TaskId;
+  /** Tudo: copia, preparo, agente, portao e integracao. */
+  readonly totalMs: number;
+  readonly outcome: { readonly status: 'ok' } | { readonly status: 'stop'; readonly reason: string };
+}
+
 interface LiveRun {
   readonly projectPath: string;
   /** Branch onde tudo e integrado. */
@@ -120,12 +153,43 @@ interface LiveRun {
   readonly startedAt: number;
   /** Worktrees ainda no disco. Existe para nao deixar sobra se algo quebrar. */
   readonly open: Map<AgentId, Worktree>;
-  agent: AgentRun | null;
-  question: PendingQuestion | null;
+  /** Os agentes no ar agora. Mais de um quando o plano deixou paralelizar. */
+  readonly agents: Map<AgentId, AgentRun>;
+  /** Perguntas que o supervisor abriu e ainda espera resposta. */
+  readonly questions: Map<QuestionId, PendingQuestion>;
+  /**
+   * Perguntas que a **propria CLI** abriu, e de quem. Com um agente so dava
+   * para mandar a resposta para "o agente"; com dois, entregar ao errado
+   * destrava o que nao perguntou e pendura quem perguntou.
+   */
+  readonly asked: Map<QuestionId, AgentRun>;
+  /** Preparar a copia semeia um cache que e um so: dois preparos ao mesmo tempo
+   * instalariam duas vezes e disputariam a mesma pasta. */
+  readonly prepLock: Lock;
+  /** Integrar mexe no repositorio da pessoa. Merge em curso e estado global. */
+  readonly mergeLock: Lock;
   cancelled: boolean;
+  /**
+   * Um passo parou e o plano nao vai mais fechar. Diferente de `cancelled`:
+   * quem pediu foi o sistema, nao a pessoa -- mas os dois cortam quem ainda
+   * esta no ar em vez de deixar agente trabalhando para um plano morto.
+   */
+  stopping: boolean;
   /** O que a execucao gastou ate agora, somado dos `agent.usage`. */
   costUsd: number;
   totalTokens: number;
+  /**
+   * O gasto por agente. Com dois no ar, o total da execucao nao responde
+   * "quanto custou desfazer aquela colisao": entre o inicio e o fim da
+   * resolucao o outro especialista tambem gastou, e a diferenca do total
+   * cobraria dele.
+   */
+  readonly costByAgent: Map<AgentId, number>;
+  /** Quanto tempo foi juntar trabalho, e quanto disso foi desfazer colisao. */
+  mergeMs: number;
+  conflictMs: number;
+  conflicts: number;
+  conflictCostUsd: number;
   /** Quem atribuiu. Ausente na fila manual: quem atribuiu foi a propria pessoa. */
   plannedBy?: AgentId;
 }
@@ -166,6 +230,17 @@ type Escalated =
  * mas decidir nao pode virar laco infinito.
  */
 const ATTEMPT_CEILING = 8;
+
+/**
+ * Quantos especialistas trabalham ao mesmo tempo.
+ *
+ * Dois, e nao "quantos o grafo permitir". Cada copia a mais paga instalacao,
+ * portao e merge, e o merge e a parte que nao paraleliza -- o repositorio da
+ * pessoa e um so. Dois ja transforma soma em caminho critico no caso que
+ * importa (duas areas independentes do plano) e mantem a colisao possivel de
+ * explicar: quando duas copias se cruzam, sao **estas duas**.
+ */
+const MAX_PARALLEL = 2;
 
 /**
  * O adaptador nunca encerra bloqueado sem pergunta -- se acontecer e bug nosso,
@@ -258,12 +333,11 @@ function subtaskPrompt(subtask: Subtask): string {
   return [subtask.description, '', `Isto esta pronto quando: ${subtask.doneWhen}`].join('\n');
 }
 
-/** Contratos resolvidos em texto: o agente recebe o conteudo, nunca o id. */
-function contractBodies(plan: Plan, subtask: Subtask): string[] {
+/** Contratos resolvidos: o agente recebe o conteudo e o arquivo, nunca o id. */
+function contractsOf(plan: Plan, subtask: Subtask): Contract[] {
   return subtask.inputContracts
     .map((id) => plan.contracts.find((contract) => contract.id === id))
-    .filter((contract): contract is Contract => contract !== undefined)
-    .map((contract) => `${contract.title}\n${contract.body}`);
+    .filter((contract): contract is Contract => contract !== undefined);
 }
 
 /** A unidade de atividade que da para medir nas duas CLIs. */
@@ -353,11 +427,20 @@ export class RunSupervisor {
       baseCommit: check.commit,
       startedAt: Date.now(),
       open: new Map(),
-      agent: null,
-      question: null,
+      agents: new Map(),
+      questions: new Map(),
+      asked: new Map(),
+      prepLock: new Lock(),
+      mergeLock: new Lock(),
       cancelled: false,
+      stopping: false,
       costUsd: 0,
       totalTokens: 0,
+      costByAgent: new Map(),
+      mergeMs: 0,
+      conflictMs: 0,
+      conflicts: 0,
+      conflictCostUsd: 0,
     };
     this.live.set(runId, live);
     return { runId, live };
@@ -407,6 +490,8 @@ export class RunSupervisor {
       event.payload;
     live.costUsd += costUsd;
     live.totalTokens += inputTokens + outputTokens + cacheCreationTokens + cacheReadTokens;
+    const { agentId } = event.payload;
+    live.costByAgent.set(agentId, (live.costByAgent.get(agentId) ?? 0) + costUsd);
   }
 
   /**
@@ -582,10 +667,13 @@ export class RunSupervisor {
   }
 
   /**
-   * Executa o plano em ordem de dependencia, uma subtask por vez.
+   * Executa o plano em ordem de dependencia, ate `MAX_PARALLEL` de cada vez.
    *
-   * `readySubtasks` devolve as liberadas; pegar sempre a primeira e o que
-   * mantem tudo sequencial mesmo quando o grafo permitiria paralelismo.
+   * `readySubtasks` diz o que o grafo liberou; `chooseCoRunnable` diz o que e
+   * seguro largar junto, e as duas coisas nao sao a mesma. Antes de cada lote
+   * partir, os contratos que ele consome viram artefato -- contrato antes de
+   * paralelismo nao e ordem no log, e input que ja esta na mao dos dois quando
+   * eles comecam.
    */
   private async runPlan(
     runId: RunId,
@@ -595,44 +683,80 @@ export class RunSupervisor {
   ): Promise<void> {
     const completed = new Set<string>();
     const published = new Set<string>();
+    const running = new Map<TaskId, Subtask>();
+    const inFlight = new Map<TaskId, Promise<Occupancy>>();
+
+    const startedAt = Date.now();
+    let sequentialMs = 0;
+    let peakParallel = 1;
+    /**
+     * Quem ja esperou por area compartilhada. Conjunto, e nao contador: a mesma
+     * subtask e reavaliada a cada passo que termina, e somar toda vez mediria
+     * quanto tempo ela esperou -- nao quantos passos o plano deixou de
+     * paralelizar, que e o que este numero promete.
+     */
+    const held = new Set<TaskId>();
     let stopped: string | null = null;
 
-    while (completed.size < plan.subtasks.length) {
+    const settle = (done: Occupancy): void => {
+      inFlight.delete(done.taskId);
+      running.delete(done.taskId);
+      sequentialMs += done.totalMs;
+      if (done.outcome.status === 'stop') stopped ??= done.outcome.reason;
+      else completed.add(done.taskId);
+    };
+
+    while (stopped === null && completed.size < plan.subtasks.length) {
       if (live.cancelled) {
         stopped = 'Voce pediu para parar.';
         break;
       }
 
-      const next = readySubtasks(plan, completed)[0];
-      if (next === undefined) {
+      const ready = readySubtasks(plan, completed).filter((subtask) => !running.has(subtask.id));
+      const choice = chooseCoRunnable(ready, [...running.values()], MAX_PARALLEL);
+      for (const esperando of choice.held) held.add(esperando.id);
+
+      // Contrato antes de paralelismo: tudo que o lote consome e publicado
+      // **antes** de qualquer um deles comecar, nunca subtask a subtask.
+      this.publishContracts(runId, live, plan, choice.start, published);
+
+      for (const subtask of choice.start) {
+        running.set(subtask.id, subtask);
+        inFlight.set(subtask.id, this.runSubtask(runId, live, plan, subtask, posture));
+      }
+      peakParallel = Math.max(peakParallel, running.size);
+
+      if (inFlight.size === 0) {
         // O grafo ja foi validado na entrada, entao so chega aqui se algo antes
         // travou sem avisar. Parar e mais honesto que rodar pela metade.
         stopped = 'Sobrou passo esperando outro que nao terminou.';
         break;
       }
 
-      this.publishContracts(runId, live, plan, next, published);
-
-      const outcome = await this.runOne(runId, live, {
-        goal: subtaskPrompt(next),
-        role: next.role,
-        taskId: next.id,
-        allowedPaths: next.allowedPaths,
-        contracts: contractBodies(plan, next),
-        dependsOn: next.dependsOn,
-        gate: next.gate,
-        budget: next.budget,
-        // A postura move o degrau que o sistema recomendou; quem resolve o
-        // alias e o papel, que e quem conhece a CLI.
-        model: modelFor(this.role(next.role), shiftTier(next.modelTier, posture)),
-      });
-
-      if (outcome.status === 'stop') {
-        stopped = outcome.reason;
-        break;
-      }
-      completed.add(next.id);
+      settle(await Promise.race(inFlight.values()));
     }
+
+    // Um passo parou e o plano nao fecha mais: quem ficou no ar nao continua
+    // trabalhando de graca. Cortar antes de esperar e o que evita a pessoa
+    // olhar um agente ocupado numa execucao que ja acabou.
+    if (inFlight.size > 0) {
+      this.halt(live);
+      for (const done of await Promise.all(inFlight.values())) settle(done);
+    }
+
+    this.emit(
+      runId,
+      draft('plan.measured', {
+        wallMs: Date.now() - startedAt,
+        sequentialMs,
+        mergeMs: live.mergeMs,
+        conflictMs: live.conflictMs,
+        conflictCostUsd: live.conflictCostUsd,
+        conflicts: live.conflicts,
+        peakParallel,
+        heldForOverlap: held.size,
+      }),
+    );
 
     let detail: string | undefined;
     if (stopped === null && completed.size > 0) {
@@ -652,32 +776,95 @@ export class RunSupervisor {
   }
 
   /**
+   * Uma subtask do plano, cronometrada de ponta a ponta.
+   *
+   * **Nunca rejeita.** Falha nossa vira desfecho, como ja virava na fila
+   * manual, e aqui isso deixou de ser so estilo: com duas no ar, uma excecao
+   * derrubaria o `Promise.race` e a outra ficaria trabalhando sozinha, fora do
+   * controle de quem ia limpar as copias.
+   */
+  private async runSubtask(
+    runId: RunId,
+    live: LiveRun,
+    plan: Plan,
+    subtask: Subtask,
+    posture: Posture,
+  ): Promise<Occupancy> {
+    const startedAt = Date.now();
+    const since = (): number => Date.now() - startedAt;
+
+    try {
+      const outcome = await this.runOne(runId, live, {
+        goal: subtaskPrompt(subtask),
+        role: subtask.role,
+        taskId: subtask.id,
+        allowedPaths: subtask.allowedPaths,
+        contracts: contractsOf(plan, subtask),
+        dependsOn: subtask.dependsOn,
+        gate: subtask.gate,
+        budget: subtask.budget,
+        // A postura move o degrau que o sistema recomendou; quem resolve o
+        // alias e o papel, que e quem conhece a CLI.
+        model: modelFor(this.role(subtask.role), shiftTier(subtask.modelTier, posture)),
+      });
+      return { taskId: subtask.id, totalMs: since(), outcome };
+    } catch (error) {
+      // A mensagem tecnica fica em `detail`, atras de um clique; a frase
+      // principal continua respondivel por quem nao le codigo.
+      console.error('[run-supervisor] a subtask falhou:', error);
+      this.emit(
+        runId,
+        draft('task.failed', {
+          taskId: subtask.id,
+          agentId: live.plannedBy ?? newAgentId('sistema'),
+          reason: 'Algo deu errado do meu lado neste passo.',
+          detail: error instanceof Error ? (error.stack ?? error.message) : String(error),
+        }),
+      );
+      return {
+        taskId: subtask.id,
+        totalMs: since(),
+        outcome: {
+          status: 'stop',
+          reason: 'Algo deu errado do meu lado e eu parei antes de mexer no seu projeto.',
+        },
+      };
+    }
+  }
+
+  /**
    * Contrato antes de paralelismo: o que liga o trabalho de dois especialistas
-   * entra no log **antes** da primeira subtask que depende dele, nunca depois.
+   * entra no log **antes** do lote que depende dele, nunca depois -- e antes do
+   * lote inteiro, nao antes de cada subtask, senao o segundo especialista
+   * receberia como novidade um combinado que o primeiro ja esta usando.
    */
   private publishContracts(
     runId: RunId,
     live: LiveRun,
     plan: Plan,
-    subtask: Subtask,
+    batch: readonly Subtask[],
     published: Set<string>,
   ): void {
-    for (const id of subtask.inputContracts) {
-      if (published.has(id)) continue;
-      const contract = plan.contracts.find((candidate) => candidate.id === id);
-      if (contract === undefined) continue;
-      published.add(id);
+    for (const subtask of batch) {
+      for (const id of subtask.inputContracts) {
+        if (published.has(id)) continue;
+        const contract = plan.contracts.find((candidate) => candidate.id === id);
+        if (contract === undefined) continue;
+        published.add(id);
 
-      this.emit(
-        runId,
-        draft('contract.published', {
-          contract,
-          publishedBy: live.plannedBy ?? plan.createdBy,
-          unblocks: plan.subtasks
-            .filter((other) => other.inputContracts.includes(id))
-            .map((other) => other.id),
-        }),
-      );
+        this.emit(
+          runId,
+          draft('contract.published', {
+            // O caminho onde ele vai estar dentro de cada copia viaja junto: o
+            // artefato e o mesmo arquivo para os dois especialistas.
+            contract: { ...contract, path: contractPath(contract) },
+            publishedBy: live.plannedBy ?? plan.createdBy,
+            unblocks: plan.subtasks
+              .filter((other) => other.inputContracts.includes(id))
+              .map((other) => other.id),
+          }),
+        );
+      }
     }
   }
 
@@ -744,7 +931,14 @@ export class RunSupervisor {
 
     // Preparar antes de o agente comecar, e nao antes do portao: assim ele
     // tambem consegue rodar a verificacao por conta propria enquanto trabalha.
-    const prepared = await this.prep.prepare(worktree, this.depsCache(runId));
+    //
+    // Uma copia de cada vez, mesmo com dois agentes no ar: a primeira instala
+    // de verdade e semeia o cache da execucao, e as seguintes saem dele por
+    // hardlink. Deixar as duas instalarem em paralelo pagaria a instalacao
+    // duas vezes para escrever a mesma pasta.
+    const prepared = await live.prepLock.run(() =>
+      this.prep.prepare(worktree, this.depsCache(runId)),
+    );
     if (prepared.status === 'failed') {
       // Nao ha o que o agente conserte aqui, entao nem chega a comecar.
       this.emit(
@@ -756,6 +950,11 @@ export class RunSupervisor {
       await this.discard(runId, live, agentId, worktree);
       return { status: 'stop', reason: prepared.summary };
     }
+    // O contrato vira arquivo na copia **antes** de o agente comecar. Texto
+    // colado no prompt some do contexto quando a conversa cresce; um arquivo
+    // ele reabre, e e o mesmo byte na copia do outro especialista.
+    await materializeContracts(worktree.path, unit.contracts);
+
     // O teto vale pela subtask inteira, nao por tentativa: senao "trinta
     // turnos" viraria trinta por tentativa, e o limite deixaria de ser limite.
     this.budget.start(agentId, unit.budget, taskId);
@@ -784,7 +983,18 @@ export class RunSupervisor {
         return { status: 'ok' };
       }
 
-      return await this.integrate(runId, live, { agentId, taskId, worktree, title: unit.goal });
+      // Integrar e uma de cada vez sempre: o repositorio da pessoa e um so, e
+      // um merge em curso e estado global -- dois ao mesmo tempo nao existe.
+      // E aqui que o paralelismo volta a virar fila, e por isso e este tempo
+      // que a medida separa do resto.
+      const mergeStartedAt = Date.now();
+      try {
+        return await live.mergeLock.run(() =>
+          this.integrate(runId, live, { agentId, taskId, worktree, title: unit.goal }),
+        );
+      } finally {
+        live.mergeMs += Date.now() - mergeStartedAt;
+      }
     } finally {
       this.budget.release(agentId);
     }
@@ -822,7 +1032,7 @@ export class RunSupervisor {
         cwd: worktree.path,
         prompt,
         allowedPaths: [...unit.allowedPaths],
-        contracts: [...unit.contracts],
+        contracts: unit.contracts.map(contractBrief),
         // O que sobrou, nao o teto cheio: quem gastou vinte turnos na primeira
         // tentativa nao recomeca com trinta.
         budget: this.budget.remaining(agentId),
@@ -831,7 +1041,10 @@ export class RunSupervisor {
       });
 
       const { outcome, tripped } = await this.pump(runId, live, run, agentId, taskId);
-      if (live.cancelled) return { status: 'stop', reason: 'Voce pediu para parar.' };
+      // Parada da pessoa ou de outro passo do plano: nos dois casos nao ha o
+      // que escalar. Escalar aqui abriria uma pergunta sobre um trabalho que
+      // ninguem vai mais integrar.
+      if (halted(live)) return { status: 'stop', reason: haltReason(live) };
       session = sessionOf(outcome) ?? session;
 
       const cause = blockCauseOf(outcome, tripped);
@@ -1081,7 +1294,9 @@ export class RunSupervisor {
     agentId: AgentId,
     taskId: TaskId,
   ): Promise<{ outcome: AgentOutcome; tripped: BudgetVerdict | null }> {
-    live.agent = run;
+    live.agents.set(agentId, run);
+    // Uma execucao que ja esta parando nao ganha um agente novo trabalhando.
+    if (halted(live)) run.cancel(haltReason(live));
     let tripped: BudgetVerdict | null = null;
 
     const trip = (verdict: BudgetVerdict, ...events: AnyEventDraft[]): void => {
@@ -1095,6 +1310,13 @@ export class RunSupervisor {
     try {
       for await (const event of run) {
         this.track(runId, event);
+        // A CLI suspendeu o agente para perguntar. Guardar de quem e a pergunta
+        // e o que permite entregar a resposta ao agente certo quando ha dois no
+        // ar -- entregar ao outro destravaria quem nao perguntou.
+        if (event.type === 'human.question_raised' && event.payload.askedBy === agentId) {
+          live.asked.set(event.payload.questionId, run);
+        }
+        if (event.type === 'human.answered') live.asked.delete(event.payload.questionId);
         if (tripped !== null) continue;
 
         // O que o proprio adaptador ja detectou tambem para a execucao: o
@@ -1148,7 +1370,10 @@ export class RunSupervisor {
     } catch (error) {
       console.error('[run-supervisor] o stream do agente falhou:', error);
     } finally {
-      live.agent = null;
+      live.agents.delete(agentId);
+      for (const [questionId, waiting] of [...live.asked]) {
+        if (waiting === run) live.asked.delete(questionId);
+      }
     }
     return { outcome: await run.outcome, tripped };
   }
@@ -1197,6 +1422,17 @@ export class RunSupervisor {
   ): Promise<{ readonly status: 'ok' } | { readonly status: 'stop'; readonly reason: string }> {
     const { agentId, taskId, worktree, files } = conflict;
     const lista = files.slice(0, 3).join(', ');
+    // O que desfazer colisao custou, separado do merge limpo: fila sequencial
+    // tambem paga merge, mas so paralelismo cria colisao -- e e essa parte que
+    // diz se a etapa de contrato fez o trabalho dela.
+    const conflictStartedAt = Date.now();
+    live.conflicts += 1;
+    /** Quem desfaz a colisao, quando chega a existir um. */
+    let resolver: AgentId | null = null;
+    const chargeConflict = (): void => {
+      live.conflictMs += Date.now() - conflictStartedAt;
+      if (resolver !== null) live.conflictCostUsd += live.costByAgent.get(resolver) ?? 0;
+    };
 
     this.emit(
       runId,
@@ -1213,6 +1449,7 @@ export class RunSupervisor {
     if (decision.action !== 'ask') {
       await this.worktrees.abortMerge(live.projectPath);
       await this.discard(runId, live, agentId, worktree);
+      chargeConflict();
       return { status: 'stop', reason: `Parei sem juntar o trabalho em ${lista}.` };
     }
 
@@ -1230,6 +1467,7 @@ export class RunSupervisor {
       // Desfaz o merge: o repositorio volta exatamente como estava.
       await this.worktrees.abortMerge(live.projectPath);
       await this.discard(runId, live, agentId, worktree);
+      chargeConflict();
       return {
         status: 'stop',
         reason: `Parei sem juntar: ${lista} foi editado por dois agentes e a decisao e sua.`,
@@ -1240,6 +1478,7 @@ export class RunSupervisor {
     const adapter = await this.adapterFor(manager.adapter);
 
     const resolverId = newAgentId(manager.id);
+    resolver = resolverId;
     const run = adapter.start({
       agentId: resolverId,
       role: manager.id,
@@ -1258,6 +1497,7 @@ export class RunSupervisor {
     if (outcome.status !== 'completed') {
       await this.worktrees.abortMerge(live.projectPath);
       await this.discard(runId, live, agentId, worktree);
+      chargeConflict();
       return {
         status: 'stop',
         reason: `Nao consegui juntar os dois trabalhos em ${lista}: ${outcomeReason(outcome)}`,
@@ -1274,6 +1514,7 @@ export class RunSupervisor {
     if (!closed.ok) {
       await this.worktrees.abortMerge(live.projectPath);
       await this.discard(runId, live, agentId, worktree);
+      chargeConflict();
       return {
         status: 'stop',
         reason: `O agente disse que juntou, mas ${closed.files.join(', ')} continua pela metade. Desfiz e nao mudei nada.`,
@@ -1288,6 +1529,7 @@ export class RunSupervisor {
       }),
     );
     await this.remove(runId, live, agentId, worktree, 'merged');
+    chargeConflict();
     return { status: 'ok' };
   }
 
@@ -1321,13 +1563,18 @@ export class RunSupervisor {
     );
 
     return new Promise<string>((resolve) => {
-      live.question = {
+      const pending: PendingQuestion = {
         questionId,
         resolve: (choice) => {
+          live.questions.delete(questionId);
           this.emit(runId, draft('human.answered', { questionId, answer: choice, optionId: choice }));
           resolve(choice);
         },
       };
+      live.questions.set(questionId, pending);
+      // Perguntar durante uma parada seria esperar para sempre por alguem que
+      // ja foi embora. A pergunta ja esta no log; a resposta e "parar".
+      if (halted(live)) pending.resolve(OPTION_STOP);
     });
   }
 
@@ -1369,15 +1616,20 @@ export class RunSupervisor {
 
     // A pergunta do supervisor vem primeiro: ela e sobre a execucao inteira,
     // nao sobre o que o agente esta fazendo agora.
-    const waiting = live.question;
-    if (waiting !== null && waiting.questionId === questionId) {
-      live.question = null;
+    const waiting = live.questions.get(questionId);
+    if (waiting !== undefined) {
+      live.questions.delete(questionId);
       waiting.resolve(optionId ?? answer);
       return true;
     }
 
-    if (live.agent === null) return false;
-    live.agent.answer(answer, optionId);
+    // A resposta vai para **quem perguntou**, e nunca para "o agente": com dois
+    // no ar, mandar ao errado destrava quem nao perguntou e pendura quem
+    // perguntou, e nada na tela explicaria por que.
+    const asked = live.asked.get(questionId);
+    if (asked === undefined) return false;
+    live.asked.delete(questionId);
+    asked.answer(answer, optionId);
     return true;
   }
 
@@ -1386,11 +1638,23 @@ export class RunSupervisor {
     if (live === undefined) return false;
 
     live.cancelled = true;
-    live.agent?.cancel(reason);
-    // Uma pergunta aberta viraria espera eterna: parar e a resposta.
-    live.question?.resolve(OPTION_STOP);
-    live.question = null;
+    this.halt(live, reason);
     return true;
+  }
+
+  /**
+   * Corta todo mundo que ainda esta no ar e nao deixa pergunta aberta.
+   *
+   * Serve para a pessoa mandar parar e para um passo do plano ter parado
+   * sozinho: nos dois casos o resto do trabalho ja nao vai ser integrado, e
+   * agente rodando sem destino gasta dinheiro de quem esta olhando.
+   */
+  private halt(live: LiveRun, reason?: string): void {
+    live.stopping = true;
+    const why = reason ?? haltReason(live);
+    for (const run of live.agents.values()) run.cancel(why);
+    // Pergunta aberta viraria espera eterna: parar e a resposta.
+    for (const pending of [...live.questions.values()]) pending.resolve(OPTION_STOP);
   }
 
   /** Janela fechando: nao deixa subprocesso orfao rodando no computador. */
@@ -1398,6 +1662,16 @@ export class RunSupervisor {
     for (const [runId] of this.live) this.cancel(runId, 'O aplicativo foi fechado.');
   }
 }
+
+/**
+ * A execucao ainda esta valendo? Parada da pessoa e parada do sistema chegam
+ * por caminhos diferentes e significam a mesma coisa daqui pra frente: nao
+ * escale, nao pergunte, nao integre.
+ */
+const halted = (live: LiveRun): boolean => live.cancelled || live.stopping;
+
+const haltReason = (live: LiveRun): string =>
+  live.cancelled ? 'Voce pediu para parar.' : 'Outro passo do plano parou antes deste terminar.';
 
 /** O que o feed conta enquanto o agente tenta de novo por conta propria. */
 function retryNote(cause: BlockCause): string {

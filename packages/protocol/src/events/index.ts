@@ -12,6 +12,7 @@ import { workEventPayloads } from './work';
 import { worktreeEventPayloads } from './worktree';
 
 export { blockCauseSchema, type BlockCause } from './human';
+export { parallelismGain, type ParallelismMeasure } from './plan';
 
 /** Versao do formato do envelope. Muda so em quebra incompativel. */
 export const SCHEMA_VERSION = 1 as const;
@@ -81,6 +82,7 @@ export const eventSchema = z.discriminatedUnion('type', [
   envelope('plan.created'),
   envelope('plan.revised'),
   envelope('contract.published'),
+  envelope('plan.measured'),
   envelope('agent.spawned'),
   envelope('agent.state_changed'),
   envelope('agent.despawned'),
@@ -116,6 +118,7 @@ export const eventDraftSchema = z.discriminatedUnion('type', [
   unsealed('plan.created'),
   unsealed('plan.revised'),
   unsealed('contract.published'),
+  unsealed('plan.measured'),
   unsealed('agent.spawned'),
   unsealed('agent.state_changed'),
   unsealed('agent.despawned'),

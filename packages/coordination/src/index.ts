@@ -1,5 +1,17 @@
 export { discoverGates, defaultGate, installCommand, type AvailableGate } from './project-context';
 export { AgentPlanner, type AgentPlannerOptions } from './agent-planner';
+export {
+  CONTRACTS_DIR,
+  contractBrief,
+  contractPath,
+  materializeContracts,
+} from './contract-artifact';
+export {
+  areasCollide,
+  chooseCoRunnable,
+  pathsOverlap,
+  type CoRunChoice,
+} from './co-run';
 export { extractJson, parseJsonLoosely } from './extract-json';
 export { buildPlanPrompt, type PromptInput } from './prompt';
 export type { PlanRequest, PlanResult, Planner, ProjectContext } from './planner';

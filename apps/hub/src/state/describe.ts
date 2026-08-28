@@ -1,4 +1,4 @@
-import type { AnyEvent } from '@office/protocol';
+import { parallelismGain, type AnyEvent } from '@office/protocol';
 
 export type Tone = 'neutral' | 'good' | 'warn' | 'bad' | 'ask';
 
@@ -43,6 +43,25 @@ export function describeEvent(event: AnyEvent): FeedItem {
       return item(`Plano ajustado: ${event.payload.reason}`, 'warn');
     case 'contract.published':
       return item(`Combinado antes de dividir o trabalho: ${event.payload.contract.title}`, 'good');
+    case 'plan.measured': {
+      const { savedMs, worthIt } = parallelismGain(event.payload);
+      if (event.payload.peakParallel < 2) {
+        return item('Os passos correram um de cada vez: nenhum par podia dividir o projeto.');
+      }
+      // A frase diz o que a pessoa ganhou, nunca quantos processos rodaram.
+      return worthIt
+        ? item(`Trabalhando em dupla, ${segundos(savedMs)} a menos de espera`, 'good')
+        : item(
+            `Trabalhar em dupla nao compensou desta vez: juntar custou mais que correr junto`,
+            'warn',
+            [
+              `economizado: ${segundos(savedMs)}`,
+              `juntando: ${segundos(event.payload.mergeMs)}`,
+              `desfazendo colisao: ${segundos(event.payload.conflictMs)} em ${event.payload.conflicts}`,
+              `passos que esperaram por area compartilhada: ${event.payload.heldForOverlap}`,
+            ].join('\n'),
+          );
+    }
 
     case 'agent.spawned':
       return item(`${event.payload.displayName} entrou no escritorio`);
@@ -162,6 +181,18 @@ const GATE_LABEL = {
 const CHANGE_LABEL = { created: 'Criou', modified: 'Mudou', deleted: 'Apagou' } as const;
 
 const BUDGET_LABEL = { turns: 'tentativas', time: 'tempo', cost: 'custo' } as const;
+
+/**
+ * Duracao como gente fala. Milissegundo nao diz nada para quem esta esperando:
+ * o que importa e se foram segundos ou minutos.
+ */
+function segundos(ms: number): string {
+  if (ms < 1_000) return 'menos de um segundo';
+  if (ms < 60_000) return `${Math.round(ms / 1_000)}s`;
+  const minutos = Math.floor(ms / 60_000);
+  const resto = Math.round((ms % 60_000) / 1_000);
+  return resto === 0 ? `${minutos}min` : `${minutos}min ${resto}s`;
+}
 
 /**
  * Custo em dolar, como se le em portugues. Passo pequeno custa fracao de

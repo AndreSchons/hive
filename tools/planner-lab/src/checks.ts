@@ -1,5 +1,5 @@
 import type { Plan, Roster, Subtask } from '@office/protocol';
-import type { AvailableGate } from '@office/coordination';
+import { chooseCoRunnable, pathsOverlap, type AvailableGate } from '@office/coordination';
 
 /**
  * O que da para medir sem opiniao.
@@ -18,7 +18,7 @@ export interface PlanReport {
   readonly contracts: number;
   /** Maior corrente de dependencias. 1 = tudo solto, N = tudo em fila. */
   readonly depth: number;
-  /** Quantas poderiam rodar juntas na primeira leva. */
+  /** Quantas o executor larga juntas na primeira leva -- a conta dele, nao uma estimativa. */
   readonly firstWave: number;
   readonly findings: readonly Finding[];
 }
@@ -41,7 +41,7 @@ export function checkPlan({ plan, roster, gates }: CheckInput): PlanReport {
     subtasks: plan.subtasks.length,
     contracts: plan.contracts.length,
     depth: depthOf(plan),
-    firstWave: plan.subtasks.filter((subtask) => subtask.dependsOn.length === 0).length,
+    firstWave: firstWaveOf(plan),
     findings,
   };
 }
@@ -73,9 +73,28 @@ function inventedGates(plan: Plan, gates: readonly AvailableGate[]): Finding[] {
 }
 
 /**
+ * Quantas subtasks partem juntas de verdade.
+ *
+ * Contar as sem dependencia superestimava: o grafo libera, mas quem decide e o
+ * executor, e ele segura quem mexe na area de quem ja esta rodando. Chamar a
+ * funcao dele e o que faz este numero prever a execucao em vez de descrever o
+ * grafo.
+ */
+function firstWaveOf(plan: Plan): number {
+  const soltas = plan.subtasks.filter((subtask) => subtask.dependsOn.length === 0);
+  // Sem teto: aqui a pergunta e quantas o plano **permite**, nao quantas cabem
+  // nos lugares que o app abriu -- esse limite muda e o plano nao.
+  return chooseCoRunnable(soltas, [], soltas.length).start.length;
+}
+
+/**
  * A checagem que mais importa: subtasks sem dependencia entre si que declaram o
- * mesmo caminho. Elas podem rodar juntas, e vao colidir no merge. E o preditor
- * direto do conflito que o resto do sistema existe para detectar e parar.
+ * mesmo caminho.
+ *
+ * Elas poderiam rodar juntas e nao vao: o executor poe na fila quem se encosta,
+ * justamente para nao adiantar o conflito de merge. Entao isto nao aponta um
+ * bug -- aponta paralelismo que o plano deixou na mesa, e e o sinal de que
+ * faltou contrato ou faltou separar melhor as areas.
  */
 function pathCollisions(plan: Plan): Finding[] {
   const findings: Finding[] = [];
@@ -84,12 +103,12 @@ function pathCollisions(plan: Plan): Finding[] {
     for (const other of plan.subtasks.slice(index + 1)) {
       if (related(plan, one, other)) continue;
       const shared = one.allowedPaths.filter((path) =>
-        other.allowedPaths.some((candidate) => overlaps(path, candidate)),
+        other.allowedPaths.some((candidate) => pathsOverlap(path, candidate)),
       );
       if (shared.length > 0) {
         findings.push({
           level: 'aviso',
-          message: `"${one.id}" e "${other.id}" nao dependem uma da outra mas dividem ${shared.join(', ')}`,
+          message: `"${one.id}" e "${other.id}" nao dependem uma da outra mas dividem ${shared.join(', ')}: vao rodar em fila`,
         });
       }
     }
@@ -99,17 +118,12 @@ function pathCollisions(plan: Plan): Finding[] {
   if (semCaminho.length > 1) {
     findings.push({
       level: 'aviso',
-      message: `${semCaminho.length} subtasks sem allowedPaths: nao da para saber se vao colidir`,
+      // Sem area declarada o agente pode mexer em qualquer lugar, e o executor
+      // nao aposta: elas nunca correm juntas.
+      message: `${semCaminho.length} subtasks sem allowedPaths: nenhuma delas vai rodar em paralelo`,
     });
   }
   return findings;
-}
-
-/** Um caminho contem o outro, ou sao o mesmo. */
-function overlaps(one: string, other: string): boolean {
-  const a = one.replace(/\/+$/, '');
-  const b = other.replace(/\/+$/, '');
-  return a === b || a.startsWith(`${b}/`) || b.startsWith(`${a}/`);
 }
 
 /** Uma alcanca a outra pelo grafo? Entao nunca rodam ao mesmo tempo. */

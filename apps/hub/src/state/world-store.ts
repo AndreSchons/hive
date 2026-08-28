@@ -37,7 +37,7 @@ interface HubState {
   startRun(): Promise<void>;
   startPlannedRun(goal: string): Promise<void>;
   startSimulation(goal: string): Promise<void>;
-  answerQuestion(answer: string, optionId?: string): Promise<void>;
+  answerQuestion(questionId: string, answer: string, optionId?: string): Promise<void>;
   dismissFailure(): void;
   ingest(events: readonly AnyEvent[]): void;
   subscribe(): () => void;
@@ -162,13 +162,15 @@ export const useHub = create<HubState>((set, get) => ({
     if (!response.ok) set({ failure: response.error });
   },
 
-  async answerQuestion(answer: string, optionId?: string) {
+  async answerQuestion(questionId: string, answer: string, optionId?: string) {
     const { world } = get();
-    if (world.runId === null || world.question === null) return;
+    // O id vem de quem esta na tela, e nao de "a pergunta aberta": com duas na
+    // fila, responder pela posicao entregaria a resposta a outra pergunta.
+    if (world.runId === null) return;
 
     const response = await invoke('human.answer', {
       runId: world.runId,
-      questionId: world.question.questionId,
+      questionId,
       answer,
       ...(optionId === undefined ? {} : { optionId }),
     });

@@ -44,15 +44,15 @@ describe('applyEvent', () => {
   it('deixa a pergunta pendente quando o agente trava', () => {
     const world = applyAll(emptyWorld, beforeBlock);
 
-    expect(world.question).not.toBeNull();
-    expect(world.question?.options.length).toBeGreaterThanOrEqual(2);
+    expect(world.questions).toHaveLength(1);
+    expect(world.questions[0]?.options.length).toBeGreaterThanOrEqual(2);
     expect(world.agents[script.frontend]?.state).toBe('blocked');
   });
 
   it('limpa a pergunta quando a resposta chega pelo log', () => {
     const world = applyAll(applyAll(emptyWorld, beforeBlock), afterAnswer);
 
-    expect(world.question).toBeNull();
+    expect(world.questions).toHaveLength(0);
     expect(world.status).toBe('completed');
     expect(world.agents[script.frontend]?.state).toBe('done');
   });

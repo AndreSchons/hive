@@ -31,11 +31,19 @@ Como um bom plano se parece:
   "escrever os testes" e uma divisao ruim: os dois mexem nos mesmos arquivos e
   vao colidir. Use \`allowedPaths\` para declarar onde cada uma mexe, e faca com
   que subtasks sem dependencia entre si **nao compartilhem caminho**.
+- **\`allowedPaths\` decide o que roda ao mesmo tempo.** Duas subtasks sem
+  dependencia entre si e com caminhos que nao se encostam sao executadas em
+  paralelo; se os caminhos se cruzam -- ou se voce deixa \`allowedPaths\` vazio --
+  elas entram na fila, uma depois da outra. Declarar area errada e pior que nao
+  declarar: dois agentes mexendo no mesmo arquivo param a execucao inteira para
+  a pessoa desempatar.
 - **Contrato antes de paralelismo.** Se duas subtasks independentes precisam
   concordar sobre tipos, assinaturas, rotas ou schema, publique isso em
   \`contracts\` e cite o id em \`inputContracts\` das duas. O contrato traz o
   conteudo de verdade (as assinaturas, os tipos), nao uma promessa de defini-lo
-  depois.
+  depois -- ele vira um arquivo dentro da copia de cada especialista antes de
+  qualquer um comecar, e e a unica coisa que os dois vao ter em comum enquanto
+  trabalham separados.
 - **Todo portao e um comando que existe neste projeto** e que devolve 0 quando
   passa. Nao invente comando: use os que forem listados abaixo. Nenhum agente
   aprova o proprio trabalho, entao portao nao e opcional.

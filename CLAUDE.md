@@ -19,7 +19,9 @@ trava. Escalonamento e a experiencia principal, nao um caminho de erro.
   do gerente, nunca efeito colateral.
 - **Contrato antes de paralelismo.** Antes de dois especialistas partirem em
   paralelo, o gerente publica os contratos que ligam o trabalho deles. Esse
-  artefato entra como input obrigatorio de cada subtask paralela.
+  artefato entra como input obrigatorio de cada subtask paralela -- publicado
+  para o **lote inteiro** antes de qualquer um comecar, e materializado como
+  arquivo dentro de cada copia, nao so colado no prompt.
 - **Nenhum agente aprova o proprio trabalho.** Toda subtask tem portao de
   verificacao objetivo (`typecheck`, `build`, `test`, `lint`). "Terminei" sem
   portao verde nao e entrega aceita.
@@ -410,13 +412,85 @@ arvore suja e pasta sem repositorio sao **respostas**, nunca excecoes.
 Conflito nunca e resolvido sozinho: o sistema para, emite `worktree.conflict` e
 pergunta. So depois de a pessoa autorizar e que um agente e mandado juntar.
 
+## Dois especialistas ao mesmo tempo
+
+`MAX_PARALLEL` e **dois**, e nao "quantos o grafo permitir". Cada copia a mais
+paga instalacao, portao e merge, e o merge e justamente a parte que nao
+paraleliza: o repositorio da pessoa e um so. Dois ja transforma soma em caminho
+critico no caso que importa -- duas areas independentes do plano -- e mantem a
+colisao possivel de explicar: quando duas copias se cruzam, sao **estas duas**.
+
+- **O grafo diz o que esta liberado; `chooseCoRunnable` diz o que e seguro
+  largar junto.** Duas subtasks sem dependencia entre si podem mexer na mesma
+  pasta, e ai o conflito nao e azar -- e consequencia previsivel, e ja e o
+  preditor que `tools/planner-lab/checks.ts` mede. Entao **so correm juntas
+  subtasks cujas `allowedPaths` nao se encostam**.
+- **`allowedPaths` vazio quer dizer "sem restricao", que encosta em todo mundo.**
+  Plano que declara suas areas ganha paralelismo; plano que nao declara continua
+  na fila, em vez de o sistema apostar no escuro. E deliberado, e e o que faz
+  `allowedPaths` valer alguma coisa alem de documentacao.
+- **Sobreposicao e por segmento, nunca por texto.** `src/api` cobre
+  `src/api/rotas.ts` e nao cobre `src/apiv2`; comparar string crua poria em fila
+  duas pastas que nunca se cruzam. A funcao e uma so (`pathsOverlap`), e o
+  harness do gerente usa a mesma -- duas copias divergiriam e o harness passaria
+  a prever uma execucao que nao acontece.
+- **Contrato antes de paralelismo virou literal.** Os contratos que o lote
+  consome sao publicados antes de **qualquer** um dos dois comecar, e
+  `materializeContracts` escreve cada um em `.office/contratos/` dentro das duas
+  copias. Texto colado no prompt some do contexto quando a conversa cresce; um
+  arquivo o agente reabre, e e o mesmo byte nos dois lados. `commitAll` tira
+  `.office/` do indice pela mesma razao que tira `node_modules`: andaime do app
+  nao vira commit no projeto de quem so pediu uma tarefa.
+- **Tres coisas voltam a ser fila mesmo com dois agentes.** Preparar a copia
+  (`prepLock`), porque a primeira instala e semeia o cache que as outras
+  replicam por hardlink -- duas instalando ao mesmo tempo pagariam duas vezes
+  para escrever a mesma pasta. Integrar (`mergeLock`), porque merge em curso e
+  estado global do repositorio. E responder pergunta: o hub mostra uma de cada
+  vez e enfileira o resto.
+- **A resposta vai para quem perguntou.** `live.asked` guarda de qual agente e
+  cada `questionId`, tirado do `askedBy` que o adaptador ja emite. Com um agente
+  so dava para mandar para "o agente"; com dois, entregar ao errado destrava
+  quem nao perguntou e pendura quem perguntou, sem nada na tela explicando.
+- **Um passo que para corta os outros.** `halt` cancela quem esta no ar e
+  resolve as perguntas abertas, e `deliver` para de escalar -- escalar ali
+  abriria uma pergunta sobre trabalho que ninguem vai integrar. E por isso que
+  `stopping` existe separado de `cancelled`: os dois cortam, mas so um foi a
+  pessoa que pediu, e `close` reporta desfecho diferente.
+
+### Se compensou ou nao
+
+`plan.measured` sai **uma vez por plano executado, inclusive quando a execucao
+parou no meio** -- medida so serve se existir tambem no dia em que deu errado.
+
+O criterio nao e "rodou junto", e **sobrou tempo**. `sequentialMs` e a soma do
+que cada subtask ocupou de ponta a ponta (copia, agente, portao e integracao),
+que e o que este mesmo plano teria custado um de cada vez; `wallMs` e o relogio
+de parede. A diferenca e a economia, e `parallelismGain` compara com `mergeMs`:
+**juntar custou mais do que correr junto rendeu? Entao quem falhou foi a etapa
+de contrato**, nao a ideia de paralelizar -- os dois especialistas nao estavam
+de acordo sobre o que cada um ia mexer.
+
+- `mergeMs` inclui **esperar a vez** no `mergeLock`. E cobranca certa: essa
+  espera e o preco de o repositorio ser um so, e some numa fila sequencial.
+- `conflictMs` sai separado porque fila sequencial tambem paga merge limpo. So
+  paralelismo cria colisao, entao e essa parte que responde pelo contrato.
+- `conflictCostUsd` vem de `costByAgent[resolvedor]`, e nao da diferenca do
+  total da execucao: entre o inicio e o fim de uma resolucao o **outro**
+  especialista tambem gastou, e a diferenca do total cobraria dele.
+- `heldForOverlap` conta subtasks distintas, nao esperas. A mesma subtask e
+  reavaliada a cada passo que termina, e somar toda vez mediria quanto tempo ela
+  esperou -- nao quantos passos o plano deixou de paralelizar.
+
 ## O que ainda nao existe
 
-Personagens, animacoes e pathfinding no 3D. Paralelismo: o gerente monta o
-grafo, mas o executor pega sempre a primeira subtask liberada e roda uma de cada
-vez, e `Assigner` continua so como tipo. Replanejamento automatico depois de
-subtask que falha (`Planner.revise` existe e ninguem chama ainda). Autenticacao.
-Empacotamento para distribuicao.
+Personagens, animacoes e pathfinding no 3D. `Assigner` continua so como tipo: o
+executor paralelo mora no supervisor e usa `chooseCoRunnable` direto.
+Replanejamento automatico depois de subtask que falha (`Planner.revise` existe e
+ninguem chama ainda). Autenticacao. Empacotamento para distribuicao.
+
+A fila que a pessoa monta a mao continua sequencial: ela nao passa por plano,
+entao nao tem `allowedPaths`, e sem area declarada nada corre junto de qualquer
+jeito.
 
 O portao roda uma verificacao por subtask, a que o plano declarou -- rodar
 `typecheck` **e** `test` na mesma entrega precisaria de uma lista no schema, e
@@ -431,9 +505,10 @@ que vale, esta medido em `tools/planner-lab/BASELINE.md`:
    gerente e passado num `AgentRunRequest.context` novo, evita N reexploracoes
    do mesmo repositorio. Tem risco proprio: um brief errado contamina todas as
    subtasks de uma vez.
-2. **Paralelismo**, que transforma soma em caminho critico.
-3. **Subir de modelo quando o portao reprova**, em vez de repetir o mesmo --
+2. **Subir de modelo quando o portao reprova**, em vez de repetir o mesmo --
    encaixa direto em `EscalationDecision.retry`.
+3. **Mais de dois agentes ao mesmo tempo**, se `plan.measured` mostrar que o
+   merge nao vira o gargalo antes disso.
 
 `dev.simulate` deixou de ser o unico jeito de ver gerente e contrato -- agora o
 modo planejado faz isso com CLI de verdade. O roteiro do simulador continua util

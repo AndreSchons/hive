@@ -1,4 +1,11 @@
-import type { AgentState, AnyEvent, BlockCause, Contract, Plan } from '@office/protocol';
+import type {
+  AgentState,
+  AnyEvent,
+  BlockCause,
+  Contract,
+  ParallelismMeasure,
+  Plan,
+} from '@office/protocol';
 import { describeEvent, type FeedItem } from './describe';
 
 export interface AgentView {
@@ -50,7 +57,15 @@ export interface WorldState {
   readonly tasks: Readonly<Record<string, TaskView>>;
   readonly plan: Plan | null;
   readonly contracts: readonly Contract[];
-  readonly question: PendingQuestion | null;
+  /**
+   * Perguntas abertas, na ordem em que chegaram. E lista, e nao uma so, porque
+   * dois especialistas podem travar ao mesmo tempo -- e a segunda pergunta,
+   * guardada num campo unico, sumiria da tela deixando um agente parado para
+   * sempre sem nada explicando por que.
+   */
+  readonly questions: readonly PendingQuestion[];
+  /** O que a medida de paralelismo do ultimo plano disse. */
+  readonly parallelism: ParallelismMeasure | null;
   /**
    * O que esta execucao gastou ate agora, somado dos `agent.usage`. Fica no
    * mundo, e nao so no evento de fechamento, para a pessoa acompanhar enquanto
@@ -72,7 +87,8 @@ export const emptyWorld: WorldState = {
   tasks: {},
   plan: null,
   contracts: [],
-  question: null,
+  questions: [],
+  parallelism: null,
   costUsd: 0,
   totalTokens: 0,
   feed: [],
@@ -101,9 +117,9 @@ export function applyEvent(state: WorldState, event: AnyEvent): WorldState {
     case 'run.started':
       return { ...base, status: 'running', goal: event.payload.goal };
     case 'run.completed':
-      return { ...base, status: 'completed', question: null };
+      return { ...base, status: 'completed', questions: [] };
     case 'run.failed':
-      return { ...base, status: 'failed', question: null };
+      return { ...base, status: 'failed', questions: [] };
 
     case 'plan.created':
       return { ...base, plan: event.payload.plan, tasks: seedTasks(event.payload.plan) };
@@ -111,6 +127,8 @@ export function applyEvent(state: WorldState, event: AnyEvent): WorldState {
       return { ...base, plan: event.payload.plan, tasks: { ...seedTasks(event.payload.plan), ...base.tasks } };
     case 'contract.published':
       return { ...base, contracts: [...base.contracts, event.payload.contract] };
+    case 'plan.measured':
+      return { ...base, parallelism: event.payload };
 
     case 'agent.spawned': {
       const { agentId, role, displayName, adapter, worktreePath, branch } = event.payload;
@@ -182,18 +200,27 @@ export function applyEvent(state: WorldState, event: AnyEvent): WorldState {
 
     case 'human.question_raised': {
       const { questionId, question, context, cause, options, allowFreeText, askedBy } = event.payload;
+      // Repetida nao entra duas vezes: a mesma pergunta pode reaparecer num
+      // replay do log, e a fila nao pode crescer por causa disso.
+      if (base.questions.some((open) => open.questionId === questionId)) return base;
       return {
         ...base,
-        question: {
-          questionId, question, context, cause,
-          options: [...options],
-          allowFreeText,
-          askedBy: askedBy ?? null,
-        },
+        questions: [
+          ...base.questions,
+          {
+            questionId, question, context, cause,
+            options: [...options],
+            allowFreeText,
+            askedBy: askedBy ?? null,
+          },
+        ],
       };
     }
     case 'human.answered':
-      return base.question?.questionId === event.payload.questionId ? { ...base, question: null } : base;
+      return {
+        ...base,
+        questions: base.questions.filter((open) => open.questionId !== event.payload.questionId),
+      };
 
     case 'worktree.created':
       return withAgent(base, event.payload.agentId, (agent) => ({
