@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   findCycle,
+  planDraftSchema,
+  planJsonSchema,
   newAgentId,
   newContractId,
   newGateId,
@@ -119,5 +121,62 @@ describe('readySubtasks', () => {
     expect(readySubtasks(parsed, new Set()).map((s) => s.id)).toEqual(['a']);
     expect(readySubtasks(parsed, new Set(['a'])).map((s) => s.id)).toEqual(['b', 'c']);
     expect(readySubtasks(parsed, new Set(['a', 'b', 'c']))).toEqual([]);
+  });
+});
+
+describe('planDraftSchema', () => {
+  /** O rascunho do modelo: sem id de portao e sem orcamento. */
+  function rascunho(id: string, overrides: Record<string, unknown> = {}) {
+    return {
+      id,
+      title: `Subtask ${id}`,
+      description: `Faca ${id}`,
+      role: 'backend',
+      doneWhen: 'o portao passa',
+      gate: { kind: 'typecheck', command: 'pnpm typecheck' },
+      ...overrides,
+    };
+  }
+
+  it('aceita id em slug, que e o que o modelo escreve', () => {
+    const parsed = planDraftSchema.parse({
+      subtasks: [rascunho('schema-do-login'), rascunho('tela-do-login', { dependsOn: ['schema-do-login'] })],
+    });
+    expect(parsed.subtasks.map((subtask) => subtask.id)).toEqual(['schema-do-login', 'tela-do-login']);
+  });
+
+  it('recusa ciclo no rascunho, com a mesma regra do plano completo', () => {
+    const result = planDraftSchema.safeParse({
+      subtasks: [
+        rascunho('a', { dependsOn: ['b'] }),
+        rascunho('b', { dependsOn: ['a'] }),
+      ],
+    });
+    expect(result.success).toBe(false);
+    expect(JSON.stringify(result.error?.issues)).toContain('ciclo de dependencias');
+  });
+
+  it('recusa contrato citado mas nao publicado', () => {
+    const result = planDraftSchema.safeParse({
+      subtasks: [rascunho('a', { inputContracts: ['contrato-que-nao-existe'] })],
+    });
+    expect(result.success).toBe(false);
+    expect(JSON.stringify(result.error?.issues)).toContain('contrato nao publicado');
+  });
+
+  it('nao deixa o modelo escolher o proprio orcamento', () => {
+    const parsed = planDraftSchema.parse({
+      subtasks: [rascunho('a', { budget: { maxTurns: 9999 } })],
+    });
+    // Orcamento e limite duro do sistema: some do rascunho em vez de valer.
+    expect(parsed.subtasks[0]).not.toHaveProperty('budget');
+  });
+
+  it('gera o JSON Schema que vai no prompt, a partir do mesmo Zod', () => {
+    const schema = planJsonSchema();
+    const subtask = (schema['properties'] as Record<string, { items: Record<string, unknown> }>)['subtasks']
+      ?.items;
+    // O modelo preenche isto; id de portao, orcamento e runId sao do sistema.
+    expect(subtask?.['required']).toEqual(['id', 'title', 'description', 'role', 'doneWhen', 'gate']);
   });
 });

@@ -79,7 +79,15 @@ const planShape = z.object({
  * Um plano so e valido se o grafo de dependencias fechar: ids unicos,
  * dependencias existentes, contratos declarados e nenhum ciclo.
  */
-export const planSchema = planShape.superRefine((plan, ctx) => {
+/**
+ * A validacao de grafo, uma vez so. Vale tanto para o plano completo quanto
+ * para o rascunho que o modelo devolve -- duas versoes divergindo deixariam
+ * passar no rascunho o que o plano recusa, e o erro apareceria tarde demais.
+ */
+export function refinePlanGraph(
+  plan: { readonly subtasks: readonly MinimalSubtask[]; readonly contracts: readonly { readonly id: string }[] },
+  ctx: z.RefinementCtx,
+): void {
   const ids = new Set<string>();
   for (const [index, subtask] of plan.subtasks.entries()) {
     if (ids.has(subtask.id)) {
@@ -122,10 +130,17 @@ export const planSchema = planShape.superRefine((plan, ctx) => {
   if (cycle) {
     ctx.addIssue({ code: 'custom', path: ['subtasks'], message: `ciclo de dependencias: ${cycle.join(' -> ')}` });
   }
-});
+}
+
+/**
+ * Um plano so e valido se o grafo de dependencias fechar: ids unicos,
+ * dependencias existentes, contratos declarados e nenhum ciclo.
+ */
+export const planSchema = planShape.superRefine(refinePlanGraph);
 export type Plan = z.infer<typeof planSchema>;
 
 type MinimalNode = { readonly id: string; readonly dependsOn: readonly string[] };
+type MinimalSubtask = MinimalNode & { readonly inputContracts: readonly string[] };
 
 /** Busca em profundidade com pilha explicita. Devolve o ciclo ou null. */
 export function findCycle(nodes: readonly MinimalNode[]): string[] | null {
@@ -166,4 +181,70 @@ export function readySubtasks(plan: Plan, completed: ReadonlySet<string>): Subta
     (subtask) =>
       !completed.has(subtask.id) && subtask.dependsOn.every((dependency) => completed.has(dependency)),
   );
+}
+
+/**
+ * O rascunho que o modelo devolve.
+ *
+ * A divisao e deliberada: o modelo **nao** inventa `planId`, `runId`,
+ * `revision`, `createdBy` nem id de portao -- isso e do sistema. Mas ele
+ * **precisa** inventar id de subtask e de contrato, porque e com eles que liga
+ * `dependsOn` e `inputContracts`. Como o id e string livre, um slug legivel
+ * ("schema-do-login") passa -- e num plano lido por gente vale muito mais que
+ * `tsk_a1b2c3d4`.
+ */
+export const gateDraftSchema = gateSchema.omit({ id: true });
+export type GateDraft = z.infer<typeof gateDraftSchema>;
+
+export const contractDraftSchema = contractSchema;
+export type ContractDraft = z.infer<typeof contractDraftSchema>;
+
+/**
+ * Sem `budget`: orcamento e limite duro do sistema, nao escolha do modelo. Um
+ * gerente que define o proprio teto de turnos nao tem teto nenhum.
+ */
+export const subtaskDraftSchema = subtaskSchema
+  .omit({ budget: true })
+  .extend({ gate: gateDraftSchema });
+export type SubtaskDraft = z.infer<typeof subtaskDraftSchema>;
+
+export const planDraftSchema = z
+  .object({
+    subtasks: z.array(subtaskDraftSchema).min(1).max(12),
+    contracts: z.array(contractDraftSchema).default([]),
+  })
+  .superRefine(refinePlanGraph);
+export type PlanDraft = z.infer<typeof planDraftSchema>;
+
+/**
+ * O contrato que vai dentro do prompt do gerente, **derivado do mesmo Zod**.
+ * Escrever o JSON Schema a mao criaria duas fontes de verdade que divergem em
+ * silencio: o modelo obedeceria uma e o parse cobraria a outra.
+ */
+export const planJsonSchema = (): Record<string, unknown> =>
+  z.toJSONSchema(planDraftSchema, { io: 'input' }) as Record<string, unknown>;
+
+/**
+ * Parse que explica em vez de lancar.
+ *
+ * Mora aqui, junto do schema, porque quem valida e quem sabe dizer o que
+ * faltou -- e porque assim ninguem mais precisa conhecer o formato de erro do
+ * Zod so para conferir um plano.
+ */
+export type PlanParse<T> =
+  | { readonly ok: true; readonly value: T }
+  | { readonly ok: false; readonly problem: string };
+
+export function parsePlanDraft(raw: unknown): PlanParse<PlanDraft> {
+  const parsed = planDraftSchema.safeParse(raw);
+  return parsed.success
+    ? { ok: true, value: parsed.data }
+    : { ok: false, problem: z.prettifyError(parsed.error) };
+}
+
+export function parsePlan(raw: unknown): PlanParse<Plan> {
+  const parsed = planSchema.safeParse(raw);
+  return parsed.success
+    ? { ok: true, value: parsed.data }
+    : { ok: false, problem: z.prettifyError(parsed.error) };
 }
