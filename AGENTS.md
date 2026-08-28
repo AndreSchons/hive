@@ -53,6 +53,12 @@ estragar. Antes de escrever:
 - `pnpm dev` com `?demo` na URL mostra o escritorio cheio no navegador, sem
   Electron nem ponte: `src/demo.ts` semeia a store com o roteiro do simulador
   (so em dev; no build de producao some). E o caminho para revisao visual.
+  Somar `&pensando` deixa o gerente em `thinking` no fim do roteiro, que e como
+  se ve a nuvem de pensamento sem esperar uma execucao de verdade.
+- O angulo da camera mora em `src/world/camera.ts`, nao na `Scene`. Adorno que
+  precisa cair sempre no mesmo ponto da tela (a nuvem de pensamento) sai de
+  `billboardAnchor`: deslocar na direcao da camera nao move nada na projecao
+  ortografica, e o adorno acaba em cima da cabeca.
 - O vite resolve `@office/protocol` e `@office/simulator` pelos fontes TS
   (`resolve.alias`): os dists sao CJS e o interop nao enxerga os nomes
   re-exportados. Os tipos continuam vindo dos `.d.ts`.

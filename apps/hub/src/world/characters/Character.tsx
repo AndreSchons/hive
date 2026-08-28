@@ -3,9 +3,11 @@ import { useFrame } from '@react-three/fiber';
 import { Group } from 'three';
 import type { Placement } from '../office/placements';
 import { buildPath, DOOR_WORLD, type WorldPoint } from '../office/layout';
+import { billboardAnchor } from '../camera';
 import { DARK } from '../office/palette';
 import { OVERLAY_LAYER, ToonMaterial } from '../office/toon';
 import { SpawnPuff } from './SpawnPuff';
+import { ThoughtBubble } from './ThoughtBubble';
 
 /** Duracao da fumaca e do squash, na entrada e na saida. */
 export const SPAWN_MS = 600;
@@ -15,6 +17,11 @@ export const DESPAWN_LINGER_MS = 720;
 const WALK_SPEED = 2.2;
 /** Quanto o corpo sobe para sentar na cadeira (o boneco nao tem pernas). */
 const SEAT_LIFT = 0.12;
+/** A nuvem de pensamento: ao lado da cabeca (topo em y 1.16) e um pouco acima. */
+const BUBBLE_RADIUS = 0.62;
+const BUBBLE_HEIGHT = 1.85;
+/** Pose da ancora antes do primeiro frame, com o personagem ainda sem girar. */
+const INITIAL_ANCHOR = billboardAnchor(0, BUBBLE_RADIUS, BUBBLE_HEIGHT);
 
 type Phase = 'spawning' | 'active' | 'despawning';
 type AnimMode = Placement['anim'] | 'walk';
@@ -152,6 +159,7 @@ export function Character({ placement, departing }: CharacterProps) {
   const head = useRef<Group>(null!);
   const armLeft = useRef<Group>(null!);
   const armRight = useRef<Group>(null!);
+  const bubbleAnchor = useRef<Group>(null!);
 
   // Nasceu na porta, anda para a mesa: o primeiro caminho ja sai pronto.
   // (useRef guarda so o primeiro valor; recomputar nos renders seguintes e
@@ -242,6 +250,12 @@ export function Character({ placement, departing }: CharacterProps) {
     root.current.position.set(r.x, 0, r.z);
     root.current.rotation.y = dampAngle(root.current.rotation.y, r.targetRot, 10, delta);
 
+    // A nuvem de pensamento fica sempre a direita da cabeca na tela e de
+    // frente para a camera, nao importa para onde o personagem olhe.
+    const anchor = billboardAnchor(root.current.rotation.y, BUBBLE_RADIUS, BUBBLE_HEIGHT);
+    bubbleAnchor.current.rotation.y = anchor.rotationY;
+    bubbleAnchor.current.position.set(anchor.x, anchor.y, anchor.z);
+
     // Squash and stretch sincronizado com a fumaca; ao sair, a animacao inverte.
     const t = Math.min(r.clock / SPAWN_MS, 1);
     const s = r.phase === 'spawning' ? squashScale(t) : r.phase === 'despawning' ? squashScale(1 - t) : 1;
@@ -321,6 +335,12 @@ export function Character({ placement, departing }: CharacterProps) {
             </mesh>
           </group>
         </group>
+      </group>
+
+      {/* A nuvem de pensamento: aparece com codigo ficticio rolando enquanto o
+          agente esta `thinking`. A ancora e girada para a camera no useFrame. */}
+      <group ref={bubbleAnchor} position={[INITIAL_ANCHOR.x, INITIAL_ANCHOR.y, INITIAL_ANCHOR.z]}>
+        <ThoughtBubble agentId={placement.agentId} visible={placement.anim === 'think'} />
       </group>
 
       {/* A fumaca do nascimento toca uma vez ao montar; a da saida monta junto

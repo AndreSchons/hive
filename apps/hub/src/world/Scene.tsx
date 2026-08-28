@@ -15,18 +15,11 @@ import { Windows } from './office/Windows';
 import { Lights } from './Lights';
 import { BACKGROUND } from './office/palette';
 import { OVERLAY_LAYER } from './office/toon';
+import { cameraPosition } from './camera';
 
-// Camera ortografica em angulo fixo: ~28 graus de elevacao, 45 de azimute.
-// Baixa o bastante para as paredes do diorama aparecerem, alta o bastante
-// para o chao continuar legivel.
-const CAMERA_DISTANCE = 30;
-const ELEVATION = (28 * Math.PI) / 180;
-const AZIMUTH = Math.PI / 4;
-const cameraPosition: [number, number, number] = [
-  Math.cos(ELEVATION) * Math.sin(AZIMUTH) * CAMERA_DISTANCE,
-  Math.sin(ELEVATION) * CAMERA_DISTANCE,
-  Math.cos(ELEVATION) * Math.cos(AZIMUTH) * CAMERA_DISTANCE,
-];
+// Camera ortografica em angulo fixo (ver `world/camera.ts`): baixa o bastante
+// para as paredes do diorama aparecerem, alta o bastante para o chao continuar
+// legivel.
 
 const PAN_LIMIT = 7;
 const clampPan = (value: number): number => Math.min(Math.max(value, -PAN_LIMIT), PAN_LIMIT);
@@ -51,7 +44,7 @@ export function Scene() {
     <Canvas
       dpr={[1, 2]}
       orthographic
-      camera={{ position: cameraPosition, zoom: 40, near: -100, far: 200 }}
+      camera={{ position: [...cameraPosition], zoom: 40, near: -100, far: 200 }}
       gl={{ antialias: true }}
     >
       <color attach="background" args={[BACKGROUND]} />
