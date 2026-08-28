@@ -65,6 +65,15 @@ export interface AgentRunRequest {
   readonly env?: Readonly<Record<string, string>>;
 }
 
+/**
+ * O que a execucao inteira consumiu. Ausente quando a CLI nao reporta -- e
+ * ausente e diferente de zero, que se leria como "nao custou nada".
+ */
+export interface RunUsage {
+  readonly costUsd: number;
+  readonly tokens: number;
+}
+
 export type AgentOutcome =
   | {
       readonly status: 'completed';
@@ -72,6 +81,8 @@ export type AgentOutcome =
       readonly turns: number;
       /** Guardado para retomar esta mesma conversa depois. */
       readonly sessionId?: string;
+      /** Para quem coordena somar o custo da execucao sem reler o log. */
+      readonly usage?: RunUsage;
     }
   | {
       /** Parou e precisa do humano. O orquestrador escala e depois chama `answer`. */

@@ -142,3 +142,55 @@ describe('StreamTranslator', () => {
     expect(message.summary.length).toBeLessThanOrEqual(280);
   });
 });
+
+/**
+ * O consumo, contra numero gravado da CLI de verdade. Os valores abaixo estao
+ * em `fixtures/edita-arquivo.jsonl` e nao foram escolhidos: e o que aquela
+ * execucao custou mesmo.
+ */
+describe('consumo', () => {
+  const usages = (name: string) =>
+    load(name).events.filter((event) => event.type === 'agent.usage');
+
+  it('emite um evento por modelo, e nao um total que esconde de onde saiu', () => {
+    const eventos = usages('edita-arquivo.jsonl');
+    // Uma unica execucao mistura dois modelos: a CLI usa um barato por dentro.
+    expect(eventos.map((event) => event.payload.model).sort()).toEqual([
+      'claude-haiku-4-5',
+      'claude-sonnet-5',
+    ]);
+  });
+
+  it('separa o que foi escrito no cache do que foi lido dele', () => {
+    const sonnet = usages('edita-arquivo.jsonl').find(
+      (event) => event.payload.model === 'claude-sonnet-5',
+    );
+    if (sonnet === undefined) throw new Error('esperava o consumo do sonnet');
+
+    expect(sonnet.payload).toMatchObject({
+      inputTokens: 6,
+      outputTokens: 506,
+      // O numero que explica por que sessao fria sai caro: quase todo o input
+      // e cache, e o cache morre junto com a sessao.
+      cacheCreationTokens: 6744,
+      cacheReadTokens: 28295,
+    });
+    expect(sonnet.payload.costUsd).toBeCloseTo(0.037707, 6);
+  });
+
+  it('a soma dos modelos fecha com o custo total que a CLI reportou', () => {
+    const total = usages('edita-arquivo.jsonl').reduce(
+      (soma, event) => soma + event.payload.costUsd,
+      0,
+    );
+    expect(total).toBeCloseTo(0.038752, 6);
+  });
+
+  /**
+   * Zero se leria como "foi de graca". Fixture sem `modelUsage` nao emite nada,
+   * e quem le o log ve ausencia em vez de uma mentira barata.
+   */
+  it('nao inventa consumo quando a CLI nao reporta', () => {
+    expect(usages('plano-em-json.jsonl')).toEqual([]);
+  });
+});

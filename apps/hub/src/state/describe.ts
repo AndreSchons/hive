@@ -28,8 +28,12 @@ export function describeEvent(event: AnyEvent): FeedItem {
   switch (event.type) {
     case 'run.started':
       return item(`Comecou: ${event.payload.goal}`);
-    case 'run.completed':
-      return item(event.payload.summary, 'good');
+    case 'run.completed': {
+      const { summary, costUsd } = event.payload;
+      // O custo entra na frase de fechamento porque quem paga e a pessoa: e a
+      // unica linha do feed em que esse numero e a informacao principal.
+      return costUsd > 0 ? item(`${summary} Custou ${dinheiro(costUsd)}.`, 'good') : item(summary, 'good');
+    }
     case 'run.failed':
       return item(event.payload.reason, 'bad', event.payload.detail);
 
@@ -46,6 +50,17 @@ export function describeEvent(event: AnyEvent): FeedItem {
       return item(event.payload.reason ?? `Agora esta ${STATE_LABEL[event.payload.to]}`);
     case 'agent.despawned':
       return item('Saiu do escritorio');
+    case 'agent.usage':
+      return item(
+        `Gastou ${dinheiro(event.payload.costUsd)} usando ${event.payload.model}`,
+        'neutral',
+        [
+          `entrada: ${event.payload.inputTokens}`,
+          `saida: ${event.payload.outputTokens}`,
+          `cache escrito: ${event.payload.cacheCreationTokens}`,
+          `cache lido: ${event.payload.cacheReadTokens}`,
+        ].join('\n'),
+      );
 
     case 'task.assigned':
       return item(`Entregou "${event.payload.title}" para o especialista`);
@@ -147,3 +162,13 @@ const GATE_LABEL = {
 const CHANGE_LABEL = { created: 'Criou', modified: 'Mudou', deleted: 'Apagou' } as const;
 
 const BUDGET_LABEL = { turns: 'tentativas', time: 'tempo', cost: 'custo' } as const;
+
+/**
+ * Custo em dolar, como se le em portugues. Passo pequeno custa fracao de
+ * centavo, e arredondar para dois digitos mostraria "US$ 0,00" -- que se le
+ * como "de graca" e e a unica coisa que este numero nao pode dizer.
+ */
+function dinheiro(valor: number): string {
+  const casas = valor > 0 && valor < 0.01 ? 4 : 2;
+  return `US$ ${valor.toFixed(casas).replace('.', ',')}`;
+}

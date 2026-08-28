@@ -7,6 +7,7 @@ export {
   type AgentOutcome,
   type AgentRun,
   type AgentRunRequest,
+  type RunUsage,
 } from './adapter';
 export { git, gitOrThrow, lines, type GitResult } from './git/git';
 export { GitWorktreeManager, branchFor, BRANCH_PREFIX, type RepositoryCheck } from './git/git-worktree';
@@ -23,7 +24,7 @@ export {
 } from './permission';
 export { fileChangeFrom, type FileChange } from './claude/patch';
 export { describeToolCall, describeToolResult, type ToolDescription } from './tool-summary';
-export { StreamTranslator, maxCostUsd, type TranslateContext } from './claude/translate';
+export { StreamTranslator, maxCostUsd, totalUsage, type TranslateContext } from './claude/translate';
 export { KimiAdapter, type KimiAdapterOptions } from './kimi/kimi-adapter';
 export { KimiRun, type KimiRunOptions } from './kimi/kimi-run';
 export { AcpClient, type AcpHandlers } from './kimi/acp-client';

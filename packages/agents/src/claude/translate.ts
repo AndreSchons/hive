@@ -11,6 +11,7 @@ import {
 import type { CliLine } from './cli-messages';
 import { fileChangeFrom } from './patch';
 import { capSummary, describeToolCall, describeToolResult } from '../tool-summary';
+import type { RunUsage } from '../adapter';
 
 export interface TranslateContext {
   readonly agentId: AgentId;
@@ -251,6 +252,7 @@ export class StreamTranslator {
       }
     }
 
+    events.push(...usageEvents(line, agentId, taskId));
     events.push(...this.transition('done'));
     return events;
   }
@@ -292,6 +294,54 @@ export class StreamTranslator {
     const { cwd } = this.context;
     return path.startsWith(`${cwd}/`) ? path.slice(cwd.length + 1) : path;
   }
+}
+
+/**
+ * O consumo, um evento por modelo.
+ *
+ * Vem de `modelUsage` e nao do `usage` somado porque uma execucao mistura
+ * modelos -- a CLI usa um barato para trabalho interno -- e o total sozinho nao
+ * responde a unica pergunta que interessa aqui: qual modelo vale para qual
+ * passo. Sem `modelUsage` nao emitimos nada: zero se leria como "de graca".
+ */
+function usageEvents(
+  line: Extract<CliLine, { type: 'result' }>,
+  agentId: AgentId,
+  taskId: TaskId | undefined,
+): AnyEventDraft[] {
+  if (line.modelUsage === undefined) return [];
+
+  return Object.entries(line.modelUsage)
+    .filter(([, usage]) => usage.inputTokens + usage.outputTokens + usage.cacheCreationInputTokens > 0)
+    .map(([id, usage]) =>
+      draft('agent.usage', {
+        agentId,
+        ...(taskId === undefined ? {} : { taskId }),
+        // O nome curto e o que alguem reconhece; o id concreto so entra quando
+        // a CLI nao mandou o curto.
+        model: usage.canonicalModel ?? id,
+        inputTokens: Math.round(usage.inputTokens),
+        outputTokens: Math.round(usage.outputTokens),
+        cacheCreationTokens: Math.round(usage.cacheCreationInputTokens),
+        cacheReadTokens: Math.round(usage.cacheReadInputTokens),
+        costUsd: usage.costUSD,
+      }),
+    );
+}
+
+/** O total da execucao, para o desfecho carregar sem ninguem reler o log. */
+export function totalUsage(line: Extract<CliLine, { type: 'result' }>): RunUsage | undefined {
+  const { usage } = line;
+  if (usage === undefined && line.total_cost_usd === undefined) return undefined;
+  return {
+    costUsd: line.total_cost_usd ?? 0,
+    tokens: Math.round(
+      (usage?.input_tokens ?? 0) +
+        (usage?.output_tokens ?? 0) +
+        (usage?.cache_creation_input_tokens ?? 0) +
+        (usage?.cache_read_input_tokens ?? 0),
+    ),
+  };
 }
 
 /** Orcamento de tempo vira teto de custo grosseiro quando a CLI so aceita dolar. */

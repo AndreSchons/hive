@@ -41,6 +41,25 @@ export const contentBlockSchema = z.union([
 ]);
 export type ContentBlock = z.infer<typeof contentBlockSchema>;
 
+/**
+ * Consumo por modelo, como a CLI reporta no fim. A chave e o id concreto do
+ * modelo e `canonicalModel` e o nome curto; ficamos com o curto, que e o que
+ * alguem reconhece.
+ *
+ * Permissivo como o resto do arquivo: campo que faltar vira zero, e o objeto
+ * inteiro pode nao vir -- uma versao da CLI sem isso nao pode derrubar a
+ * execucao, so deixa de dar o numero.
+ */
+const modelUsageSchema = z.object({
+  inputTokens: z.number().nonnegative().default(0),
+  outputTokens: z.number().nonnegative().default(0),
+  cacheReadInputTokens: z.number().nonnegative().default(0),
+  cacheCreationInputTokens: z.number().nonnegative().default(0),
+  costUSD: z.number().nonnegative().default(0),
+  canonicalModel: z.string().optional(),
+});
+export type ModelUsage = z.infer<typeof modelUsageSchema>;
+
 const message = z.object({
   content: z.array(contentBlockSchema).default([]),
   stop_reason: z.string().nullish(),
@@ -107,6 +126,17 @@ export const cliLineSchema = z.union([
     num_turns: z.number().optional(),
     duration_ms: z.number().optional(),
     total_cost_usd: z.number().optional(),
+    /** Consumo somado da execucao inteira, sem separar por modelo. */
+    usage: z
+      .object({
+        input_tokens: z.number().nonnegative().default(0),
+        output_tokens: z.number().nonnegative().default(0),
+        cache_creation_input_tokens: z.number().nonnegative().default(0),
+        cache_read_input_tokens: z.number().nonnegative().default(0),
+      })
+      .optional(),
+    /** O mesmo consumo, separado por modelo. E daqui que sai `agent.usage`. */
+    modelUsage: z.record(z.string(), modelUsageSchema).optional(),
     result: z.string().optional(),
     session_id: z.string().optional(),
   }),

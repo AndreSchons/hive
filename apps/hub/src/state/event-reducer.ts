@@ -51,6 +51,13 @@ export interface WorldState {
   readonly plan: Plan | null;
   readonly contracts: readonly Contract[];
   readonly question: PendingQuestion | null;
+  /**
+   * O que esta execucao gastou ate agora, somado dos `agent.usage`. Fica no
+   * mundo, e nao so no evento de fechamento, para a pessoa acompanhar enquanto
+   * roda em vez de descobrir no fim.
+   */
+  readonly costUsd: number;
+  readonly totalTokens: number;
   readonly feed: readonly FeedItem[];
 }
 
@@ -66,6 +73,8 @@ export const emptyWorld: WorldState = {
   plan: null,
   contracts: [],
   question: null,
+  costUsd: 0,
+  totalTokens: 0,
   feed: [],
 };
 
@@ -121,6 +130,16 @@ export function applyEvent(state: WorldState, event: AnyEvent): WorldState {
       return withAgent(base, event.payload.agentId, (agent) => ({
         ...agent, present: false, state: 'done', currentTaskId: null,
       }));
+    case 'agent.usage': {
+      const { costUsd, inputTokens, outputTokens, cacheCreationTokens, cacheReadTokens } =
+        event.payload;
+      return {
+        ...base,
+        costUsd: base.costUsd + costUsd,
+        totalTokens:
+          base.totalTokens + inputTokens + outputTokens + cacheCreationTokens + cacheReadTokens,
+      };
+    }
 
     case 'task.assigned': {
       const { taskId, title, role, assignedTo, assignedBy, dependsOn } = event.payload;

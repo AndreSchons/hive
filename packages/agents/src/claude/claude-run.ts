@@ -10,7 +10,8 @@ import { AsyncQueue } from '../process/async-queue';
 import { LineSplitter, parseLine } from '../process/stream-json';
 import { parseCliLine, type CliLine } from './cli-messages';
 import { decidePermission, type PermissionDecision } from '../permission';
-import { StreamTranslator, maxCostUsd, type TranslateContext } from './translate';
+import { StreamTranslator, maxCostUsd, totalUsage, type TranslateContext } from './translate';
+import type { RunUsage } from '../adapter';
 
 export interface ClaudeRunOptions {
   readonly executable: string;
@@ -56,6 +57,8 @@ export class ClaudeRun implements AgentRun {
     turns: number;
     /** Texto final da CLI, inteiro. E por aqui que um plano em JSON volta. */
     text: string | null;
+    /** Ausente quando a CLI nao reportou consumo nenhum. */
+    usage: RunUsage | undefined;
   } | null = null;
   private cancelReason: string | null = null;
   private timer: NodeJS.Timeout | null = null;
@@ -223,6 +226,7 @@ export class ClaudeRun implements AgentRun {
         terminal: line.terminal_reason ?? null,
         turns: line.num_turns ?? 0,
         text: line.result?.trim() || null,
+        usage: totalUsage(line),
       };
     }
 
@@ -327,6 +331,7 @@ export class ClaudeRun implements AgentRun {
         summary: result?.text ?? 'Trabalho concluido',
         turns: result?.turns ?? 0,
         ...(this.translator.session === undefined ? {} : { sessionId: this.translator.session }),
+        ...(result?.usage === undefined ? {} : { usage: result.usage }),
       });
       return;
     }

@@ -93,6 +93,7 @@ async function main(): Promise<void> {
   const stamp = new Date().toISOString().replace(/[:.]/g, '-');
   let planned = 0;
   let failures = 0;
+  let spent = 0;
 
   for (const task of chosen) {
     process.stdout.write(`── ${task.id} ${'─'.repeat(Math.max(0, 58 - task.id.length))}\n`);
@@ -100,7 +101,17 @@ async function main(): Promise<void> {
     console.log(`   testa:  ${task.probes}`);
 
     const started = Date.now();
-    const planner = new AgentPlanner({ adapter, role: manager });
+    // O gasto vem do proprio log do gerente: `agent.usage` sai por modelo, e
+    // planejar mistura mais de um. Somar aqui e o que torna "esta mudanca de
+    // prompt ficou mais cara?" uma pergunta com resposta.
+    let cost = 0;
+    const planner = new AgentPlanner({
+      adapter,
+      role: manager,
+      emit: (event) => {
+        if (event.type === 'agent.usage') cost += event.payload.costUsd;
+      },
+    });
     const result = await planner.plan({
       runId: newRunId(),
       goal: task.goal,
@@ -108,14 +119,22 @@ async function main(): Promise<void> {
       project: { path: projectPath, baseBranch: 'HEAD', availableGates: gates },
     });
     const seconds = ((Date.now() - started) / 1000).toFixed(1);
+    spent += cost;
 
-    report(task, result, gates, seconds);
+    report(task, result, gates, seconds, cost);
     if (result.status === 'planned') planned += 1;
     if (task.expectStatus !== undefined && task.expectStatus !== result.status) failures += 1;
     if (outDir !== undefined) save(resolve(outDir), stamp, task, result);
   }
 
   console.log(`\n${planned} de ${chosen.length} viraram plano.`);
+  // O numero que diz se afinar o prompt saiu caro. Zero quando a CLI usada nao
+  // reporta consumo -- ausente e diferente de barato.
+  console.log(
+    spent > 0
+      ? `custo da rodada: ${money(spent)} (${money(spent / chosen.length)} por task)`
+      : 'custo da rodada: esta CLI nao reporta consumo.',
+  );
   const cobradas = chosen.filter((task) => task.expectStatus !== undefined);
   if (cobradas.length > 0) {
     console.log(
@@ -133,9 +152,11 @@ function report(
   result: PlanResult,
   gates: readonly AvailableGate[],
   seconds: string,
+  cost: number,
 ): void {
+  const custo = cost > 0 ? `, ${money(cost)}` : '';
   if (result.status === 'needs_input') {
-    console.log(`   → perguntou (${seconds}s): ${result.question}`);
+    console.log(`   → perguntou (${seconds}s${custo}): ${result.question}`);
     console.log(`   ${verdict(task, result.status)}`);
     console.log(`   esperado: ${task.expect}\n`);
     return;
@@ -143,7 +164,7 @@ function report(
 
   const report = checkPlan({ plan: result.plan, roster: ROSTER, gates: [...gates] });
   console.log(
-    `   → plano (${seconds}s): ${report.subtasks} subtasks, profundidade ${report.depth}, ` +
+    `   → plano (${seconds}s${custo}): ${report.subtasks} subtasks, profundidade ${report.depth}, ` +
       `${report.firstWave} na primeira leva, ${report.contracts} contratos`,
   );
 
@@ -197,6 +218,9 @@ function adapterFor(role: RoleDefinition): AgentAdapter {
 }
 
 const isTask = (task: ExampleTask | undefined): task is ExampleTask => task !== undefined;
+
+/** Quatro casas: um planejamento custa fracao de centavo e duas mostrariam zero. */
+const money = (value: number): string => `US$ ${value.toFixed(4)}`;
 
 main().catch((error: unknown) => {
   console.error('[planner-lab]', error instanceof Error ? error.message : error);
