@@ -32,6 +32,7 @@ interface HubState {
   openProject(path: string): Promise<void>;
   closeProject(): void;
   startRun(): Promise<void>;
+  startPlannedRun(goal: string): Promise<void>;
   startSimulation(goal: string): Promise<void>;
   answerQuestion(answer: string, optionId?: string): Promise<void>;
   dismissFailure(): void;
@@ -108,7 +109,10 @@ export const useHub = create<HubState>((set, get) => ({
     if (project === null || queue.length === 0) return;
 
     set({ busy: true, failure: null, world: emptyWorld });
-    const response = await invoke('run.start', { projectPath: project.path, tasks: [...queue] });
+    const response = await invoke('run.start', {
+      projectPath: project.path,
+      request: { mode: 'queue', tasks: [...queue] },
+    });
     set({ busy: false });
 
     // CLI ausente, pasta que nao e repositorio ou arvore suja voltam como frase,
@@ -119,6 +123,24 @@ export const useHub = create<HubState>((set, get) => ({
     }
     // A fila so sai da tela quando a execucao existe de verdade.
     set({ queue: [] });
+  },
+
+  /**
+   * O caminho do gerente: a pessoa so diz o que quer. A fila fica intacta --
+   * quem planeja e o gerente, e ela nao esta abrindo mao do que ja montou.
+   */
+  async startPlannedRun(goal: string) {
+    const project = get().project;
+    if (project === null || goal.trim().length === 0) return;
+
+    set({ busy: true, failure: null, world: emptyWorld });
+    const response = await invoke('run.start', {
+      projectPath: project.path,
+      request: { mode: 'planned', goal: goal.trim() },
+    });
+    set({ busy: false });
+
+    if (!response.ok) set({ failure: response.error });
   },
 
   async startSimulation(goal: string) {

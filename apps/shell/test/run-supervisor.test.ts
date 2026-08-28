@@ -233,3 +233,139 @@ describe('dois agentes no mesmo arquivo', () => {
     expect(g('status', '--porcelain').trim()).toBe('');
   });
 });
+
+/**
+ * Um adaptador que tambem planeja: quando o pedido chega em modo somente
+ * leitura, e o gerente sendo consultado, e a resposta e o plano em JSON.
+ */
+class PlanningAdapter implements AgentAdapter {
+  readonly id: AdapterId = adapterId.parse('falso');
+  readonly displayName = 'Falso';
+  readonly capabilities = {
+    streamsJson: true, resumesSession: false, acceptsExtraDirs: false, reportsToolCalls: true,
+  };
+  readonly ordem: string[] = [];
+
+  constructor(
+    private readonly plano: string,
+    private readonly porPapel: Record<string, string>,
+  ) {}
+
+  probe() {
+    return Promise.resolve({ available: true as const, version: '0.0.0', executable: 'falso' });
+  }
+
+  start(request: AgentRunRequest): AgentRun {
+    if (request.readOnly === true) return new PlanRun(request, this.plano);
+    this.ordem.push(String(request.taskId));
+    return new FakeRun(request, this.porPapel[request.role] ?? 'nada');
+  }
+}
+
+/** So devolve o texto do plano; nao toca em arquivo nenhum. */
+class PlanRun implements AgentRun {
+  readonly agentId;
+  readonly outcome: Promise<AgentOutcome>;
+  private readonly queue = new AsyncQueue<AnyEventDraft>();
+
+  constructor(request: AgentRunRequest, texto: string) {
+    this.agentId = request.agentId;
+    this.queue.close();
+    this.outcome = Promise.resolve({ status: 'completed', summary: texto, turns: 1 });
+  }
+
+  [Symbol.asyncIterator]() {
+    return this.queue[Symbol.asyncIterator]();
+  }
+  answer(): void {}
+  cancel(): void {}
+}
+
+const PLANO = JSON.stringify({
+  subtasks: [
+    {
+      id: 'segundo-passo',
+      title: 'Depois',
+      description: 'Mexe depois do primeiro.',
+      role: 'beta',
+      dependsOn: ['primeiro-passo'],
+      inputContracts: ['o-contrato'],
+      doneWhen: 'o arquivo tem a linha nova',
+      gate: { kind: 'test', command: 'pnpm test' },
+    },
+    {
+      id: 'primeiro-passo',
+      title: 'Antes',
+      description: 'Mexe primeiro.',
+      role: 'alfa',
+      inputContracts: ['o-contrato'],
+      doneWhen: 'o arquivo existe',
+      gate: { kind: 'test', command: 'pnpm test' },
+    },
+  ],
+  contracts: [
+    { id: 'o-contrato', kind: 'types', title: 'Formato do arquivo', body: 'titulo, corpo, rodape' },
+  ],
+});
+
+function buildPlanning(plano: string, porPapel: Record<string, string>): {
+  supervisor: RunSupervisor;
+  adapter: PlanningAdapter;
+} {
+  const adapter = new PlanningAdapter(plano, porPapel);
+  return {
+    adapter,
+    supervisor: new RunSupervisor(
+      events,
+      createAdapterRegistry([adapter]),
+      ROSTER,
+      worktrees,
+      join(home, 'worktrees'),
+    ),
+  };
+}
+
+describe('execucao planejada', () => {
+  it('pergunta antes de comecar e nao mexe em nada se a pessoa cancelar', async () => {
+    const { supervisor } = buildPlanning(PLANO, { alfa: 'linha dois', beta: 'linha dois' });
+    const runId = await supervisor.startPlanned({ projectPath: repo, goal: 'fazer o login' });
+    const todos = await drain(supervisor, runId, 'parar');
+
+    const pergunta = todos.find((event) => event.type === 'human.question_raised');
+    expect(pergunta?.payload).toMatchObject({ cause: 'plan_review' });
+    // Cancelar antes de aprovar nao pode ter criado copia nenhuma no disco.
+    expect(typesOf(todos)).not.toContain('worktree.created');
+    expect(g('worktree', 'list').trim().split('\n')).toHaveLength(1);
+  });
+
+  it('roda as subtasks em ordem de dependencia, nao na ordem do plano', async () => {
+    const { supervisor, adapter } = buildPlanning(PLANO, { alfa: 'linha dois', beta: 'linha dois' });
+    const runId = await supervisor.startPlanned({ projectPath: repo, goal: 'fazer o login' });
+    const todos = await drain(supervisor, runId, 'comecar');
+
+    expect(typesOf(todos).at(-1)).toBe('run.completed');
+    // O plano lista o dependente primeiro; quem manda e o grafo.
+    expect(adapter.ordem).toEqual(['primeiro-passo', 'segundo-passo']);
+  });
+
+  it('publica o contrato antes da subtask que depende dele', async () => {
+    const { supervisor } = buildPlanning(PLANO, { alfa: 'linha dois', beta: 'linha dois' });
+    const runId = await supervisor.startPlanned({ projectPath: repo, goal: 'fazer o login' });
+    const todos = await drain(supervisor, runId, 'comecar');
+
+    const tipos = typesOf(todos);
+    // Contrato antes de paralelismo: publicado uma vez so, e antes do trabalho.
+    expect(tipos.filter((type) => type === 'contract.published')).toHaveLength(1);
+    expect(tipos.indexOf('contract.published')).toBeLessThan(tipos.indexOf('task.assigned'));
+  });
+
+  it('gerente que nao consegue dividir encerra perguntando, sem criar copia', async () => {
+    const { supervisor } = buildPlanning('nao entendi o que voce quer', {});
+    const runId = await supervisor.startPlanned({ projectPath: repo, goal: 'faz ai' });
+    const todos = await drain(supervisor, runId, null);
+
+    expect(typesOf(todos).at(-1)).toBe('run.failed');
+    expect(typesOf(todos)).not.toContain('worktree.created');
+    expect(g('status', '--porcelain').trim()).toBe('');
+  });
+});

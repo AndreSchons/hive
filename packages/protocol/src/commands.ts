@@ -52,16 +52,24 @@ export const commands = {
     output: rosterSchema,
   },
   /**
-   * Uma fila com dono por item, executada em sequencia. Um agente so e uma fila
-   * de um: nao sobra um segundo jeito de comecar uma execucao.
+   * Duas formas de comecar, uma uniao so. Ou a pessoa monta a fila e diz quem
+   * faz o que (`queue`), ou descreve o objetivo e o gerente divide (`planned`).
+   * Uniao discriminada em vez de dois campos opcionais: nao sobra jeito de
+   * pedir as duas coisas ao mesmo tempo, nem nenhuma.
    */
   'run.start': {
     input: z.object({
       projectPath: z.string().min(1),
-      tasks: z
-        .array(z.object({ goal: z.string().min(1), role: roleId }))
-        .min(1)
-        .max(8),
+      request: z.discriminatedUnion('mode', [
+        z.object({
+          mode: z.literal('queue'),
+          tasks: z
+            .array(z.object({ goal: z.string().min(1), role: roleId }))
+            .min(1)
+            .max(8),
+        }),
+        z.object({ mode: z.literal('planned'), goal: z.string().min(1) }),
+      ]),
     }),
     output: z.object({ runId }),
   },

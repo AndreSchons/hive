@@ -84,8 +84,12 @@ function buildHandlers(context: IpcContext): Handlers {
     'roster.get': () => DEFAULT_ROSTER,
 
     'run.start': async (raw) => {
-      const { projectPath, tasks } = commands['run.start'].input.parse(raw);
-      const runId = await runs.start({ projectPath, tasks });
+      const { projectPath, request } = commands['run.start'].input.parse(raw);
+      // A uniao ja estreitou: cada modo tem exatamente os campos que precisa.
+      const runId =
+        request.mode === 'queue'
+          ? await runs.start({ projectPath, tasks: request.tasks })
+          : await runs.startPlanned({ projectPath, goal: request.goal });
       // Segue a execucao assim que ela existe: o primeiro evento ja chega na
       // janela sem precisar de um segundo comando.
       bridge.follow(runId, 0);

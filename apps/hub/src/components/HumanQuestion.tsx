@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import type { BlockCause } from '@office/protocol';
 import type { PendingQuestion } from '../state/event-reducer';
 
@@ -14,11 +14,14 @@ const CAUSE_LABEL: Record<BlockCause, string> = {
   budget: 'Cheguei no limite',
   merge_conflict: 'Dois trabalhos se cruzaram',
   agent_crashed: 'Algo deu errado',
+  plan_review: 'Dividi o trabalho assim',
 };
 
 export interface HumanQuestionProps {
   readonly question: PendingQuestion;
   readonly onAnswer: (answer: string, optionId?: string) => void;
+  /** O plano em revisao. So aparece quando a pergunta e o aval do gerente. */
+  readonly children?: ReactNode;
 }
 
 /**
@@ -26,19 +29,21 @@ export interface HumanQuestionProps {
  * produto, entao ocupa a tela inteira em vez de virar um aviso no canto: nada
  * mais acontece ate a pessoa responder.
  */
-export function HumanQuestion({ question, onAnswer }: HumanQuestionProps) {
+export function HumanQuestion({ question, onAnswer, children }: HumanQuestionProps) {
   const [text, setText] = useState('');
   const trimmed = text.trim();
 
   return (
     <div className="absolute inset-0 z-20 flex items-center justify-center bg-floor/85 p-6 backdrop-blur-sm">
-      <div className="w-full max-w-xl rounded-2xl border border-ask/40 bg-panel p-6 shadow-2xl">
+      <div className="max-h-[85vh] w-full max-w-xl overflow-y-auto rounded-2xl border border-ask/40 bg-panel p-6 shadow-2xl">
         <p className="text-xs font-medium tracking-wide text-ask uppercase">
           {CAUSE_LABEL[question.cause]}
         </p>
 
         <h2 className="mt-3 text-xl leading-snug font-medium text-balance">{question.question}</h2>
         <p className="mt-2 text-sm text-muted">{question.context}</p>
+
+        {children}
 
         <div className="mt-5 flex flex-col gap-2">
           {question.options.map((option) => (

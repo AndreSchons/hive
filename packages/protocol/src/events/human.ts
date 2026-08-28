@@ -13,6 +13,8 @@ export const blockCauseSchema = z.enum([
   'budget',
   'merge_conflict',
   'agent_crashed',
+  /** O gerente dividiu o trabalho e espera o aval antes de soltar os agentes. */
+  'plan_review',
 ]);
 export type BlockCause = z.infer<typeof blockCauseSchema>;
 

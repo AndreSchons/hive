@@ -6,26 +6,37 @@ export interface TaskInputProps {
   readonly disabled: boolean;
   readonly roles: readonly RoleDefinition[];
   readonly onAdd: (goal: string, role: string) => void;
+  readonly onPlan: (goal: string) => void;
 }
 
 /**
- * Uma tarefa e quem vai fazer. Enquanto nao existe gerente que divida sozinho,
- * a atribuicao e da propria pessoa -- entao ela precisa estar aqui, ao lado do
- * que esta sendo pedido, e nao escondida numa tela de configuracao.
+ * O mesmo campo de texto, dois jeitos de comecar.
  *
- * A opcao mostra o papel **e** a CLI por tras dele. Escolher "Interface e 3D"
- * sem saber que isso e o Kimi seria escolher no escuro.
+ * No modo gerente a pessoa so descreve o que quer, e quem divide e quem escolhe
+ * os papeis e o gerente -- que e a promessa do produto para quem nao le codigo.
+ * No modo manual ela monta a fila e escolhe o dono de cada item, que continua
+ * sendo o caminho previsivel para quem sabe o que quer.
+ *
+ * A opcao de papel mostra o papel **e** a CLI por tras dele. Escolher
+ * "Interface e 3D" sem saber que isso e o Kimi seria escolher no escuro.
  */
-export function TaskInput({ disabled, roles, onAdd }: TaskInputProps) {
+export function TaskInput({ disabled, roles, onAdd, onPlan }: TaskInputProps) {
   const [text, setText] = useState('');
   const [role, setRole] = useState('');
+  const [manual, setManual] = useState(false);
   const trimmed = text.trim();
   const chosen = role !== '' ? role : (roles[0]?.id ?? '');
 
   function submit(event: FormEvent) {
     event.preventDefault();
-    if (trimmed.length === 0 || disabled || chosen === '') return;
-    onAdd(trimmed, chosen);
+    if (trimmed.length === 0 || disabled) return;
+
+    if (manual) {
+      if (chosen === '') return;
+      onAdd(trimmed, chosen);
+    } else {
+      onPlan(trimmed);
+    }
     setText('');
   }
 
@@ -48,27 +59,42 @@ export function TaskInput({ disabled, roles, onAdd }: TaskInputProps) {
       />
 
       <div className="flex gap-2">
-        <select
-          aria-label="Quem faz"
-          value={chosen}
-          disabled={disabled}
-          onChange={(event) => setRole(event.target.value)}
-          className="min-w-0 flex-1 rounded-lg border border-edge bg-panel px-3 py-2 text-sm outline-none focus:border-accent disabled:opacity-50"
-        >
-          {roles.map((option) => (
-            <option key={option.id} value={option.id}>
-              {option.title} · {adapterLabel(option.adapter)}
-            </option>
-          ))}
-        </select>
+        {manual && (
+          <select
+            aria-label="Quem faz"
+            value={chosen}
+            disabled={disabled}
+            onChange={(event) => setRole(event.target.value)}
+            className="min-w-0 flex-1 rounded-lg border border-edge bg-panel px-3 py-2 text-sm outline-none focus:border-accent disabled:opacity-50"
+          >
+            {roles.map((option) => (
+              <option key={option.id} value={option.id}>
+                {option.title} · {adapterLabel(option.adapter)}
+              </option>
+            ))}
+          </select>
+        )}
         <button
           type="submit"
           disabled={disabled || trimmed.length === 0}
-          className="shrink-0 rounded-lg border border-edge bg-floor px-3 py-2 text-sm transition hover:border-accent disabled:opacity-40"
+          className={`shrink-0 rounded-lg px-3 py-2 text-sm transition disabled:opacity-40 ${
+            manual
+              ? 'border border-edge bg-floor hover:border-accent'
+              : 'flex-1 border border-accent bg-accent/15 hover:bg-accent/25'
+          }`}
         >
-          Adicionar
+          {manual ? 'Adicionar' : 'Deixar o gerente dividir'}
         </button>
       </div>
+
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={() => setManual(!manual)}
+        className="self-start text-[11px] text-muted underline underline-offset-2 hover:text-ink disabled:opacity-40"
+      >
+        {manual ? 'deixar o gerente decidir quem faz' : 'prefiro escolher quem faz cada coisa'}
+      </button>
     </form>
   );
 }

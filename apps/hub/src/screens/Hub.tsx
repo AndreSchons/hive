@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { AgentList } from '../components/AgentList';
 import { EventFeed } from '../components/EventFeed';
 import { HumanQuestion } from '../components/HumanQuestion';
+import { PlanReview } from '../components/PlanReview';
 import { TaskInput } from '../components/TaskInput';
 import { TaskQueue } from '../components/TaskQueue';
 import { adapterLabel } from '../state/describe';
@@ -16,8 +17,8 @@ const STATUS_LABEL = {
 } as const;
 
 export function Hub() {
-  const { project, world, roles, queue, busy, failure, startRun, addTask, removeTask,
-    startSimulation, answerQuestion, closeProject, dismissFailure } =
+  const { project, world, roles, queue, busy, failure, startRun, startPlannedRun, addTask,
+    removeTask, startSimulation, answerQuestion, closeProject, dismissFailure } =
     useHub();
 
   const agents = useMemo(() => Object.values(world.agents), [world.agents]);
@@ -58,7 +59,12 @@ export function Hub() {
         </header>
 
         <div className="border-b border-edge px-4 py-4">
-          <TaskInput disabled={busy || running} roles={roles} onAdd={addTask} />
+          <TaskInput
+            disabled={busy || running}
+            roles={roles}
+            onAdd={addTask}
+            onPlan={(goal) => void startPlannedRun(goal)}
+          />
           <TaskQueue
             items={queued}
             disabled={busy || running}
@@ -76,7 +82,7 @@ export function Hub() {
             >
               Ver uma execucao simulada
             </button>{' '}
-            para conhecer o fluxo com varios agentes, que ainda nao esta ligado.
+            para conhecer o fluxo inteiro sem gastar nada.
           </p>
         </div>
 
@@ -127,7 +133,11 @@ export function Hub() {
         <HumanQuestion
           question={world.question}
           onAnswer={(answer, optionId) => void answerQuestion(answer, optionId)}
-        />
+        >
+          {world.question.cause === 'plan_review' && world.plan !== null && (
+            <PlanReview plan={world.plan} roles={roles} />
+          )}
+        </HumanQuestion>
       )}
     </div>
   );
