@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { LineSplitter, parseLine, readStreamJson } from '../src/index';
+import { AsyncQueue, LineSplitter, parseLine, readStreamJson } from '../src/index';
 
 describe('LineSplitter', () => {
   it('segura a linha parcial entre pedacos', () => {
@@ -64,5 +64,37 @@ describe('readStreamJson', () => {
     const lines = [];
     for await (const line of readStreamJson(bytes())) lines.push(line);
     expect(lines[0]?.kind).toBe('json');
+  });
+});
+
+describe('AsyncQueue', () => {
+  /**
+   * `push(a, b)` compilava aceitando um argumento so, e o segundo sumia sem
+   * erro nenhum. Fila que perde evento em silencio nao serve para transportar
+   * o que aconteceu numa execucao.
+   */
+  it('entrega tudo que foi empurrado de uma vez', async () => {
+    const queue = new AsyncQueue<number>();
+    queue.push(1, 2, 3);
+    queue.close();
+
+    const recebidos: number[] = [];
+    for await (const value of queue) recebidos.push(value);
+    expect(recebidos).toEqual([1, 2, 3]);
+  });
+
+  it('entrega tambem para quem ja estava esperando', async () => {
+    const queue = new AsyncQueue<number>();
+    const recebidos: number[] = [];
+    const lendo = (async () => {
+      for await (const value of queue) recebidos.push(value);
+    })();
+
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    queue.push(1, 2);
+    queue.close();
+    await lendo;
+
+    expect(recebidos).toEqual([1, 2]);
   });
 });

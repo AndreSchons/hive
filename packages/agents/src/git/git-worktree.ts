@@ -156,7 +156,21 @@ export class GitWorktreeManager implements WorktreeManager {
    * Devolve falso quando o agente nao mudou nada.
    */
   async commitAll(worktree: Worktree, message: string): Promise<boolean> {
+    // `node_modules` fica de fora sempre, mesmo que o projeto nao o ignore: a
+    // preparacao instala dependencia dentro da copia, e um projeto sem
+    // `.gitignore` veria isso virar commit no repositorio de quem usa o app.
+    //
+    // Estagiar tudo e **depois** tirar, em vez de excluir no `add`: um `add`
+    // com pathspec explicito **falha** quando o pathspec alcanca arquivo que o
+    // `.gitignore` cobre ("use -f if you really want to add them"), e ai a
+    // entrega inteira morre no projeto mais comum que existe -- um que ignora
+    // `node_modules`, como todos ignoram.
     await gitOrThrow(worktree.path, ['add', '-A']);
+    // Sem `glob` o `**` do git tambem casa `/`, e `pkg/node_modules` escapava.
+    // Nao lanca: sem nada estagiado nessas pastas, o reset nao tem o que fazer.
+    await git(worktree.path, [
+      'reset', '-q', '--', ':(glob,top)**/node_modules/**', ':(glob,top)node_modules/**',
+    ]);
     const staged = await git(worktree.path, ['diff', '--cached', '--quiet']);
     if (staged.code === 0) return false;
 

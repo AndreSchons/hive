@@ -9,14 +9,22 @@ export class AsyncQueue<T> implements AsyncIterable<T> {
   private closed = false;
   private failure: unknown;
 
-  push(value: T): void {
+  /**
+   * Variadico porque e assim que todo mundo chama. Aceitando um argumento so,
+   * `push(a, b)` compilava, rodava e **descartava o segundo em silencio** --
+   * um evento que some sem erro nenhum e o pior tipo de bug que uma fila pode
+   * ter.
+   */
+  push(...values: readonly T[]): void {
     if (this.closed) return;
-    const waiter = this.waiting.shift();
-    if (waiter) {
-      waiter({ value, done: false });
-      return;
+    for (const value of values) {
+      const waiter = this.waiting.shift();
+      if (waiter) {
+        waiter({ value, done: false });
+        continue;
+      }
+      this.buffer.push(value);
     }
-    this.buffer.push(value);
   }
 
   close(): void {

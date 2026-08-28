@@ -12,10 +12,21 @@ if (process.argv.includes('--version')) {
 }
 
 const lines = readFileSync(process.env.OFFICE_FIXTURE, 'utf8').split('\n').filter((l) => l.trim());
+
+/**
+ * Segura o processo em pe no modo travado.
+ *
+ * Sem isto o "travar" nao trava: acabadas as linhas nao sobra timer nenhum, e
+ * quando o ClaudeRun fecha o stdin o processo perde o ultimo handle e sai
+ * sozinho -- por acidente, e mais rapido do que qualquer teste consegue
+ * reagir. O teste de cancelamento virava uma corrida contra isso.
+ */
+const travado = process.env.OFFICE_HANG === '1' ? setInterval(() => {}, 60_000) : null;
+
 let i = 0;
 const tick = () => {
   if (i >= lines.length) {
-    if (process.env.OFFICE_HANG === '1') return; // simula CLI que nao sai sozinha
+    if (travado !== null) return; // simula CLI que nao sai sozinha
     process.exit(Number(process.env.OFFICE_EXIT ?? '0'));
   }
   process.stdout.write(`${lines[i++]}\n`);

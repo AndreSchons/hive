@@ -102,6 +102,45 @@ describe('isolamento', () => {
     expect(await manager.commitAll(worktree, 'nada')).toBe(false);
   });
 
+  /**
+   * A verificacao instala dependencia dentro da copia. Num projeto sem
+   * `.gitignore` isso viraria commit no repositorio de quem esta usando o app,
+   * entao a exclusao nao pode depender da configuracao do projeto.
+   */
+  /**
+   * O caso comum, e o que quebrou de verdade: quase todo projeto ignora
+   * `node_modules`. Um `add` com pathspec explicito recusa arquivo ignorado
+   * ("use -f if you really want to add them") e derrubava a entrega inteira.
+   */
+  it('commita normalmente num projeto que ignora node_modules', async () => {
+    writeFileSync(join(repo, '.gitignore'), 'node_modules/\n');
+    run(repo, 'add', '-A');
+    run(repo, 'commit', '-m', 'ignora dependencia');
+
+    const { worktree } = await criar('com-gitignore');
+    execFileSync('mkdir', ['-p', join(worktree.path, 'node_modules', 'zod')]);
+    writeFileSync(join(worktree.path, 'node_modules', 'zod', 'index.js'), '');
+    editarSegundaLinha(worktree, 'mudou');
+
+    expect(await manager.commitAll(worktree, 'trabalho')).toBe(true);
+    expect(run(worktree.path, 'show', '--name-only', '--format=', 'HEAD').trim()).toBe(ARQUIVO);
+  });
+
+  it('nunca commita node_modules, mesmo sem o projeto ignorar', async () => {
+    const { worktree } = await criar('instalou');
+    execFileSync('mkdir', ['-p', join(worktree.path, 'node_modules', 'zod')]);
+    execFileSync('mkdir', ['-p', join(worktree.path, 'apps', 'web', 'node_modules', 'react')]);
+    writeFileSync(join(worktree.path, 'node_modules', 'zod', 'index.js'), '');
+    writeFileSync(join(worktree.path, 'apps', 'web', 'node_modules', 'react', 'index.js'), '');
+
+    // Dependencia sozinha nao e trabalho entregue: nao ha o que commitar.
+    expect(await manager.commitAll(worktree, 'so dependencia')).toBe(false);
+
+    editarSegundaLinha(worktree, 'mudou');
+    expect(await manager.commitAll(worktree, 'trabalho')).toBe(true);
+    expect(run(worktree.path, 'show', '--name-only', '--format=', 'HEAD').trim()).toBe(ARQUIVO);
+  });
+
   it('conta o que mudou na copia', async () => {
     const { worktree } = await criar('conta');
     editarSegundaLinha(worktree, 'mudou');
