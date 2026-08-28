@@ -41,6 +41,7 @@ packages/coordination  protocol, agents          -- nunca apps/*
 apps/shell             protocol, store, agents, coordination, simulator
 apps/hub               protocol                  -- e so
 tools/simulator        protocol, store
+tools/planner-lab      protocol, agents, coordination
 ```
 
 Regras que nao se negociam:
@@ -81,6 +82,7 @@ pnpm dev         # vite + electron com recarga
 pnpm app         # compila e abre o app
 pnpm app:nosandbox   # idem, sem o sandbox do Chromium (ver nota de Linux)
 pnpm --filter @office/simulator start -- --db <caminho> --project <pasta>
+pnpm plan-lab -- --task all --project .   # so o gerente, sem executar nada
 ```
 
 ## Como a CLI do Claude Code entra
@@ -147,6 +149,82 @@ Ajuda que as duas usem os mesmos nomes de ferramenta (`Read`, `Write`, `Edit`,
 `permission.ts` valem para as duas sem traducao. O `kind` do ACP entra como rede
 de seguranca para o que nao estiver nessas listas, nao como caminho principal.
 
+## Como o gerente planeja
+
+`packages/coordination/src/agent-planner.ts` roda o gerente na mesma
+`AgentAdapter` que executa uma subtask, com duas diferencas que importam:
+
+- **Modo somente-leitura** (`AgentRunRequest.readOnly`). Planejar e olhar, e sem
+  isso o gerente teria permissao de escrita sobre a pasta inteira do usuario so
+  para decidir o que fazer. A politica continua **uma so**: o modo e parametro
+  de `decidePermission`, nunca uma segunda politica.
+- **A resposta e parseada como JSON**, nao aceita como texto. Isso so funciona
+  porque o desfecho carrega o texto final da CLI inteiro -- `AgentOutcome`
+  `completed.summary` e cru; quem corta em 280 para caber no evento e o
+  `translate`. Inverter isso deixa o plano pela metade sem erro nenhum.
+
+O que o modelo preenche e `planDraftSchema`, nao `planSchema`. A divisao e
+deliberada: ele **nao** inventa `planId`, `runId`, `revision`, `createdBy`, id
+de portao nem orcamento -- um gerente que define o proprio teto de turnos nao
+tem teto. Mas **precisa** inventar id de subtask e de contrato, porque e com
+eles que liga `dependsOn` e `inputContracts`; como o id e string livre, um slug
+legivel (`"schema-do-login"`) passa e se le muito melhor que `tsk_a1b2c3d4`.
+
+O JSON Schema que vai no prompt sai de `z.toJSONSchema(planDraftSchema,
+{ io: 'input' })`. Escrever esse contrato a mao criaria duas fontes de verdade
+que divergem em silencio: o modelo obedeceria uma e o parse cobraria a outra.
+
+A validacao de grafo (`refinePlanGraph`) e a mesma para o rascunho e para o
+plano completo, pela mesma razao.
+
+JSON fora do schema ganha **uma** segunda chance, com o erro do Zod colado no
+prompt -- e o tipo de erro que o modelo conserta sozinho. Duas falhas viram
+pergunta, nunca um terceiro turno.
+
+### Quando o gerente pergunta em vez de planejar
+
+O criterio esta no `prompt.ts` e foi calibrado contra o harness, nao escolhido
+no escuro: **da para escrever o `doneWhen` com as palavras da propria pessoa, ou
+o gerente teria que inventar o objetivo?** Detalhe em aberto ("o que fazer
+quando reprovar") ele decide e registra no `doneWhen`; objetivo em aberto
+("deixar melhor") ele pergunta.
+
+Duas coisas sustentam isso e nao podem sair do prompt:
+
+- **O gerente precisa saber que existe o portao de aprovacao.** Sem essa frase
+  ele trata todo detalhe em aberto como risco e pergunta, porque perguntar
+  parece de graca. Sabendo que a pessoa ve e aprova o plano antes de qualquer
+  agente encostar no projeto, o calculo fica certo.
+- **Os exemplos do prompt nao podem ser as tasks do harness.** Usar o texto das
+  tasks ali seria ensinar para a prova, e o harness deixaria de medir.
+
+Empurrar o gerente para planejar mais quebra, com facilidade, a capacidade de
+recusar -- ja aconteceu uma vez: "melhorar a tela inicial" virou uma reforma
+inteira inventada. Por isso as tasks de desfecho binario declaram
+`expectStatus`, e o harness sai com codigo diferente de zero quando uma regride.
+
+### O harness
+
+`tools/planner-lab` roda **so** o gerente sobre dez tasks de exemplo, sem
+executar nada. Uma rodada custa dez planejamentos em vez de dez execucoes com
+agentes mexendo em worktrees, e e isso que torna afinar `prompt.ts` viavel --
+esse texto mora sozinho num arquivo para que o diff de uma mudanca de prompt
+seja legivel.
+
+`checks.ts` nao julga qualidade: mede o que e objetivo e some quando voce esta
+lendo o oitavo plano seguido. A checagem que mais importa e **sobreposicao de
+`allowedPaths` entre subtasks que nao dependem uma da outra** -- elas podem
+rodar juntas e mexem no mesmo lugar, entao e o preditor direto do conflito de
+merge que o resto do sistema existe para detectar e parar.
+
+As tasks com desfecho binario (`expectStatus`) o harness cobra sozinho e o
+processo sai com codigo diferente de zero se alguma regredir -- as outras duas
+aceitam os dois desfechos e ficam como leitura.
+
+```
+pnpm plan-lab -- --task all --project . --out /tmp/planos
+```
+
 ## Isolamento e integracao
 
 `GitWorktreeManager` (`packages/agents/src/git/`) roda `git` de verdade. Conflito,
@@ -168,13 +246,18 @@ pergunta. So depois de a pessoa autorizar e que um agente e mandado juntar.
 
 ## O que ainda nao existe
 
-Personagens, animacoes e pathfinding no 3D. Gerente e planejamento automatico (a
-fila e montada pela pessoa e roda em sequencia, sem paralelismo). Implementacoes
-de `coordination` (so os tipos). Portoes de verificacao rodando de verdade --
-nada roda `test`/`build` na worktree, que aliais nasce sem `node_modules`.
-Autenticacao. Empacotamento para distribuicao.
+Personagens, animacoes e pathfinding no 3D. Paralelismo: o gerente monta o
+grafo, mas o executor pega sempre a primeira subtask liberada e roda uma de cada
+vez. `Assigner`, `BudgetTracker`, `EscalationPolicy` e `GateRunner` continuam so
+como tipos. Portoes de verificacao rodando de verdade -- o plano **contem**
+`gate`, mas nada roda `test`/`build` na worktree, que alias nasce sem
+`node_modules`. Replanejamento automatico depois de subtask que falha
+(`Planner.revise` existe e ninguem chama ainda). Autenticacao. Empacotamento
+para distribuicao.
 
-`dev.simulate` continua sendo o unico jeito de ver o fluxo com gerente e contrato.
+`dev.simulate` deixou de ser o unico jeito de ver gerente e contrato -- agora o
+modo planejado faz isso com CLI de verdade. O roteiro do simulador continua util
+para ver o fluxo inteiro sem gastar chamada de modelo.
 
 ## Nota de ambiente (Linux)
 
