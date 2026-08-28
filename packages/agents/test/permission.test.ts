@@ -97,4 +97,42 @@ describe('decidePermission', () => {
     // O input cru precisa sobreviver inteiro: a CLI revalida os campos dela.
     expect(decision.ask?.input).toMatchObject({ questions: [{ question: 'O botao fica no topo ou no rodape?' }] });
   });
+
+  it('em modo leitura, escrever dentro da pasta deixa de passar sozinho', () => {
+    const dentro = join(root, 'src', 'app.ts');
+    const pedido = { toolName: 'Write', input: { file_path: dentro }, requiresUserInteraction: false };
+
+    // A mesma escrita, no mesmo lugar: o que muda e so o modo.
+    expect(decidePermission(pedido, root).kind).toBe('allow');
+
+    const decision = decidePermission(pedido, root, { readOnly: true });
+    if (decision.kind !== 'escalate') throw new Error('esperava escalonamento');
+    expect(decision.cause).toBe('permission');
+  });
+
+  it('em modo leitura, ler continua passando pelas duas CLIs', () => {
+    const porNome = decidePermission(
+      { toolName: 'Read', input: { file_path: join(root, 'src', 'app.ts') }, requiresUserInteraction: false },
+      root,
+      { readOnly: true },
+    );
+    // O Kimi manda `kind`; o Claude manda so o nome. A decisao e a mesma.
+    const porKind = decidePermission(
+      { toolName: 'ler arquivo', kind: 'read', input: {}, requiresUserInteraction: false },
+      root,
+      { readOnly: true },
+    );
+    expect(porNome.kind).toBe('allow');
+    expect(porKind.kind).toBe('allow');
+  });
+
+  it('em modo leitura, rodar comando tambem para', () => {
+    const decision = decidePermission(
+      { toolName: 'Bash', input: { command: 'pnpm test' }, requiresUserInteraction: false },
+      root,
+      { readOnly: true },
+    );
+    if (decision.kind !== 'escalate') throw new Error('esperava escalonamento');
+    expect(decision.question).toContain('so para olhar');
+  });
 });

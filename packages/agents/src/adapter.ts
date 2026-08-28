@@ -55,6 +55,11 @@ export interface AgentRunRequest {
   /** Contratos que entram como input obrigatorio, ja resolvidos em texto. */
   readonly contracts: readonly string[];
   readonly budget: Budget;
+  /**
+   * Agente que so olha: qualquer escrita ou comando vira pergunta, mesmo dentro
+   * do `cwd`. E como o gerente le o repositorio para planejar sem poder mexer.
+   */
+  readonly readOnly?: boolean;
   /** Retomada de sessao anterior. Ambas as CLIs suportam. */
   readonly sessionId?: string;
   readonly env?: Readonly<Record<string, string>>;

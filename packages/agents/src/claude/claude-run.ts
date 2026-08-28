@@ -50,7 +50,13 @@ export class ClaudeRun implements AgentRun {
   private pending: PendingAsk | null = null;
   private stderr = '';
   private sawResult = false;
-  private lastResult: { subtype: string; terminal: string | null; turns: number } | null = null;
+  private lastResult: {
+    subtype: string;
+    terminal: string | null;
+    turns: number;
+    /** Texto final da CLI, inteiro. E por aqui que um plano em JSON volta. */
+    text: string | null;
+  } | null = null;
   private cancelReason: string | null = null;
   private timer: NodeJS.Timeout | null = null;
   private exitGuard: NodeJS.Timeout | null = null;
@@ -216,6 +222,7 @@ export class ClaudeRun implements AgentRun {
         subtype: line.subtype,
         terminal: line.terminal_reason ?? null,
         turns: line.num_turns ?? 0,
+        text: line.result?.trim() || null,
       };
     }
 
@@ -250,6 +257,7 @@ export class ClaudeRun implements AgentRun {
         requiresUserInteraction: request.requires_user_interaction === true,
       },
       this.request.cwd,
+      { readOnly: this.request.readOnly === true },
     );
 
     if (decision.kind === 'allow') {
@@ -313,7 +321,10 @@ export class ClaudeRun implements AgentRun {
     if (result === null || result.subtype === 'success') {
       this.finish({
         status: 'completed',
-        summary: 'Trabalho concluido',
+        // O texto final vai inteiro: quem chamou pode estar esperando JSON, e
+        // cortar aqui deixaria o planner sem canal de saida. Quem resume para o
+        // usuario e o `translate`, que tem o limite de 280 do evento.
+        summary: result?.text ?? 'Trabalho concluido',
         turns: result?.turns ?? 0,
         ...(this.translator.session === undefined ? {} : { sessionId: this.translator.session }),
       });

@@ -65,7 +65,6 @@ export class KimiRun implements AgentRun {
   private pending: PendingAsk | null = null;
   private sessionId: string | null = null;
   private stderr = '';
-  private lastMessage = '';
   private cancelReason: string | null = null;
   private timer: NodeJS.Timeout | null = null;
 
@@ -216,6 +215,7 @@ export class KimiRun implements AgentRun {
         paths: pathsOf(toolCall),
       },
       this.request.cwd,
+      { readOnly: this.request.readOnly === true },
     );
 
     if (decision.kind === 'allow') {
@@ -284,7 +284,9 @@ export class KimiRun implements AgentRun {
       return;
     }
 
-    const summary = this.lastMessage.trim().length > 0 ? this.lastMessage.trim() : 'O agente terminou.';
+    // O texto vai inteiro para o desfecho: quem chamou pode estar esperando
+    // JSON. Quem corta para caber no evento e o proprio `translator.finish`.
+    const summary = this.translator.fullText.length > 0 ? this.translator.fullText : 'O agente terminou.';
     if (reason === 'end_turn') {
       this.emit(...this.translator.finish('end_turn', summary));
       this.finish({
@@ -316,10 +318,7 @@ export class KimiRun implements AgentRun {
   }
 
   private emit(...events: AnyEventDraft[]): void {
-    for (const event of events) {
-      if (event.type === 'agent.message') this.lastMessage = event.payload.summary;
-      this.queue.push(event);
-    }
+    for (const event of events) this.queue.push(event);
   }
 
   private finish(outcome: AgentOutcome): void {

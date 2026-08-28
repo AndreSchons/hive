@@ -17,6 +17,7 @@ export {
   decidePermission,
   isInside,
   type PermissionDecision,
+  type PermissionOptions,
   type PermissionRequest,
   type ToolKind,
 } from './permission';

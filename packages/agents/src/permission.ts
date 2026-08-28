@@ -41,6 +41,15 @@ export type PermissionDecision =
 export type ToolKind =
   | 'read' | 'edit' | 'delete' | 'move' | 'search' | 'execute' | 'think' | 'fetch' | 'other';
 
+/**
+ * Como a politica trata este pedido. `read-only` e para o agente que so precisa
+ * olhar -- o gerente planejando, por exemplo: qualquer escrita vira pergunta,
+ * mesmo dentro da pasta do projeto.
+ */
+export interface PermissionOptions {
+  readonly readOnly?: boolean;
+}
+
 export interface PermissionRequest {
   readonly toolName: string;
   readonly input: unknown;
@@ -132,6 +141,7 @@ function askPermission(question: string, context: string): PermissionDecision {
 export function decidePermission(
   request: PermissionRequest,
   projectPath: string,
+  options: PermissionOptions = {},
 ): PermissionDecision {
   const { toolName, input, requiresUserInteraction } = request;
 
@@ -162,6 +172,16 @@ export function decidePermission(
 
   if (READ_ONLY.has(toolName) || (request.kind !== undefined && READ_ONLY_KINDS.has(request.kind))) {
     return { kind: 'allow' };
+  }
+
+  // Somente-leitura: ler ja passou acima, e daqui pra baixo tudo escreve, roda
+  // ou sai da maquina. Nada disso e trabalho de quem so deveria estar olhando.
+  if (options.readOnly === true) {
+    const { summary } = describeToolCall(toolName, input, projectPath);
+    return askPermission(
+      `${summary}. Mas esse agente era so para olhar o projeto, nao para mexer. Pode?`,
+      'Ele foi aberto em modo de leitura, entao qualquer mudanca depende de voce.',
+    );
   }
 
   if (FILE_WRITERS.has(toolName) || (request.kind !== undefined && FILE_WRITER_KINDS.has(request.kind))) {

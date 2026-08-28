@@ -56,6 +56,18 @@ describe('ClaudeRun', () => {
     expect(types[types.length - 1]).toBe('agent.despawned');
   });
 
+  it('entrega o texto final da CLI inteiro no desfecho', async () => {
+    const run = startRun('plano-em-json.jsonl');
+    await collect(run);
+    const outcome = await run.outcome;
+
+    if (outcome.status !== 'completed') throw new Error(`esperava concluido: ${outcome.status}`);
+    // O plano do gerente volta por aqui: cortar em 280 deixaria o JSON pela
+    // metade e nao haveria como parsear nada.
+    expect(outcome.summary).toContain('schema-do-login');
+    expect(outcome.summary.split('\n').length).toBeGreaterThan(5);
+  });
+
   it('encerra sozinho quando a CLI nao sai depois do resultado', async () => {
     // Sem fechar o stdin a CLI fica esperando outro turno para sempre.
     const run = startRun('so-leitura.jsonl', { OFFICE_HANG: '1' });

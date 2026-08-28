@@ -1,0 +1,3 @@
+{"type":"system","subtype":"init","session_id":"ses-plano","cwd":"/tmp","model":"opus"}
+{"type":"assistant","message":{"content":[{"type":"text","text":"Vou olhar o projeto antes de dividir."}]},"session_id":"ses-plano"}
+{"type":"result","subtype":"success","is_error":false,"num_turns":2,"session_id":"ses-plano","result":"```json\n{\n  \"subtasks\": [\n    {\n      \"id\": \"schema-do-login\",\n      \"title\": \"Definir o schema\",\n      \"description\": \"Escrever o schema Zod do login.\",\n      \"role\": \"backend\",\n      \"doneWhen\": \"O schema existe e compila.\",\n      \"gate\": { \"kind\": \"typecheck\", \"command\": \"pnpm typecheck\" }\n    }\n  ]\n}\n```"}

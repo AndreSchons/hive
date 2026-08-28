@@ -72,6 +72,8 @@ export class AcpTranslator {
   /** Caminhos distintos que mudaram. Chamada de ferramenta nao e arquivo. */
   private readonly touched = new Set<string>();
   private spawned = false;
+  /** Texto do agente, acumulado cru. E por aqui que um plano em JSON volta. */
+  private said = '';
   private turns = 0;
   private lastSignature: string | null = null;
   private repeats = 1;
@@ -82,6 +84,15 @@ export class AcpTranslator {
 
   get currentState(): AgentState {
     return this.state;
+  }
+
+  /**
+   * Tudo que o agente falou, inteiro e sem corte. Os eventos levam versao
+   * resumida (280 caracteres, limite do schema); quem chamou pode precisar do
+   * texto completo, e um plano em JSON nao sobrevive a um corte.
+   */
+  get fullText(): string {
+    return this.said.trim();
   }
 
   private fileExists(path: string): boolean {
@@ -139,6 +150,7 @@ export class AcpTranslator {
       case 'agent_thought_chunk':
         return this.transition('thinking');
       case 'agent_message_chunk':
+        this.said += update.content.text ?? '';
         return this.transition('talking');
       case 'tool_call':
         return this.toolCall(update);
