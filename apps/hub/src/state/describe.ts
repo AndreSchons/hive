@@ -1,4 +1,4 @@
-import { parallelismGain, type AnyEvent } from '@office/protocol';
+import { parallelismGain, type AnyEvent, type ModelTier } from '@office/protocol';
 
 export type Tone = 'neutral' | 'good' | 'warn' | 'bad' | 'ask';
 
@@ -161,6 +161,21 @@ const ADAPTER_LABEL: Record<string, string> = {
 
 export const adapterLabel = (adapter: string): string => ADAPTER_LABEL[adapter] ?? adapter;
 
+/**
+ * Como cada degrau de modelo se chama para quem nao le codigo. O nome do modelo
+ * em si ("sonnet") nao diz nada para essa pessoa; o que ela precisa saber e se
+ * aquele passo vai no barato ou no caprichado.
+ *
+ * Mora aqui, e nao na tela que o usa, porque duas telas mostram o degrau -- o
+ * plano antes de aprovar e o personagem durante a execucao -- e chamar o mesmo
+ * degrau de dois nomes faria a pessoa achar que sao coisas diferentes.
+ */
+export const TIER_LABEL: Record<ModelTier, string> = {
+  economico: 'economico',
+  padrao: 'equilibrado',
+  caprichado: 'caprichado',
+};
+
 export const STATE_LABEL = {
   idle: 'livre',
   thinking: 'pensando',
@@ -199,7 +214,7 @@ function segundos(ms: number): string {
  * centavo, e arredondar para dois digitos mostraria "US$ 0,00" -- que se le
  * como "de graca" e e a unica coisa que este numero nao pode dizer.
  */
-function dinheiro(valor: number): string {
+export function dinheiro(valor: number): string {
   const casas = valor > 0 && valor < 0.01 ? 4 : 2;
   return `US$ ${valor.toFixed(casas).replace('.', ',')}`;
 }

@@ -8,12 +8,35 @@ import type {
 } from '@office/protocol';
 import { describeEvent, type FeedItem } from './describe';
 
+/**
+ * O que este agente consumiu, **um item por modelo**. Nao e um total: uma
+ * unica execucao da CLI mistura modelos (ela usa um barato para trabalho
+ * interno dela), e o total sozinho nao responde a unica pergunta que
+ * interessa -- qual modelo vale para qual passo.
+ *
+ * Lista vazia quer dizer que a CLI **nao reporta** consumo, e nao que foi de
+ * graca. Quem le a lista precisa tratar os dois casos diferente.
+ */
+export interface AgentUsage {
+  readonly model: string;
+  readonly costUsd: number;
+  readonly tokens: number;
+}
+
 export interface AgentView {
   readonly agentId: string;
   readonly role: string;
   readonly displayName: string;
   /** Qual CLI executa este agente. E o que responde "qual IA esta fazendo isso". */
   readonly adapter: string;
+  /**
+   * Alias de modelo com que este agente foi aberto, como o papel pediu.
+   * `null` quando o papel nao declara escada e a CLI usa o proprio padrao --
+   * dizer isso e mais honesto que inventar um nome.
+   */
+  readonly model: string | null;
+  /** O que este agente ja gastou, por modelo. Vazio = a CLI nao reporta. */
+  readonly usage: readonly AgentUsage[];
   readonly state: AgentState;
   readonly worktreePath: string;
   readonly branch: string | null;
@@ -140,12 +163,16 @@ export function applyEvent(state: WorldState, event: AnyEvent): WorldState {
       return { ...base, parallelism: event.payload };
 
     case 'agent.spawned': {
-      const { agentId, role, displayName, adapter, worktreePath, branch } = event.payload;
+      const { agentId, role, displayName, adapter, model, worktreePath, branch } = event.payload;
       // `worktree.created` chega antes e e quem sabe o branch; a CLI nao sabe.
       return withAgent(base, agentId, (agent) => ({
         agentId, role, displayName, adapter, worktreePath, branch: branch ?? agent.branch,
         state: 'idle', currentTaskId: null, lastSaid: null, present: true,
         doneSeq: null,
+        model: model ?? null,
+        // O consumo pode ter chegado antes num replay fora de ordem; nascer
+        // zerando apagaria o que ja foi contado.
+        usage: agent.usage,
       }));
     }
     case 'agent.state_changed':
@@ -162,14 +189,21 @@ export function applyEvent(state: WorldState, event: AnyEvent): WorldState {
         doneSeq: agent.doneSeq ?? event.seq,
       }));
     case 'agent.usage': {
-      const { costUsd, inputTokens, outputTokens, cacheCreationTokens, cacheReadTokens } =
+      const { agentId, model, costUsd, inputTokens, outputTokens, cacheCreationTokens, cacheReadTokens } =
         event.payload;
-      return {
+      const tokens = inputTokens + outputTokens + cacheCreationTokens + cacheReadTokens;
+      const total: WorldState = {
         ...base,
         costUsd: base.costUsd + costUsd,
-        totalTokens:
-          base.totalTokens + inputTokens + outputTokens + cacheCreationTokens + cacheReadTokens,
+        totalTokens: base.totalTokens + tokens,
       };
+      // O mesmo numero em dois lugares de proposito: o total da execucao
+      // responde "quanto isso custou" e a lista por agente responde "de quem
+      // saiu o dinheiro", que e a pergunta que a tela do personagem faz.
+      return withAgent(total, agentId, (agent) => ({
+        ...agent,
+        usage: addUsage(agent.usage, { model, costUsd, tokens }),
+      }));
     }
 
     case 'task.assigned': {
@@ -293,7 +327,26 @@ const UNKNOWN_AGENT: Omit<AgentView, 'agentId'> = {
   lastSaid: null,
   present: true,
   doneSeq: null,
+  model: null,
+  usage: [],
 };
+
+/**
+ * Soma um consumo na lista do agente, agrupando por modelo. Agrupar aqui, e
+ * nao na tela, e o que mantem a lista curta o suficiente para caber ao lado do
+ * personagem mesmo numa execucao longa, onde `agent.usage` chega dezenas de
+ * vezes pelo mesmo modelo.
+ */
+function addUsage(current: readonly AgentUsage[], entry: AgentUsage): readonly AgentUsage[] {
+  const found = current.some((item) => item.model === entry.model);
+  if (!found) return [...current, entry];
+
+  return current.map((item) =>
+    item.model === entry.model
+      ? { model: item.model, costUsd: item.costUsd + entry.costUsd, tokens: item.tokens + entry.tokens }
+      : item,
+  );
+}
 
 function withAgent(
   state: WorldState,

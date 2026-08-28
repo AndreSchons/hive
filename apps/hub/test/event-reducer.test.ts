@@ -57,6 +57,54 @@ describe('applyEvent', () => {
     expect(world.agents[script.frontend]?.state).toBe('done');
   });
 
+  it('guarda o consumo do agente por modelo, e nao um total so', () => {
+    const world = applyAll(emptyWorld, beforeBlock);
+    const gerente = world.agents[script.manager];
+
+    // Uma execucao da CLI mistura modelos: ela usa um barato para trabalho
+    // interno dela. Somar tudo esconderia de qual modelo saiu o dinheiro, que e
+    // a unica pergunta que este numero existe para responder.
+    expect(gerente?.usage.map((item) => item.model)).toEqual([
+      'claude-opus-4-6',
+      'claude-haiku-4-5',
+    ]);
+    expect(gerente?.usage[0]?.tokens).toBeGreaterThan(0);
+  });
+
+  it('soma no mesmo modelo quando o consumo chega de novo', () => {
+    const world = applyAll(applyAll(emptyWorld, beforeBlock), afterAnswer);
+    const gerente = world.agents[script.manager];
+    const opus = gerente?.usage.filter((item) => item.model === 'claude-opus-4-6');
+
+    // O roteiro reporta opus duas vezes (planejar e integrar): vira um item so.
+    expect(opus).toHaveLength(1);
+    expect(opus?.[0]?.costUsd).toBeCloseTo(0.2417 + 0.0912, 6);
+  });
+
+  it('CLI que nao reporta consumo fica com a lista vazia, nunca com zero', () => {
+    const world = applyAll(applyAll(emptyWorld, beforeBlock), afterAnswer);
+
+    // O ACP do Kimi nao reporta. Ausente e diferente de gratis, e o unico jeito
+    // de a tela saber a diferenca e a lista nao ganhar um item zerado.
+    expect(world.agents[script.frontend]?.usage).toEqual([]);
+  });
+
+  it('guarda o alias de modelo pedido, e null quando o papel nao escolhe', () => {
+    const world = applyAll(emptyWorld, beforeBlock);
+
+    expect(world.agents[script.manager]?.model).toBe('opus');
+    expect(world.agents[script.frontend]?.model).toBeNull();
+  });
+
+  it('o total da execucao continua batendo com a soma dos agentes', () => {
+    const world = applyAll(applyAll(emptyWorld, beforeBlock), afterAnswer);
+    const soma = Object.values(world.agents)
+      .flatMap((agent) => agent.usage)
+      .reduce((total, item) => total + item.costUsd, 0);
+
+    expect(world.costUsd).toBeCloseTo(soma, 6);
+  });
+
   it('leva toda subtask do plano a concluida no fim', () => {
     const world = applyAll(applyAll(emptyWorld, beforeBlock), afterAnswer);
     const statuses = Object.values(world.tasks).map((task) => task.status);

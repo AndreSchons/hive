@@ -56,7 +56,11 @@ Regras que nao se negociam:
   que e camera, mesa ou animacao: ele **so emite eventos**.
 - `apps/hub/src/world/` (o 3D) nao conhece agente, CLI nem modelo. Consome estado
   derivado de eventos e mapeia para animacao. Se um componente 3D precisa saber
-  qual CLI rodou, o desenho esta errado.
+  qual CLI rodou, o desenho esta errado. A ficha que flutua sobre o personagem
+  clicado e a prova disso: ela e montada em `state/agent-card.ts`, desenhada em
+  `components/AgentCard.tsx` e entra no mundo como `ReactNode` por `cardFor`.
+  O escritorio ancora a janela sobre a cabeca certa e **nao le uma palavra**
+  dela.
 - **Ninguem sai do escritorio.** Quem entrega larga a mesa e vai descansar no
   lounge, e fica la enquanto os outros trabalham -- e o que faz a tela contar o
   progresso de relance. A fila de lugares e ordenada por `doneSeq` e so cresce
@@ -396,6 +400,45 @@ execucao inteira, e um padrao honesto vale mais que um alias chutado.
 
 Medido com o mesmo prompt trivial no Claude Code: haiku US$ 0,0165, sonnet
 US$ 0,0408, opus US$ 0,0680. A escada e real, e e por isso que a escolha importa.
+
+## Clicar num personagem
+
+O boneco responde a pergunta que a tela toda nao respondia: **quem e esse, com
+que ferramenta, em que capricho, e quanto ja me custou.**
+
+- **O alvo de clique e uma capsula invisivel**, e nao a geometria do boneco:
+  acertar uma cabeca de 24px no zoom padrao e mira, nao interacao. Ela vive na
+  camada de overlay porque fora dela imprimiria um bloco solido na sombra de
+  contato, que desenha a cena por profundidade e nao enxerga transparencia --
+  e por isso o raycaster tambem precisa ter essa camada habilitada, senao o
+  boneco fica bonito e nao aceita clique nenhum.
+- **`agent.usage` passou a ser guardado por agente, alem do total.** Sao os
+  mesmos eventos somados duas vezes de proposito: o total responde "quanto isso
+  custou" e a lista por agente responde "de quem saiu o dinheiro", que e a
+  pergunta que a ficha faz. Continua **um item por modelo** -- uma execucao da
+  CLI mistura modelos, e um total por agente esconderia de novo o que os
+  eventos separados existem para mostrar.
+- **Lista de consumo vazia e ausencia, nunca zero.** O ACP do Kimi nao reporta,
+  e a ficha diz "esta ferramenta nao informa o custo". Escrever "US$ 0,00" seria
+  dizer que foi de graca, que e a unica coisa que este numero nao pode dizer.
+- **O degrau aparece em palavra de produto, com o motivo do plano.** "sonnet"
+  nao diz nada para quem nao le codigo; `modelReason` diz, e ja e escrito para
+  essa pessoa. Papel sem escada (o Kimi) diz que roda no padrao da propria CLI,
+  em vez de inventar um degrau que nao existe. Fora do modo planejado o degrau
+  se descobre pelo caminho inverso -- qual entrada de `RoleDefinition.models`
+  casa com o alias que foi realmente pedido -- e so ai a ficha credita a escolha
+  a pessoa; num plano quem escolheu foi o sistema.
+- **Nome de branch, caminho de copia, id e nome canonico de modelo ficam atras
+  do mesmo clique que o feed usa.** Um teste cobra isso pelos dois lados: que o
+  detalhe tem essas coisas e que nenhuma frase principal tem.
+- `TIER_LABEL` mudou de casa para `state/describe.ts`. Duas telas mostram o
+  degrau -- o plano antes de aprovar e o personagem durante a execucao -- e
+  chamar o mesmo degrau de dois nomes faria a pessoa achar que sao coisas
+  diferentes.
+
+O roteiro do simulador passou a reportar consumo, com o agente do Kimi
+**sem reportar nada**: e o unico jeito de ver os dois casos da ficha sem gastar
+chamada de modelo.
 
 ## Isolamento e integracao
 

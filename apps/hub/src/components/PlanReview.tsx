@@ -1,20 +1,10 @@
-import type { ModelTier, Plan, RoleDefinition } from '@office/protocol';
+import type { Plan, RoleDefinition } from '@office/protocol';
+import { TIER_LABEL } from '../state/describe';
 
 export interface PlanReviewProps {
   readonly plan: Plan;
   readonly roles: readonly RoleDefinition[];
 }
-
-/**
- * Como cada degrau se chama para quem nao le codigo. O nome do modelo em si
- * ("sonnet") nao diz nada para essa pessoa; o que ela precisa saber e se aquele
- * passo vai no barato ou no caprichado, e por que.
- */
-const TIER_LABEL: Record<ModelTier, string> = {
-  economico: 'economico',
-  padrao: 'equilibrado',
-  caprichado: 'caprichado',
-};
 
 /**
  * O plano do gerente, como quem nao le codigo precisa ver.

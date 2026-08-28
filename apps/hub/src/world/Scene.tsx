@@ -1,4 +1,4 @@
-import { useEffect, useRef, type ComponentRef } from 'react';
+import { useEffect, useRef, type ComponentRef, type ReactNode } from 'react';
 import { Canvas, useThree } from '@react-three/fiber';
 import { ContactShadows, OrbitControls } from '@react-three/drei';
 import { MOUSE } from 'three';
@@ -24,20 +24,39 @@ import { cameraPosition } from './camera';
 const PAN_LIMIT = 7;
 const clampPan = (value: number): number => Math.min(Math.max(value, -PAN_LIMIT), PAN_LIMIT);
 
-/** A camera principal enxerga a camada de overlays; a do ContactShadows, nao. */
+/**
+ * A camera principal enxerga a camada de overlays; a do ContactShadows, nao.
+ *
+ * O raycaster tambem precisa dela: por padrao ele so testa a camada 0, e o
+ * alvo de clique do personagem vive na de overlay justamente para nao imprimir
+ * na sombra. Sem esta linha o boneco seria desenhado certo e nao aceitaria
+ * clique nenhum.
+ */
 function OverlayLayer() {
   const camera = useThree((state) => state.camera);
+  const raycaster = useThree((state) => state.raycaster);
   useEffect(() => {
     camera.layers.enable(OVERLAY_LAYER);
-  }, [camera]);
+    raycaster.layers.enable(OVERLAY_LAYER);
+  }, [camera, raycaster]);
   return null;
+}
+
+export interface SceneProps {
+  /**
+   * A janela flutuante do personagem selecionado, montada de fora e ancorada
+   * aqui sobre a cabeca certa. O escritorio ancora e nao le.
+   */
+  readonly cardFor?: (agentId: string) => ReactNode;
+  /** Clique no vazio: quem cuida de fechar o que estava aberto e quem abriu. */
+  readonly onClearSelection?: () => void;
 }
 
 /**
  * O escritorio. Este modulo nao conhece agente, CLI nem modelo: desenha o
  * estado do mundo derivado dos eventos, e so isso.
  */
-export function Scene() {
+export function Scene({ cardFor, onClearSelection }: SceneProps) {
   const controls = useRef<ComponentRef<typeof OrbitControls> | null>(null);
 
   return (
@@ -46,6 +65,9 @@ export function Scene() {
       orthographic
       camera={{ position: [...cameraPosition], zoom: 40, near: -100, far: 200 }}
       gl={{ antialias: true }}
+      // Clique que nao acertou nada fecha o que estava aberto. E o gesto que
+      // todo mundo ja tenta antes de procurar o botao de fechar.
+      onPointerMissed={() => onClearSelection?.()}
     >
       <color attach="background" args={[BACKGROUND]} />
 
@@ -59,7 +81,7 @@ export function Scene() {
       <Plants />
       <Lamps />
       <Lounge />
-      <AgentCharacters />
+      <AgentCharacters {...(cardFor === undefined ? {} : { cardFor })} />
       <OverlayLayer />
 
       {/* Sombra de contato em vez de shadow map: mais barata e combina com o visual. */}

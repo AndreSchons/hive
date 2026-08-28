@@ -26,6 +26,8 @@ function agent(agentId: string, state: AgentState, present = true): AgentView {
     lastSaid: null,
     present,
     doneSeq: present ? null : 1,
+    model: null,
+    usage: [],
   };
 }
 

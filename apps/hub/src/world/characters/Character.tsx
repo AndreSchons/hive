@@ -1,5 +1,6 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, type ReactNode } from 'react';
 import { useFrame } from '@react-three/fiber';
+import { Html } from '@react-three/drei';
 import { Group } from 'three';
 import type { Placement } from '../office/placements';
 import { buildPath, buildRoute, DOOR_WORLD, type WorldPoint } from '../office/layout';
@@ -31,6 +32,13 @@ const FLOOR_SIT = -0.12;
 /** A nuvem de pensamento: ao lado da cabeca (topo em y 1.16) e um pouco acima. */
 const BUBBLE_RADIUS = 0.62;
 const BUBBLE_HEIGHT = 1.85;
+/**
+ * O alvo de clique: uma capsula invisivel do chao ate acima da cabeca. Existe
+ * porque acertar a cabeca de 24px no zoom padrao e mira, nao interacao -- e
+ * porque ela nao acompanha o squash nem a pose, entao o alvo nao encolhe quando
+ * o boneco senta.
+ */
+const HIT_HEIGHT = 1.5;
 /** Pose da ancora antes do primeiro frame, com o personagem ainda sem girar. */
 const INITIAL_ANCHOR = billboardAnchor(0, BUBBLE_RADIUS, BUBBLE_HEIGHT);
 
@@ -125,6 +133,15 @@ function poseFor(mode: AnimMode, t: number): Pose {
 
 interface CharacterProps {
   readonly placement: Placement;
+  /**
+   * A janela que flutua sobre a cabeca deste personagem, quando ha uma.
+   *
+   * Entra pronta, de fora do mundo 3D. Este modulo ancora e nao le: o que
+   * estiver escrito ai dentro -- qual CLI, qual modelo, quanto custou -- e
+   * assunto de quem montou a janela, nao de quem desenha o escritorio.
+   */
+  readonly card?: ReactNode;
+  readonly onSelect?: () => void;
 }
 
 /** Cabelo por estilo, em coordenadas da cabeca (raio 0.3, frente +z). */
@@ -183,7 +200,7 @@ function Hair({ style, color }: { readonly style: number; readonly color: string
  * re-renderiza quando o placement muda (evento novo), e mesmo assim apenas
  * ajusta o alvo: quem anda e o frame.
  */
-export function Character({ placement }: CharacterProps) {
+export function Character({ placement, card, onSelect }: CharacterProps) {
   const root = useRef<Group>(null!);
   const squash = useRef<Group>(null!);
   const body = useRef<Group>(null!);
@@ -223,6 +240,16 @@ export function Character({ placement }: CharacterProps) {
    */
   const via = useRef(placement.via);
   via.current = placement.via;
+
+  // O cursor e estado do documento, nao do componente: um personagem que
+  // desmonta com o ponteiro em cima (troca de execucao, por exemplo) deixaria a
+  // mao de clique presa na tela para sempre.
+  useEffect(
+    () => () => {
+      document.body.style.cursor = '';
+    },
+    [],
+  );
 
   // Alvo novo (sentou, levantou, foi descansar): replaneja o caminho a partir
   // de onde o boneco esta agora.
@@ -305,6 +332,41 @@ export function Character({ placement }: CharacterProps) {
 
   return (
     <group ref={root} position={[rig.current.x, 0, rig.current.z]}>
+      {/* Alvo de clique invisivel, na camada de overlay: fora dela ele
+          imprimiria um bloco solido na sombra de contato, que desenha a cena
+          por profundidade e nao enxerga transparencia. */}
+      <mesh
+        ref={(mesh) => {
+          if (mesh !== null) mesh.layers.set(OVERLAY_LAYER);
+        }}
+        position={[0, HIT_HEIGHT / 2, 0]}
+        onClick={(event) => {
+          event.stopPropagation();
+          onSelect?.();
+        }}
+        onPointerOver={() => {
+          document.body.style.cursor = 'pointer';
+        }}
+        onPointerOut={() => {
+          document.body.style.cursor = '';
+        }}
+      >
+        <cylinderGeometry args={[0.45, 0.45, HIT_HEIGHT, 10]} />
+        <meshBasicMaterial transparent opacity={0} depthWrite={false} />
+      </mesh>
+
+      {card !== undefined && (
+        <Html
+          position={[0, HIT_HEIGHT, 0]}
+          // Abaixo do modal de pergunta (z-20): responder o que trava a
+          // execucao vem antes de olhar a ficha de alguem.
+          zIndexRange={[15, 0]}
+          style={{ transform: 'translate(-50%, -100%)' }}
+        >
+          {card}
+        </Html>
+      )}
+
       {/* Marcador de chao: anel discreto na cor do agente, para identificar
           quem e quem a distancia. Overlay: nao imprime na sombra de contato.
           Fica acima do tapete do lounge (topo em 0,05), senao some justamente

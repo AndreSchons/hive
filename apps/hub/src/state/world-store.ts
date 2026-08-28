@@ -22,6 +22,12 @@ interface HubState {
   /** Quanto capricho a fila manual pede. So vale para ela. */
   readonly effort: ModelTier;
   readonly world: WorldState;
+  /**
+   * Personagem com a ficha aberta, ou `null`. Mora aqui e nao no mundo 3D
+   * porque quem abre a ficha e o clique e quem a fecha pode ser outra tela --
+   * e porque `WorldState` e derivado so do log, e selecao nao e evento.
+   */
+  readonly selected: string | null;
   readonly busy: boolean;
   readonly failure: Failure | null;
   readonly subscribed: boolean;
@@ -38,6 +44,7 @@ interface HubState {
   startPlannedRun(goal: string): Promise<void>;
   startSimulation(goal: string): Promise<void>;
   answerQuestion(questionId: string, answer: string, optionId?: string): Promise<void>;
+  select(agentId: string | null): void;
   dismissFailure(): void;
   ingest(events: readonly AnyEvent[]): void;
   subscribe(): () => void;
@@ -50,6 +57,7 @@ export const useHub = create<HubState>((set, get) => ({
   queue: [],
   effort: 'economico',
   world: emptyWorld,
+  selected: null,
   busy: false,
   failure: null,
   subscribed: false,
@@ -58,6 +66,10 @@ export const useHub = create<HubState>((set, get) => ({
     const response = await invoke('roster.get', {});
     if (response.ok) set({ roles: response.data });
     else set({ failure: response.error });
+  },
+
+  select(agentId: string | null) {
+    set({ selected: agentId });
   },
 
   setEffort(effort: ModelTier) {
@@ -89,7 +101,7 @@ export const useHub = create<HubState>((set, get) => ({
     }
     // Cancelar o dialogo devolve null, e isso nao e erro.
     if (response.data !== null) {
-      set({ project: response.data, world: emptyWorld });
+      set({ project: response.data, world: emptyWorld, selected: null });
       void get().loadRecents();
     }
   },
@@ -104,19 +116,19 @@ export const useHub = create<HubState>((set, get) => ({
       void get().loadRecents();
       return;
     }
-    set({ project: response.data, world: emptyWorld });
+    set({ project: response.data, world: emptyWorld, selected: null });
     void get().loadRecents();
   },
 
   closeProject() {
-    set({ project: null, world: emptyWorld, queue: [], failure: null });
+    set({ project: null, world: emptyWorld, queue: [], failure: null, selected: null });
   },
 
   async startRun() {
     const { project, queue } = get();
     if (project === null || queue.length === 0) return;
 
-    set({ busy: true, failure: null, world: emptyWorld });
+    set({ busy: true, failure: null, world: emptyWorld, selected: null });
     const response = await invoke('run.start', {
       projectPath: project.path,
       request: { mode: 'queue', tasks: [...queue], modelTier: get().effort },
@@ -141,7 +153,7 @@ export const useHub = create<HubState>((set, get) => ({
     const project = get().project;
     if (project === null || goal.trim().length === 0) return;
 
-    set({ busy: true, failure: null, world: emptyWorld });
+    set({ busy: true, failure: null, world: emptyWorld, selected: null });
     const response = await invoke('run.start', {
       projectPath: project.path,
       request: { mode: 'planned', goal: goal.trim() },
@@ -155,7 +167,7 @@ export const useHub = create<HubState>((set, get) => ({
     const project = get().project;
     if (project === null) return;
 
-    set({ busy: true, failure: null, world: emptyWorld });
+    set({ busy: true, failure: null, world: emptyWorld, selected: null });
     const response = await invoke('dev.simulate', { projectPath: project.path, goal });
     set({ busy: false });
 

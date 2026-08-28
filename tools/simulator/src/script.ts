@@ -13,6 +13,7 @@ import {
   type Plan,
   type QuestionId,
   type RunId,
+  type TaskId,
 } from '@office/protocol';
 
 /**
@@ -82,6 +83,8 @@ export function buildScriptedRun(runId: RunId, projectPath: string, goal: string
         allowedPaths: ['src/api'],
         inputContracts: [contractId],
         doneWhen: 'A rota responde com o token e os testes dela passam.',
+        modelTier: 'padrao',
+        modelReason: 'mexe numa area so, mas dois passos dependem dela',
         gate: apiGate,
         budget: { maxTurns: 30, maxDurationMs: 900_000, maxRepeats: 2 },
       },
@@ -94,6 +97,8 @@ export function buildScriptedRun(runId: RunId, projectPath: string, goal: string
         allowedPaths: ['src/telas'],
         inputContracts: [contractId],
         doneWhen: 'A tela envia o formulario e mostra o erro quando a senha nao confere.',
+        modelTier: 'economico',
+        modelReason: 'mexe numa area so e ninguem depende dela',
         gate: uiGate,
         budget: { maxTurns: 30, maxDurationMs: 900_000, maxRepeats: 2 },
       },
@@ -106,20 +111,51 @@ export function buildScriptedRun(runId: RunId, projectPath: string, goal: string
         allowedPaths: [],
         inputContracts: [contractId],
         doneWhen: 'Entrar e sair funciona e o build passa.',
+        modelTier: 'caprichado',
+        modelReason: 'junta o trabalho de dois passos e toca varias areas',
         gate: joinGate,
         budget: { maxTurns: 30, maxDurationMs: 900_000, maxRepeats: 2 },
       },
     ],
   });
 
-  const spawn = (agentId: AgentId, role: string, displayName: string, adapter: string) =>
+  const spawn = (agentId: AgentId, role: string, displayName: string, adapter: string, model?: string) =>
     draft('agent.spawned', {
       agentId,
       role,
       displayName,
       adapter,
+      ...(model === undefined ? {} : { model }),
       worktreePath: `${projectPath}/.office/worktrees/${role}`,
       branch: `office/${role}`,
+    });
+
+  /**
+   * O consumo de um agente, um evento por modelo -- como a CLI de verdade
+   * reporta. Os numeros sao da ordem de grandeza medida em
+   * `tools/planner-lab/BASELINE.md`; o roteiro nao inventa desconto.
+   *
+   * O agente do Kimi nao emite nenhum, de proposito: o ACP dele nao reporta
+   * consumo, e o roteiro existe para mostrar o fluxo como ele e. Zerar ali se
+   * leria como "foi de graca", que e a unica coisa que este numero nao pode
+   * dizer.
+   */
+  const usage = (
+    agentId: AgentId,
+    model: string,
+    costUsd: number,
+    tokens: { input: number; output: number; cacheWrite: number; cacheRead: number },
+    task?: TaskId,
+  ) =>
+    draft('agent.usage', {
+      agentId,
+      ...(task === undefined ? {} : { taskId: task }),
+      model,
+      inputTokens: tokens.input,
+      outputTokens: tokens.output,
+      cacheCreationTokens: tokens.cacheWrite,
+      cacheReadTokens: tokens.cacheRead,
+      costUsd,
     });
 
   const state = (agentId: AgentId, from: AgentState, to: AgentState, reason?: string) =>
@@ -127,13 +163,19 @@ export function buildScriptedRun(runId: RunId, projectPath: string, goal: string
 
   const beforeBlock: AnyEventDraft[] = [
     draft('run.started', { projectPath, goal, startedBy: 'human' }),
-    spawn(manager, 'gerente', 'Gerente', 'claude'),
+    spawn(manager, 'gerente', 'Gerente', 'claude', 'opus'),
     state(manager, 'idle', 'thinking', 'Lendo o pedido e olhando o projeto'),
     draft('plan.created', { plan, createdBy: manager }),
+    // Planejar custa, e o gasto do gerente conta como o de qualquer outro. Dois
+    // eventos porque uma unica execucao da CLI mistura modelos: ela usa um
+    // barato para trabalho interno dela.
+    usage(manager, 'claude-opus-4-6', 0.2417, { input: 12, output: 3_180, cacheWrite: 8_902, cacheRead: 41_355 }),
+    usage(manager, 'claude-haiku-4-5', 0.0061, { input: 340, output: 210, cacheWrite: 0, cacheRead: 2_140 }),
     state(manager, 'thinking', 'talking', 'Publicando o contrato antes de dividir'),
     draft('contract.published', { contract, publishedBy: manager, unblocks: [apiTask, uiTask] }),
 
-    spawn(backend, 'backend', 'Backend', 'claude'),
+    spawn(backend, 'backend', 'Backend', 'claude', 'sonnet'),
+    // Sem alias: o papel do Kimi nao declara escada, entao roda no padrao da CLI.
     spawn(frontend, 'frontend', 'Interface e 3D', 'kimi'),
 
     draft('task.assigned', {
@@ -163,6 +205,7 @@ export function buildScriptedRun(runId: RunId, projectPath: string, goal: string
 
     draft('gate.started', { gateId: apiGate.id, taskId: apiTask, agentId: backend, kind: 'test', command: apiGate.command }),
     draft('gate.passed', { gateId: apiGate.id, taskId: apiTask, agentId: backend, kind: 'test', durationMs: 4200 }),
+    usage(backend, 'claude-sonnet-4-5', 0.0839, { input: 6, output: 4_412, cacheWrite: 6_744, cacheRead: 28_295 }, apiTask),
     draft('task.completed', { taskId: apiTask, agentId: backend, summary: 'Rota de login pronta e testada', filesChanged: 3 }),
     state(backend, 'working', 'done'),
     draft('worktree.merged', { agentId: manager, taskId: apiTask, branch: 'office/backend', into: 'main', filesChanged: 3 }),
@@ -219,6 +262,7 @@ export function buildScriptedRun(runId: RunId, projectPath: string, goal: string
     draft('task.started', { taskId: joinTask, agentId: manager, title: 'Ligar tela e rota' }),
     draft('gate.started', { gateId: joinGate.id, taskId: joinTask, agentId: manager, kind: 'build', command: joinGate.command }),
     draft('gate.passed', { gateId: joinGate.id, taskId: joinTask, agentId: manager, kind: 'build', durationMs: 9800 }),
+    usage(manager, 'claude-opus-4-6', 0.0912, { input: 8, output: 1_204, cacheWrite: 2_010, cacheRead: 33_770 }, joinTask),
     draft('task.completed', { taskId: joinTask, agentId: manager, summary: 'Entrar e sair funcionando', filesChanged: 1 }),
     state(manager, 'working', 'done'),
 

@@ -1,11 +1,14 @@
-import { useMemo } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
+import { AgentCard } from '../components/AgentCard';
 import { AgentList } from '../components/AgentList';
 import { EventFeed } from '../components/EventFeed';
 import { HumanQuestion } from '../components/HumanQuestion';
 import { PlanReview } from '../components/PlanReview';
 import { TaskInput } from '../components/TaskInput';
 import { TaskQueue } from '../components/TaskQueue';
+import { buildAgentCard } from '../state/agent-card';
 import { adapterLabel } from '../state/describe';
+import { agentColor } from '../world/office/palette';
 import { useHub } from '../state/world-store';
 import { Scene } from '../world';
 
@@ -17,9 +20,9 @@ const STATUS_LABEL = {
 } as const;
 
 export function Hub() {
-  const { project, world, roles, queue, effort, busy, failure, startRun, startPlannedRun,
-    addTask, setEffort, removeTask, startSimulation, answerQuestion, closeProject,
-    dismissFailure } = useHub();
+  const { project, world, roles, queue, effort, busy, failure, selected, startRun,
+    startPlannedRun, addTask, setEffort, removeTask, startSimulation, answerQuestion,
+    closeProject, dismissFailure, select } = useHub();
 
   const agents = useMemo(() => Object.values(world.agents), [world.agents]);
   const running = world.status === 'running';
@@ -38,6 +41,31 @@ export function Hub() {
       }),
     [queue, roles],
   );
+
+  /**
+   * A ficha que flutua sobre o personagem clicado. Ela e montada aqui, e nao
+   * no mundo 3D: e aqui que se pode saber o que e uma CLI, o que e um modelo e
+   * quanto cada um cobrou. O escritorio so recebe o resultado e ancora sobre a
+   * cabeca certa.
+   */
+  const cardFor = useCallback(
+    (agentId: string) => {
+      const card = buildAgentCard(world, agentId, roles);
+      if (card === null) return null;
+      return <AgentCard card={card} color={agentColor(agentId)} onClose={() => select(null)} />;
+    },
+    [world, roles, select],
+  );
+
+  // Esc fecha a ficha, como fecha qualquer coisa aberta.
+  useEffect(() => {
+    if (selected === null) return;
+    const onKey = (event: KeyboardEvent): void => {
+      if (event.key === 'Escape') select(null);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [selected, select]);
 
   if (project === null) return null;
 
@@ -94,7 +122,12 @@ export function Hub() {
           <h2 className="px-4 pt-3 text-xs font-medium tracking-wide text-muted uppercase">
             No escritorio
           </h2>
-          <AgentList agents={agents} tasks={world.tasks} />
+          <AgentList
+            agents={agents}
+            tasks={world.tasks}
+            selected={selected}
+            onSelect={(agentId) => select(agentId === selected ? null : agentId)}
+          />
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto">
@@ -117,7 +150,7 @@ export function Hub() {
           )}
         </div>
 
-        <Scene />
+        <Scene cardFor={cardFor} onClearSelection={() => select(null)} />
 
         {failure && (
           <div className="absolute inset-x-5 bottom-5 z-10 rounded-lg border border-bad/40 bg-panel px-4 py-3">
