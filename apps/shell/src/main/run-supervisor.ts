@@ -1,15 +1,21 @@
+import { rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import {
   budgetSchema,
   draft,
   newAgentId,
+  newGateId,
   newQuestionId,
   newTaskId,
   readySubtasks,
   type AdapterId,
   type AgentId,
   type AnyEventDraft,
+  type BlockCause as QuestionCause,
+  type Budget,
   type Contract,
+  type Gate,
+  type ModelTier,
   type Plan,
   type QuestionId,
   type RoleDefinition,
@@ -23,10 +29,34 @@ import {
   branchFor,
   GitWorktreeManager,
   type AdapterRegistry,
+  type AgentAdapter,
+  type AgentOutcome,
   type AgentRun,
   type Worktree,
 } from '@office/agents';
-import { AgentPlanner, discoverGates } from '@office/coordination';
+import {
+  AgentPlanner,
+  CommandGateRunner,
+  DefaultEscalationPolicy,
+  InMemoryBudgetTracker,
+  InstallWorktreePreparer,
+  OPTION_RESOLVE,
+  OPTION_RETRY,
+  OPTION_STOP,
+  defaultGate,
+  discoverGates,
+  modelFor,
+  shiftTier,
+  type AnswerUse,
+  type BlockCause,
+  type BudgetTracker,
+  type BudgetVerdict,
+  type EscalationPolicy,
+  type GateResult,
+  type GateRunner,
+  type Posture,
+  type WorktreePreparer,
+} from '@office/coordination';
 import type { EventStore } from '@office/store';
 
 /**
@@ -47,6 +77,8 @@ export interface QueueItem {
 export interface StartRunInput {
   readonly projectPath: string;
   readonly tasks: readonly QueueItem[];
+  /** Quanto capricho, escolhido pela pessoa. Ausente = o mais economico. */
+  readonly modelTier?: ModelTier;
 }
 
 export interface StartPlannedInput {
@@ -58,7 +90,7 @@ export interface StartPlannedInput {
 /**
  * O trabalho de um agente, ja resolvido: veio da fila manual ou de uma subtask
  * do plano. Daqui pra baixo o supervisor nao sabe de onde veio -- worktree,
- * commit e integracao sao identicos nos dois casos.
+ * portao, commit e integracao sao identicos nos dois casos.
  */
 interface Unit {
   readonly goal: string;
@@ -67,6 +99,11 @@ interface Unit {
   readonly allowedPaths: readonly string[];
   readonly contracts: readonly string[];
   readonly dependsOn: readonly TaskId[];
+  /** Ausente so quando o projeto nao oferece nenhum comando de verificacao. */
+  readonly gate: Gate | undefined;
+  readonly budget: Budget;
+  /** Alias de modelo ja resolvido. Ausente = default da propria CLI. */
+  readonly model: string | undefined;
 }
 
 interface PendingQuestion {
@@ -86,15 +123,55 @@ interface LiveRun {
   agent: AgentRun | null;
   question: PendingQuestion | null;
   cancelled: boolean;
+  /** O que a execucao gastou ate agora, somado dos `agent.usage`. */
+  costUsd: number;
+  totalTokens: number;
   /** Quem atribuiu. Ausente na fila manual: quem atribuiu foi a propria pessoa. */
   plannedBy?: AgentId;
 }
 
+/** O agente em campo numa subtask, com tudo que as tentativas compartilham. */
+interface Attempted {
+  readonly unit: Unit;
+  readonly role: RoleDefinition;
+  readonly adapter: AgentAdapter;
+  readonly agentId: AgentId;
+  readonly worktree: Worktree;
+}
+
+/** Como uma subtask terminou depois de todas as tentativas. */
+type Delivery =
+  /** Portao verde (ou projeto sem portao nenhum): pode integrar. */
+  | { readonly status: 'approved' }
+  /** O agente nao mudou nada: nao ha o que verificar nem o que integrar. */
+  | { readonly status: 'nothing' }
+  | { readonly status: 'stop'; readonly reason: string; readonly detail?: string };
+
+/** O que fazer depois de escalar. */
+type Escalated =
+  | {
+      readonly kind: 'retry';
+      readonly guidance: string;
+      readonly use: AnswerUse;
+      /** O que a pessoa respondeu, quando houve pergunta. */
+      readonly answer: string;
+      /** A pessoa autorizou continuar: o teto volta a valer do zero. */
+      readonly renewBudget: boolean;
+    }
+  | { readonly kind: 'stop'; readonly reason: string; readonly detail?: string };
+
 /**
- * O adaptador nunca encerra bloqueado -- se acontecer e bug nosso, e some numa
- * frase generica em vez de virar uma execucao pendurada.
+ * Teto de seguranca, acima da politica de retry e do orcamento. So chega aqui
+ * quem responde "tentar de novo" varias vezes seguidas: e a pessoa decidindo,
+ * mas decidir nao pode virar laco infinito.
  */
-function outcomeReason(outcome: Awaited<AgentRun['outcome']>): string {
+const ATTEMPT_CEILING = 8;
+
+/**
+ * O adaptador nunca encerra bloqueado sem pergunta -- se acontecer e bug nosso,
+ * e some numa frase generica em vez de virar uma execucao pendurada.
+ */
+function outcomeReason(outcome: AgentOutcome): string {
   switch (outcome.status) {
     case 'completed':
       return outcome.summary;
@@ -106,9 +183,23 @@ function outcomeReason(outcome: Awaited<AgentRun['outcome']>): string {
   }
 }
 
-const RESOLVER = 'resolver';
-const STOP = 'parar';
-const APPROVE = 'comecar';
+/** A sessao que a proxima tentativa retoma, quando a CLI devolveu uma. */
+function sessionOf(outcome: AgentOutcome): string | undefined {
+  return outcome.status === 'completed' || outcome.status === 'blocked'
+    ? outcome.sessionId
+    : undefined;
+}
+
+/**
+ * As tres formas de dizer "pode comecar". O plano ja mostra o modelo
+ * recomendado para cada passo; estes botoes movem a escada inteira um degrau
+ * para baixo ou para cima, sem obrigar ninguem a escolher passo a passo.
+ */
+const START: Readonly<Record<string, Posture>> = {
+  'comecar-economico': 'economico',
+  comecar: 'recomendado',
+  'comecar-caprichado': 'caprichado',
+};
 
 /**
  * A instrucao que vai para a CLI. O enquadramento importa: sem ele o agente
@@ -122,6 +213,23 @@ function buildPrompt(goal: string): string {
     'Trabalhe direto nesta pasta. Se ficar em duvida sobre o que a pessoa quer,',
     'pergunte em vez de escolher por conta propria -- quem vai responder nao le',
     'codigo, entao pergunte em linguagem simples.',
+  ].join('\n');
+}
+
+/** Nova tentativa da mesma subtask: o objetivo de novo, com o que deu errado junto. */
+function retryPrompt(goal: string, guidance: string): string {
+  return [buildPrompt(goal), '', guidance].join('\n');
+}
+
+/** Retomada de conversa: o agente ja sabe o objetivo, o que faltava era a resposta. */
+function resumePrompt(answer: string, guidance: string): string {
+  return [
+    'A pessoa respondeu a sua pergunta:',
+    '',
+    answer,
+    '',
+    ...(guidance.length > 0 ? [guidance, ''] : []),
+    'Siga o trabalho a partir dessa resposta, sem perguntar de novo a mesma coisa.',
   ].join('\n');
 }
 
@@ -158,6 +266,9 @@ function contractBodies(plan: Plan, subtask: Subtask): string[] {
     .map((contract) => `${contract.title}\n${contract.body}`);
 }
 
+/** A unidade de atividade que da para medir nas duas CLIs. */
+const signatureOf = (tool: string, target: string | undefined): string => `${tool}:${target ?? ''}`;
+
 export class RunSupervisor {
   private readonly live = new Map<RunId, LiveRun>();
 
@@ -168,7 +279,35 @@ export class RunSupervisor {
     private readonly worktrees: GitWorktreeManager,
     /** Onde as copias vivem. Fora do repositorio, decidido por quem conhece o SO. */
     private readonly worktreeRoot: string,
+    /** Quem conta se a entrega presta. Nunca o agente que fez o trabalho. */
+    private readonly gates: GateRunner = new CommandGateRunner(),
+    private readonly escalation: EscalationPolicy = new DefaultEscalationPolicy(),
+    private readonly budget: BudgetTracker = new InMemoryBudgetTracker(),
+    /** Quem deixa a copia em condicao de rodar o projeto, antes do agente. */
+    private readonly prep: WorktreePreparer = new InstallWorktreePreparer(),
   ) {}
+
+  /**
+   * Onde as dependencias desta execucao ficam guardadas entre uma subtask e
+   * outra. Fora das worktrees de proposito: elas sao apagadas assim que o
+   * trabalho entra no projeto, e o cache precisa sobreviver a isso.
+   */
+  private depsCache(runId: RunId): string {
+    return join(this.worktreeRoot, runId, 'deps');
+  }
+
+  /**
+   * Cache de build compartilhado por todas as copias da execucao.
+   *
+   * Sem isto cada copia recompila o projeto inteiro do zero, porque a
+   * instalacao replicada e anterior a qualquer build. Com ele, a segunda
+   * subtask so recompila o que a primeira mexeu. Nao afrouxa o portao: o turbo
+   * indexa por hash do conteudo, entao arquivo mexido invalida a entrada. A
+   * variavel e ignorada por projeto que nao usa turbo.
+   */
+  private gateEnv(runId: RunId): Record<string, string> {
+    return { TURBO_CACHE_DIR: join(this.depsCache(runId), 'turbo') };
+  }
 
   private role(id: RoleId): RoleDefinition {
     const found = this.roster.find((role) => role.id === id);
@@ -183,7 +322,7 @@ export class RunSupervisor {
     return found;
   }
 
-  private async adapterFor(id: AdapterId): Promise<ReturnType<AdapterRegistry['get']>> {
+  private async adapterFor(id: AdapterId): Promise<AgentAdapter> {
     const adapter = this.adapters.get(id);
     if (adapter === undefined) throw new Error(`O adaptador "${id}" nao esta registrado.`);
 
@@ -217,6 +356,8 @@ export class RunSupervisor {
       agent: null,
       question: null,
       cancelled: false,
+      costUsd: 0,
+      totalTokens: 0,
     };
     this.live.set(runId, live);
     return { runId, live };
@@ -228,7 +369,7 @@ export class RunSupervisor {
     const goal = input.tasks.map((item) => item.goal).join(' · ').slice(0, 500);
     const { runId } = await this.open(input.projectPath, goal);
 
-    void this.runQueue(runId, input.tasks);
+    void this.runQueue(runId, input.tasks, input.modelTier ?? 'economico');
     return runId;
   }
 
@@ -247,14 +388,43 @@ export class RunSupervisor {
   }
 
   private emit(runId: RunId, ...events: AnyEventDraft[]): void {
-    for (const event of events) this.events.append(runId, event);
+    for (const event of events) this.track(runId, event);
   }
 
-  /** Uma de cada vez: a proxima so comeca depois que a anterior foi integrada. */
-  private async runQueue(runId: RunId, items: readonly QueueItem[]): Promise<void> {
+  /**
+   * Anota no log e soma o que foi gasto. **Todo** evento da execucao passa por
+   * aqui, inclusive os do gerente planejando -- o planejamento e uma execucao
+   * de CLI como qualquer outra, e deixa-lo de fora faria o total da execucao
+   * mentir para menos justamente no passo que roda sempre.
+   */
+  private track(runId: RunId, event: AnyEventDraft): void {
+    this.events.append(runId, event);
+    if (event.type !== 'agent.usage') return;
+
+    const live = this.live.get(runId);
+    if (live === undefined) return;
+    const { costUsd, inputTokens, outputTokens, cacheCreationTokens, cacheReadTokens } =
+      event.payload;
+    live.costUsd += costUsd;
+    live.totalTokens += inputTokens + outputTokens + cacheCreationTokens + cacheReadTokens;
+  }
+
+  /**
+   * Uma de cada vez: a proxima so comeca depois que a anterior foi integrada.
+   *
+   * A fila manual nao passa por plano e por isso nao traz portao declarado. O
+   * portao do proprio projeto entra aqui -- sem isto este seria o unico caminho
+   * do sistema em que "terminei" e aceito sem ninguem conferir.
+   */
+  private async runQueue(
+    runId: RunId,
+    items: readonly QueueItem[],
+    tier: ModelTier,
+  ): Promise<void> {
     const live = this.live.get(runId);
     if (live === undefined) return;
 
+    const gate = defaultGate(live.projectPath);
     let done = 0;
     let stopped: string | null = null;
     let detail: string | undefined;
@@ -272,6 +442,13 @@ export class RunSupervisor {
           allowedPaths: [],
           contracts: [],
           dependsOn: [],
+          gate,
+          budget: budgetSchema.parse({}),
+          // Sem plano nao ha recomendacao por passo, entao vale o degrau que a
+          // pessoa escolheu para a fila inteira. Sem isto a fila manual caia no
+          // padrao da CLI -- que e o modelo mais caro, no caminho que existe
+          // justamente para ser o barato.
+          model: modelFor(this.role(item.role), tier),
         });
         if (outcome.status === 'stop') {
           stopped = outcome.reason;
@@ -288,6 +465,14 @@ export class RunSupervisor {
       console.error('[run-supervisor] a fila falhou:', error);
     }
 
+    if (stopped === null && done > 0 && gate !== undefined) {
+      const broken = await this.verifyIntegrated(runId, live, [gate]);
+      if (broken !== null) {
+        stopped = broken.reason;
+        detail = broken.detail;
+      }
+    }
+
     await this.cleanup(runId, live);
     this.close(runId, live, stopped, done, detail);
   }
@@ -300,13 +485,13 @@ export class RunSupervisor {
     try {
       const manager = this.manager();
       const adapter = await this.adapterFor(manager.adapter);
-      if (adapter === undefined) throw new Error('O adaptador do gerente sumiu.');
 
       const planner = new AgentPlanner({
         adapter,
         role: manager,
-        // O gerente aparece no feed lendo o projeto, como qualquer agente.
-        emit: (event) => this.events.append(runId, event),
+        // O gerente aparece no feed lendo o projeto, como qualquer agente --
+        // e o que ele gasta conta no total, pela mesma razao.
+        emit: (event) => this.track(runId, event),
       });
 
       const result = await planner.plan({
@@ -348,13 +533,14 @@ export class RunSupervisor {
       this.emit(runId, draft('plan.created', { plan, createdBy: plan.createdBy }));
       live.plannedBy = plan.createdBy;
 
-      if (!(await this.approvePlan(runId, live, plan))) {
+      const posture = await this.approvePlan(runId, live, plan);
+      if (posture === null) {
         // Nenhuma worktree foi criada ainda: cancelar aqui nao deixa rastro.
         this.close(runId, live, 'Voce cancelou antes de comecar, e eu nao mexi em nada.', 0);
         return;
       }
 
-      await this.runPlan(runId, live, plan);
+      await this.runPlan(runId, live, plan, posture);
     } catch (error) {
       console.error('[run-supervisor] o planejamento falhou:', error);
       await this.cleanup(runId, live);
@@ -368,19 +554,31 @@ export class RunSupervisor {
     }
   }
 
-  /** Mostra o plano e espera. O hub desenha os passos a partir de `plan.created`. */
-  private async approvePlan(runId: RunId, live: LiveRun, plan: Plan): Promise<boolean> {
+  /**
+   * Mostra o plano e espera. O hub desenha os passos a partir de
+   * `plan.created`, com o modelo recomendado para cada um.
+   *
+   * A escolha de modelo entra **aqui**, e nao numa tela propria, porque esta ja
+   * e uma parada obrigatoria: a pessoa esta olhando os passos e decidindo. Uma
+   * segunda pergunta so para escolher modelo seria uma interrupcao a mais para
+   * uma decisao que cabe nesta.
+   */
+  private async approvePlan(runId: RunId, live: LiveRun, plan: Plan): Promise<Posture | null> {
     const passos = plan.subtasks.length;
     const choice = await this.askHuman(runId, live, {
       question: `Dividi em ${passos} ${passos === 1 ? 'passo' : 'passos'}. Posso comecar?`,
-      context: 'Nada foi mexido ainda. Se preferir, cancele e me conte de outro jeito.',
+      context:
+        'Nada foi mexido ainda. Escolhi um modelo para cada passo, mas voce pode pedir tudo mais barato ou tudo mais caprichado.',
       cause: 'plan_review',
       options: [
-        { id: APPROVE, label: 'Pode comecar' },
-        { id: STOP, label: 'Cancelar, quero explicar melhor' },
+        { id: 'comecar-economico', label: 'Comecar, gastando o minimo' },
+        { id: 'comecar', label: 'Comecar como eu sugeri' },
+        { id: 'comecar-caprichado', label: 'Comecar caprichando' },
+        { id: OPTION_STOP, label: 'Cancelar, quero explicar melhor' },
       ],
+      allowFreeText: false,
     });
-    return choice === APPROVE;
+    return START[choice] ?? null;
   }
 
   /**
@@ -389,7 +587,12 @@ export class RunSupervisor {
    * `readySubtasks` devolve as liberadas; pegar sempre a primeira e o que
    * mantem tudo sequencial mesmo quando o grafo permitiria paralelismo.
    */
-  private async runPlan(runId: RunId, live: LiveRun, plan: Plan): Promise<void> {
+  private async runPlan(
+    runId: RunId,
+    live: LiveRun,
+    plan: Plan,
+    posture: Posture,
+  ): Promise<void> {
     const completed = new Set<string>();
     const published = new Set<string>();
     let stopped: string | null = null;
@@ -417,6 +620,11 @@ export class RunSupervisor {
         allowedPaths: next.allowedPaths,
         contracts: contractBodies(plan, next),
         dependsOn: next.dependsOn,
+        gate: next.gate,
+        budget: next.budget,
+        // A postura move o degrau que o sistema recomendou; quem resolve o
+        // alias e o papel, que e quem conhece a CLI.
+        model: modelFor(this.role(next.role), shiftTier(next.modelTier, posture)),
       });
 
       if (outcome.status === 'stop') {
@@ -426,8 +634,21 @@ export class RunSupervisor {
       completed.add(next.id);
     }
 
+    let detail: string | undefined;
+    if (stopped === null && completed.size > 0) {
+      const broken = await this.verifyIntegrated(
+        runId,
+        live,
+        plan.subtasks.map((subtask) => subtask.gate),
+      );
+      if (broken !== null) {
+        stopped = broken.reason;
+        detail = broken.detail;
+      }
+    }
+
     await this.cleanup(runId, live);
-    this.close(runId, live, stopped, completed.size);
+    this.close(runId, live, stopped, completed.size, detail);
   }
 
   /**
@@ -475,6 +696,8 @@ export class RunSupervisor {
           summary: `${done} ${done === 1 ? 'tarefa entregue' : 'tarefas entregues'} e integradas ao projeto.`,
           durationMs: Date.now() - live.startedAt,
           tasksCompleted: done,
+          costUsd: live.costUsd,
+          totalTokens: live.totalTokens,
         }),
         'completed',
       );
@@ -495,7 +718,6 @@ export class RunSupervisor {
   ): Promise<{ readonly status: 'ok' } | { readonly status: 'stop'; readonly reason: string }> {
     const role = this.role(unit.role);
     const adapter = await this.adapterFor(role.adapter);
-    if (adapter === undefined) return { status: 'stop', reason: 'O adaptador sumiu.' };
 
     const agentId = newAgentId(role.id);
     const { taskId } = unit;
@@ -520,57 +742,415 @@ export class RunSupervisor {
       }),
     );
 
-    const run = adapter.start({
-      agentId,
-      role: role.id,
-      displayName: role.title,
-      taskId,
-      cwd: worktree.path,
-      prompt: buildPrompt(unit.goal),
-      allowedPaths: [...unit.allowedPaths],
-      contracts: [...unit.contracts],
-      budget: budgetSchema.parse({}),
-      ...(role.model === undefined ? {} : { model: role.model }),
-    });
-
-    const outcome = await this.pump(runId, live, run);
-
-    if (outcome.status !== 'completed') {
-      // Trabalho quebrado nao entra no projeto: a copia e descartada inteira.
+    // Preparar antes de o agente comecar, e nao antes do portao: assim ele
+    // tambem consegue rodar a verificacao por conta propria enquanto trabalha.
+    const prepared = await this.prep.prepare(worktree, this.depsCache(runId));
+    if (prepared.status === 'failed') {
+      // Nao ha o que o agente conserte aqui, entao nem chega a comecar.
+      this.emit(
+        runId,
+        draft('task.failed', {
+          taskId, agentId, reason: prepared.summary, detail: prepared.detail,
+        }),
+      );
       await this.discard(runId, live, agentId, worktree);
-      return {
-        status: 'stop',
-        reason:
-          outcome.status === 'cancelled'
-            ? outcome.reason
-            : `Parei em "${unit.goal}": ${outcomeReason(outcome)}`,
-      };
+      return { status: 'stop', reason: prepared.summary };
     }
+    // O teto vale pela subtask inteira, nao por tentativa: senao "trinta
+    // turnos" viraria trinta por tentativa, e o limite deixaria de ser limite.
+    this.budget.start(agentId, unit.budget, taskId);
+    try {
+      const delivery = await this.deliver(runId, live, { unit, role, adapter, agentId, worktree });
 
-    const salvou = await this.worktrees.commitAll(worktree, unit.goal);
-    if (!salvou) {
-      await this.discard(runId, live, agentId, worktree);
-      return { status: 'ok' };
+      if (delivery.status === 'stop') {
+        // A subtask acabou aqui, e o log tem que dizer isso: sem este evento
+        // ela ficaria "sendo verificada" para sempre na tela.
+        this.emit(
+          runId,
+          draft('task.failed', {
+            taskId,
+            agentId,
+            reason: delivery.reason,
+            ...(delivery.detail === undefined ? {} : { detail: delivery.detail }),
+          }),
+        );
+        // Trabalho reprovado ou interrompido nao entra no projeto: a copia e
+        // descartada inteira.
+        await this.discard(runId, live, agentId, worktree);
+        return { status: 'stop', reason: delivery.reason };
+      }
+      if (delivery.status === 'nothing') {
+        await this.discard(runId, live, agentId, worktree);
+        return { status: 'ok' };
+      }
+
+      return await this.integrate(runId, live, { agentId, taskId, worktree, title: unit.goal });
+    } finally {
+      this.budget.release(agentId);
     }
-
-    return this.integrate(runId, live, { agentId, taskId, worktree, title: unit.goal });
   }
 
-  /** Leva os eventos do adaptador para o log, que e a unica fonte da verdade. */
+  /**
+   * As tentativas de uma subtask.
+   *
+   * O ciclo e sempre o mesmo: o agente trabalha, o portao confere por fora, e o
+   * que nao passa vira uma decisao -- tentar de novo com o erro na mao, ou
+   * perguntar. Nenhum agente aprova o proprio trabalho, entao o unico jeito de
+   * sair daqui aprovado e o portao ficar verde.
+   */
+  private async deliver(runId: RunId, live: LiveRun, ctx: Attempted): Promise<Delivery> {
+    const { unit, role, adapter, agentId, worktree } = ctx;
+    const { taskId } = unit;
+
+    let attempt = 1;
+    let prompt = buildPrompt(unit.goal);
+    let session: string | undefined;
+    /**
+     * Se ja existe trabalho commitado nesta copia. E o que separa "o agente
+     * nao fez nada" de "o agente nao consertou nada": na segunda tentativa a
+     * copia continua com o codigo reprovado da primeira, e tratar isso como
+     * "nada a fazer" fecharia a execucao dizendo que entregou.
+     */
+    let produced = false;
+
+    while (attempt <= ATTEMPT_CEILING) {
+      const run = adapter.start({
+        agentId,
+        role: role.id,
+        displayName: role.title,
+        taskId,
+        cwd: worktree.path,
+        prompt,
+        allowedPaths: [...unit.allowedPaths],
+        contracts: [...unit.contracts],
+        // O que sobrou, nao o teto cheio: quem gastou vinte turnos na primeira
+        // tentativa nao recomeca com trinta.
+        budget: this.budget.remaining(agentId),
+        ...(unit.model === undefined ? {} : { model: unit.model }),
+        ...(session === undefined ? {} : { sessionId: session }),
+      });
+
+      const { outcome, tripped } = await this.pump(runId, live, run, agentId, taskId);
+      if (live.cancelled) return { status: 'stop', reason: 'Voce pediu para parar.' };
+      session = sessionOf(outcome) ?? session;
+
+      const cause = blockCauseOf(outcome, tripped);
+      let next: Escalated;
+
+      if (cause === null) {
+        produced = (await this.worktrees.commitAll(worktree, unit.goal)) || produced;
+        // Agente que nao mexeu em nada nao tem o que verificar nem o que
+        // integrar -- e um portao verde aqui nao provaria coisa nenhuma.
+        if (!produced) return { status: 'nothing' };
+
+        if (unit.gate === undefined) return { status: 'approved' };
+        const result = await this.runGate(runId, ctx, unit.gate);
+        if (result.status === 'passed') return { status: 'approved' };
+
+        next = await this.escalate(runId, live, ctx, { kind: 'gate_failed', result }, attempt);
+      } else {
+        next = await this.escalate(runId, live, ctx, cause, attempt);
+      }
+
+      if (next.kind === 'stop') {
+        return {
+          status: 'stop',
+          reason: next.reason,
+          ...(next.detail === undefined ? {} : { detail: next.detail }),
+        };
+      }
+
+      attempt += 1;
+      prompt =
+        next.use === 'session'
+          ? resumePrompt(next.answer, next.guidance)
+          : retryPrompt(unit.goal, next.guidance);
+      if (next.renewBudget) this.budget.start(agentId, unit.budget, taskId);
+    }
+
+    return {
+      status: 'stop',
+      reason: 'Tentamos varias vezes e nao chegou a uma entrega que passasse na verificacao.',
+    };
+  }
+
+  /**
+   * Roda o portao e conta no log o que aconteceu. Quem executa e um comando do
+   * proprio projeto, por fora do agente: e a unica coisa que separa "terminei"
+   * de "esta pronto".
+   */
+  private async runGate(runId: RunId, ctx: Attempted, gate: Gate): Promise<GateResult> {
+    const { agentId, worktree, unit } = ctx;
+    const { taskId } = unit;
+    const gateId = newGateId();
+
+    this.emit(
+      runId,
+      draft('gate.started', { gateId, taskId, agentId, kind: gate.kind, command: gate.command }),
+    );
+
+    const result = await this.gates.run({ gate, worktree, taskId, env: this.gateEnv(runId) });
+
+    this.emit(
+      runId,
+      result.status === 'passed'
+        ? draft('gate.passed', { gateId, taskId, agentId, kind: gate.kind, durationMs: result.durationMs })
+        : draft('gate.failed', {
+            gateId,
+            taskId,
+            agentId,
+            kind: gate.kind,
+            // Nao ha codigo de saida quando o comando nem chegou a terminar,
+            // nem quando ele nao chegou a rodar; o que separa os casos e a
+            // frase, nao o numero.
+            exitCode: result.status === 'failed' ? result.exitCode : -1,
+            summary: result.summary,
+            // Comando silencioso existe (`grep -q`), e um detalhe vazio atras
+            // de um clique so frustra quem clica.
+            ...(result.detail.length === 0 ? {} : { detail: result.detail }),
+          }),
+    );
+    return result;
+  }
+
+  /**
+   * O projeto inteiro, depois de tudo integrado.
+   *
+   * Os portoes das subtasks rodam cada um na copia do seu agente, sobre o
+   * trabalho daquele agente. Nenhum deles ve o resultado da juncao -- e e
+   * exatamente ai que mora a quebra que ninguem previu: dois passos que passam
+   * sozinhos e nao passam juntos. Devolve a frase do problema, ou `null`.
+   */
+  private async verifyIntegrated(
+    runId: RunId,
+    live: LiveRun,
+    gates: readonly Gate[],
+  ): Promise<{ readonly reason: string; readonly detail: string } | null> {
+    // O repositorio da pessoa, no branch base: e onde o trabalho ja esta.
+    const integrated: Worktree = {
+      agentId: newAgentId('verificacao'),
+      repositoryPath: live.projectPath,
+      path: live.projectPath,
+      branch: live.base,
+      base: live.base,
+      createdAt: Date.now(),
+    };
+
+    // O repositorio da pessoa quase sempre ja tem as dependencias -- e onde ela
+    // desenvolve. Quando nao tem, elas vem do cache desta execucao por
+    // hardlink: sem isso o portao final reprovaria por falta de dependencia, e
+    // nao pelo que os agentes fizeram.
+    const prepared = await this.prep.prepare(integrated, this.depsCache(runId));
+    if (prepared.status === 'failed') {
+      return { reason: prepared.summary, detail: prepared.detail };
+    }
+
+    const seen = new Set<string>();
+    for (const gate of gates) {
+      if (seen.has(gate.command)) continue;
+      seen.add(gate.command);
+      if (live.cancelled) return null;
+
+      const gateId = newGateId();
+      const taskId = newTaskId();
+      this.emit(
+        runId,
+        draft('gate.started', {
+          gateId, taskId, agentId: integrated.agentId, kind: gate.kind, command: gate.command,
+        }),
+      );
+
+      const result = await this.gates.run({
+        gate, worktree: integrated, taskId, env: this.gateEnv(runId),
+      });
+      if (result.status === 'passed') {
+        this.emit(
+          runId,
+          draft('gate.passed', {
+            gateId, taskId, agentId: integrated.agentId, kind: gate.kind,
+            durationMs: result.durationMs,
+          }),
+        );
+        continue;
+      }
+
+      this.emit(
+        runId,
+        draft('gate.failed', {
+          gateId, taskId, agentId: integrated.agentId, kind: gate.kind,
+          exitCode: result.status === 'failed' ? result.exitCode : -1,
+          summary: result.summary,
+          ...(result.detail.length === 0 ? {} : { detail: result.detail }),
+        }),
+      );
+      return {
+        // O trabalho **ja esta** no projeto: dizer isso e o minimo, porque o
+        // que a pessoa precisa decidir agora e se desfaz ou se conserta.
+        reason:
+          'Cada passo passou na verificacao sozinho, mas o projeto inteiro nao passa com tudo junto. O trabalho ja esta no seu projeto -- confira antes de seguir.',
+        detail: result.detail,
+      };
+    }
+    return null;
+  }
+
+  /**
+   * Traduz a parada em decisao. Tentar de novo e barato e resolve a maior parte
+   * dos portoes vermelhos; perguntar custa a atencao da pessoa, e por isso so
+   * entra quando tentar de novo ja falhou.
+   */
+  private async escalate(
+    runId: RunId,
+    live: LiveRun,
+    ctx: Attempted,
+    cause: BlockCause,
+    attempt: number,
+  ): Promise<Escalated> {
+    const { agentId, unit } = ctx;
+    const decision = this.escalation.decide({ agentId, taskId: unit.taskId, cause, attempt });
+
+    switch (decision.action) {
+      case 'abort':
+        return { kind: 'stop', reason: decision.reason, ...detailOf(cause) };
+
+      case 'retry':
+        this.emit(
+          runId,
+          draft('task.progress', { taskId: unit.taskId, agentId, note: retryNote(cause) }),
+        );
+        // Tentativa por conta da casa: nao renova o teto. Quem paga a segunda
+        // chance e o orcamento que a subtask ja tinha.
+        return { kind: 'retry', guidance: decision.guidance, use: 'restart', answer: '', renewBudget: false };
+
+      case 'ask': {
+        const { question } = decision;
+        const answer = await this.askHuman(runId, live, {
+          question: question.question,
+          context: question.context,
+          cause: question.cause,
+          options: question.options,
+          allowFreeText: question.allowFreeText,
+          askedBy: agentId,
+          taskId: unit.taskId,
+        });
+
+        if (answer === OPTION_STOP) {
+          return {
+            kind: 'stop',
+            reason: 'Parei sem integrar nada, como voce pediu.',
+            ...detailOf(cause),
+          };
+        }
+
+        // Escolher o botao nao acrescenta instrucao; texto livre, sim -- quem
+        // conhece o projeto costuma saber a pista que estava faltando.
+        const words = answer === OPTION_RETRY ? '' : answer;
+        const guidance =
+          words.length > 0 && decision.onAnswer !== 'session'
+            ? [decision.guidance, `A pessoa acrescentou: ${words}`]
+                .filter((part) => part.length > 0)
+                .join('\n\n')
+            : decision.guidance;
+
+        return {
+          kind: 'retry',
+          guidance,
+          use: decision.onAnswer,
+          answer,
+          // Quem mandou continuar foi a pessoa, entao o teto volta a valer do
+          // zero. Sem isso ela autorizaria uma tentativa que ja nasce com um
+          // turno de orcamento e para de novo no primeiro passo.
+          renewBudget: true,
+        };
+      }
+    }
+  }
+
+  /**
+   * Leva os eventos do adaptador para o log, que e a unica fonte da verdade, e
+   * de passagem conta as acoes contra o orcamento.
+   *
+   * Contar aqui e o que faz o limite valer atraves das tentativas: o adaptador
+   * so conhece a execucao dele, e uma subtask que tentou tres vezes teria tres
+   * orcamentos cheios se ninguem somasse.
+   */
   private async pump(
     runId: RunId,
     live: LiveRun,
     run: AgentRun,
-  ): Promise<Awaited<AgentRun['outcome']>> {
+    agentId: AgentId,
+    taskId: TaskId,
+  ): Promise<{ outcome: AgentOutcome; tripped: BudgetVerdict | null }> {
     live.agent = run;
+    let tripped: BudgetVerdict | null = null;
+
+    const trip = (verdict: BudgetVerdict, ...events: AnyEventDraft[]): void => {
+      if (tripped !== null) return;
+      tripped = verdict;
+      this.emit(runId, ...events);
+      // Estourou, para e pergunta -- nunca segue tentando as cegas.
+      run.cancel('O limite combinado para este passo acabou.');
+    };
+
     try {
-      for await (const event of run) this.events.append(runId, event);
+      for await (const event of run) {
+        this.track(runId, event);
+        if (tripped !== null) continue;
+
+        // O que o proprio adaptador ja detectou tambem para a execucao: o
+        // evento ja esta no log, entao aqui so falta agir sobre ele.
+        if (event.type === 'budget.exceeded') {
+          trip({
+            status: 'exceeded',
+            kind: event.payload.kind === 'time' ? 'time' : 'turns',
+            used: event.payload.used,
+            limit: event.payload.limit,
+          });
+          continue;
+        }
+        if (event.type === 'loop.detected') {
+          trip({
+            status: 'looping',
+            signature: event.payload.signature,
+            occurrences: event.payload.occurrences,
+          });
+          continue;
+        }
+        if (event.type !== 'tool.call') continue;
+
+        const verdict = this.budget.record(
+          agentId,
+          signatureOf(event.payload.tool, event.payload.target),
+        );
+        if (verdict.status === 'warning') {
+          this.emit(
+            runId,
+            draft('budget.warning', {
+              agentId, kind: verdict.kind, used: verdict.used, limit: verdict.limit,
+            }),
+          );
+        } else if (verdict.status === 'exceeded') {
+          trip(
+            verdict,
+            draft('budget.exceeded', {
+              agentId, kind: verdict.kind, used: verdict.used, limit: verdict.limit,
+            }),
+          );
+        } else if (verdict.status === 'looping') {
+          trip(
+            verdict,
+            draft('loop.detected', {
+              agentId, taskId, signature: verdict.signature, occurrences: verdict.occurrences,
+            }),
+          );
+        }
+      }
     } catch (error) {
       console.error('[run-supervisor] o stream do agente falhou:', error);
     } finally {
       live.agent = null;
     }
-    return run.outcome;
+    return { outcome: await run.outcome, tripped };
   }
 
   /**
@@ -625,19 +1205,28 @@ export class RunSupervisor {
       }),
     );
 
+    // A mesma politica que decide portao e orcamento: toda frase que a pessoa
+    // le sobre uma parada sai de um lugar so.
+    const decision = this.escalation.decide({
+      agentId, taskId, attempt: 1, cause: { kind: 'merge_conflict', files },
+    });
+    if (decision.action !== 'ask') {
+      await this.worktrees.abortMerge(live.projectPath);
+      await this.discard(runId, live, agentId, worktree);
+      return { status: 'stop', reason: `Parei sem juntar o trabalho em ${lista}.` };
+    }
+
     const choice = await this.askHuman(runId, live, {
-      question: 'Dois agentes mexeram no mesmo lugar. Como quer que eu resolva?',
-      context: `Eles editaram ${lista} de formas diferentes, e eu nao sei qual das duas versoes voce quer manter.`,
-      cause: 'merge_conflict',
-      options: [
-        { id: RESOLVER, label: 'Deixar um agente juntar os dois trabalhos' },
-        { id: STOP, label: 'Parar por aqui e me mostrar o que aconteceu' },
-      ],
+      question: decision.question.question,
+      context: decision.question.context,
+      cause: decision.question.cause,
+      options: decision.question.options,
+      allowFreeText: decision.question.allowFreeText,
       askedBy: agentId,
       taskId,
     });
 
-    if (choice !== RESOLVER) {
+    if (choice !== OPTION_RESOLVE) {
       // Desfaz o merge: o repositorio volta exatamente como estava.
       await this.worktrees.abortMerge(live.projectPath);
       await this.discard(runId, live, agentId, worktree);
@@ -649,7 +1238,6 @@ export class RunSupervisor {
 
     const manager = this.manager();
     const adapter = await this.adapterFor(manager.adapter);
-    if (adapter === undefined) return { status: 'stop', reason: 'O adaptador sumiu.' };
 
     const resolverId = newAgentId(manager.id);
     const run = adapter.start({
@@ -666,11 +1254,14 @@ export class RunSupervisor {
       ...(manager.model === undefined ? {} : { model: manager.model }),
     });
 
-    const outcome = await this.pump(runId, live, run);
+    const { outcome } = await this.pump(runId, live, run, resolverId, taskId);
     if (outcome.status !== 'completed') {
       await this.worktrees.abortMerge(live.projectPath);
       await this.discard(runId, live, agentId, worktree);
-      return { status: 'stop', reason: `Nao consegui juntar os dois trabalhos em ${lista}.` };
+      return {
+        status: 'stop',
+        reason: `Nao consegui juntar os dois trabalhos em ${lista}: ${outcomeReason(outcome)}`,
+      };
     }
 
     // Nenhum agente aprova o proprio trabalho: antes de fechar, uma checagem
@@ -707,8 +1298,9 @@ export class RunSupervisor {
     ask: {
       question: string;
       context: string;
-      cause: 'merge_conflict' | 'plan_review';
+      cause: QuestionCause;
       options: readonly { id: string; label: string }[];
+      allowFreeText: boolean;
       askedBy?: AgentId;
       taskId?: TaskId;
     },
@@ -724,7 +1316,7 @@ export class RunSupervisor {
         ...(ask.askedBy === undefined ? {} : { askedBy: ask.askedBy }),
         ...(ask.taskId === undefined ? {} : { taskId: ask.taskId }),
         options: [...ask.options],
-        allowFreeText: false,
+        allowFreeText: ask.allowFreeText,
       }),
     );
 
@@ -765,6 +1357,9 @@ export class RunSupervisor {
         console.error('[run-supervisor] nao consegui remover a worktree:', error);
       }
     }
+    // O cache de dependencias sai junto: ele so vale para esta execucao, e sao
+    // links, entao apagar nao mexe em nada que outra execucao esteja usando.
+    await rm(join(this.worktreeRoot, runId), { recursive: true, force: true });
   }
 
   /** Verdadeiro quando havia mesmo alguem esperando a resposta. */
@@ -793,7 +1388,7 @@ export class RunSupervisor {
     live.cancelled = true;
     live.agent?.cancel(reason);
     // Uma pergunta aberta viraria espera eterna: parar e a resposta.
-    live.question?.resolve(STOP);
+    live.question?.resolve(OPTION_STOP);
     live.question = null;
     return true;
   }
@@ -801,5 +1396,65 @@ export class RunSupervisor {
   /** Janela fechando: nao deixa subprocesso orfao rodando no computador. */
   stop(): void {
     for (const [runId] of this.live) this.cancel(runId, 'O aplicativo foi fechado.');
+  }
+}
+
+/** O que o feed conta enquanto o agente tenta de novo por conta propria. */
+function retryNote(cause: BlockCause): string {
+  switch (cause.kind) {
+    case 'gate_failed':
+      return 'A verificacao apontou problemas e eu pedi uma correcao.';
+    case 'agent_crashed':
+      return 'O agente parou no meio do caminho e eu pedi para ele continuar.';
+    case 'agent_asked':
+    case 'budget':
+    case 'merge_conflict':
+      return 'Pedi para tentar de novo.';
+  }
+}
+
+/**
+ * O detalhe tecnico da parada, quando existe. Fica separado da frase e atras de
+ * um clique, nunca no corpo dela.
+ */
+function detailOf(cause: BlockCause): { detail?: string } {
+  switch (cause.kind) {
+    case 'gate_failed':
+      return cause.result.detail.length === 0 ? {} : { detail: cause.result.detail };
+    case 'agent_crashed':
+      return cause.detail === undefined ? {} : { detail: cause.detail };
+    case 'agent_asked':
+    case 'budget':
+    case 'merge_conflict':
+      return {};
+  }
+}
+
+/**
+ * Por que a tentativa nao chegou a uma entrega. `null` quer dizer que o agente
+ * disse que terminou -- o que ainda nao e o mesmo que estar pronto.
+ */
+function blockCauseOf(outcome: AgentOutcome, tripped: BudgetVerdict | null): BlockCause | null {
+  if (tripped !== null) return { kind: 'budget', verdict: tripped };
+
+  switch (outcome.status) {
+    case 'completed':
+      return null;
+    case 'blocked':
+      return {
+        kind: 'agent_asked',
+        question: outcome.question,
+        context: 'O agente parou para perguntar antes de seguir.',
+      };
+    case 'failed':
+      return {
+        kind: 'agent_crashed',
+        reason: outcome.reason,
+        ...(outcome.detail === undefined ? {} : { detail: outcome.detail }),
+      };
+    // Cancelamento que nao veio da pessoa e a CLI desistindo por conta propria:
+    // o motivo dela ja e a frase, e o caminho e o mesmo de uma queda.
+    case 'cancelled':
+      return { kind: 'agent_crashed', reason: outcome.reason };
   }
 }

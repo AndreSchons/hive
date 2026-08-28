@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { AnyEvent, ProjectRef, RoleDefinition } from '@office/protocol';
+import type { AnyEvent, ModelTier, ProjectRef, RoleDefinition } from '@office/protocol';
 import { invoke, onEvents } from '../ipc/bridge';
 import { applyAll, emptyWorld, type WorldState } from './event-reducer';
 
@@ -19,6 +19,8 @@ interface HubState {
   readonly recents: readonly ProjectRef[];
   readonly roles: readonly RoleDefinition[];
   readonly queue: readonly QueuedTask[];
+  /** Quanto capricho a fila manual pede. So vale para ela. */
+  readonly effort: ModelTier;
   readonly world: WorldState;
   readonly busy: boolean;
   readonly failure: Failure | null;
@@ -27,6 +29,7 @@ interface HubState {
   loadRecents(): Promise<void>;
   loadRoles(): Promise<void>;
   addTask(goal: string, role: string): void;
+  setEffort(effort: ModelTier): void;
   removeTask(index: number): void;
   pickProject(): Promise<void>;
   openProject(path: string): Promise<void>;
@@ -45,6 +48,7 @@ export const useHub = create<HubState>((set, get) => ({
   recents: [],
   roles: [],
   queue: [],
+  effort: 'economico',
   world: emptyWorld,
   busy: false,
   failure: null,
@@ -54,6 +58,10 @@ export const useHub = create<HubState>((set, get) => ({
     const response = await invoke('roster.get', {});
     if (response.ok) set({ roles: response.data });
     else set({ failure: response.error });
+  },
+
+  setEffort(effort: ModelTier) {
+    set({ effort });
   },
 
   addTask(goal: string, role: string) {
@@ -111,7 +119,7 @@ export const useHub = create<HubState>((set, get) => ({
     set({ busy: true, failure: null, world: emptyWorld });
     const response = await invoke('run.start', {
       projectPath: project.path,
-      request: { mode: 'queue', tasks: [...queue] },
+      request: { mode: 'queue', tasks: [...queue], modelTier: get().effort },
     });
     set({ busy: false });
 

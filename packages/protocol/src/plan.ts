@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { contractId, gateId, planId, runId, taskId, agentId } from './ids';
-import { roleId } from './roles';
+import { modelTierSchema, roleId } from './roles';
 
 /**
  * Portao de verificacao: um comando com resultado objetivo. "Terminei" sem
@@ -61,6 +61,17 @@ export const subtaskSchema = z.object({
   doneWhen: z.string().min(1),
   gate: gateSchema,
   budget: budgetSchema,
+  /**
+   * Que degrau de modelo este passo pede, e por que -- em linguagem de gente,
+   * porque isso aparece na tela para a pessoa aprovar.
+   *
+   * Preenchido pelo **sistema**, a partir do que o plano ja declara (quantas
+   * areas toca, se tem contrato, quantos passos dependem dele). O modelo nao
+   * escolhe o proprio modelo pela mesma razao que nao define o proprio teto de
+   * turnos: quem paga a conta e quem decide.
+   */
+  modelTier: modelTierSchema.default('padrao'),
+  modelReason: z.string().min(1).default('tamanho comum'),
 });
 export type Subtask = z.infer<typeof subtaskSchema>;
 
@@ -200,11 +211,12 @@ export const contractDraftSchema = contractSchema;
 export type ContractDraft = z.infer<typeof contractDraftSchema>;
 
 /**
- * Sem `budget`: orcamento e limite duro do sistema, nao escolha do modelo. Um
- * gerente que define o proprio teto de turnos nao tem teto nenhum.
+ * Sem `budget` nem degrau de modelo: os dois sao decisao de quem paga a conta,
+ * nao de quem gasta. Um gerente que define o proprio teto de turnos nao tem
+ * teto nenhum, e um que escolhe o proprio modelo tambem nao.
  */
 export const subtaskDraftSchema = subtaskSchema
-  .omit({ budget: true })
+  .omit({ budget: true, modelTier: true, modelReason: true })
   .extend({ gate: gateDraftSchema });
 export type SubtaskDraft = z.infer<typeof subtaskDraftSchema>;
 

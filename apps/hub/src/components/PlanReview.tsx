@@ -1,4 +1,4 @@
-import type { Plan, RoleDefinition } from '@office/protocol';
+import type { ModelTier, Plan, RoleDefinition } from '@office/protocol';
 
 export interface PlanReviewProps {
   readonly plan: Plan;
@@ -6,16 +6,31 @@ export interface PlanReviewProps {
 }
 
 /**
+ * Como cada degrau se chama para quem nao le codigo. O nome do modelo em si
+ * ("sonnet") nao diz nada para essa pessoa; o que ela precisa saber e se aquele
+ * passo vai no barato ou no caprichado, e por que.
+ */
+const TIER_LABEL: Record<ModelTier, string> = {
+  economico: 'economico',
+  padrao: 'equilibrado',
+  caprichado: 'caprichado',
+};
+
+/**
  * O plano do gerente, como quem nao le codigo precisa ver.
  *
  * Nada de id, comando de portao ou caminho de arquivo: isso e detalhe tecnico e
  * fica fora. O que aparece e a ordem, quem faz cada passo, o que cada um espera
- * do anterior, e o criterio de pronto -- que e o unico jeito de alguem julgar se
- * a divisao faz sentido antes de os agentes comecarem.
+ * do anterior, o criterio de pronto e o modelo escolhido para ele -- que e o
+ * que a pessoa precisa para julgar a divisao **e** o gasto antes de comecar.
  */
 export function PlanReview({ plan, roles }: PlanReviewProps) {
-  const title = (id: string): string => roles.find((role) => role.id === id)?.title ?? id;
+  const byId = new Map(roles.map((role) => [String(role.id), role]));
+  const title = (id: string): string => byId.get(id)?.title ?? id;
   const position = new Map(plan.subtasks.map((subtask, index) => [subtask.id, index + 1]));
+
+  /** Papel sem escada roda no padrao da CLI, e dizer isso e mais honesto que omitir. */
+  const usaEscada = (roleId: string): boolean => byId.get(roleId)?.models !== undefined;
 
   return (
     <div className="mt-4 flex flex-col gap-3">
@@ -47,6 +62,11 @@ export function PlanReview({ plan, roles }: PlanReviewProps) {
 
               <p className="mt-1 pl-5 text-xs leading-snug text-muted">
                 Pronto quando: {subtask.doneWhen}
+              </p>
+              <p className="mt-1 pl-5 text-xs leading-snug text-muted">
+                {usaEscada(subtask.role)
+                  ? `Modo ${TIER_LABEL[subtask.modelTier]}: ${subtask.modelReason}.`
+                  : 'Modo padrao dessa ferramenta.'}
               </p>
               {espera.length > 0 && (
                 <p className="mt-1 pl-5 text-xs leading-snug text-muted">

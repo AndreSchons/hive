@@ -1,13 +1,27 @@
 import { useState, type FormEvent } from 'react';
-import type { RoleDefinition } from '@office/protocol';
+import type { ModelTier, RoleDefinition } from '@office/protocol';
 import { adapterLabel } from '../state/describe';
 
 export interface TaskInputProps {
   readonly disabled: boolean;
   readonly roles: readonly RoleDefinition[];
+  readonly effort: ModelTier;
   readonly onAdd: (goal: string, role: string) => void;
+  readonly onEffort: (effort: ModelTier) => void;
   readonly onPlan: (goal: string) => void;
 }
+
+/**
+ * O que cada degrau significa para quem esta escolhendo, e nao para quem
+ * conhece modelo. Medido na mesma tarefa: o economico entregou por US$ 0,048 e
+ * o padrao da ferramenta, que e o mais caro, cobrou US$ 0,248 pelo mesmo
+ * resultado -- e os dois passaram na verificacao.
+ */
+const EFFORT_LABEL: Record<ModelTier, string> = {
+  economico: 'rapido e barato',
+  padrao: 'equilibrado',
+  caprichado: 'capricha, custa mais',
+};
 
 /**
  * O mesmo campo de texto, dois jeitos de comecar.
@@ -19,8 +33,12 @@ export interface TaskInputProps {
  *
  * A opcao de papel mostra o papel **e** a CLI por tras dele. Escolher
  * "Interface e 3D" sem saber que isso e o Kimi seria escolher no escuro.
+ *
+ * No modo manual a pessoa escolhe tambem **quanto capricho**. Sem essa escolha
+ * a fila caia no modelo padrao da CLI, que e o mais caro que existe: o caminho
+ * que existe para ser o barato era, medido, o mais caro do sistema inteiro.
  */
-export function TaskInput({ disabled, roles, onAdd, onPlan }: TaskInputProps) {
+export function TaskInput({ disabled, roles, effort, onAdd, onEffort, onPlan }: TaskInputProps) {
   const [text, setText] = useState('');
   const [role, setRole] = useState('');
   const [manual, setManual] = useState(false);
@@ -70,6 +88,21 @@ export function TaskInput({ disabled, roles, onAdd, onPlan }: TaskInputProps) {
             {roles.map((option) => (
               <option key={option.id} value={option.id}>
                 {option.title} · {adapterLabel(option.adapter)}
+              </option>
+            ))}
+          </select>
+        )}
+        {manual && (
+          <select
+            aria-label="Quanto capricho"
+            value={effort}
+            disabled={disabled}
+            onChange={(event) => onEffort(event.target.value as ModelTier)}
+            className="min-w-0 shrink-0 rounded-lg border border-edge bg-panel px-3 py-2 text-sm outline-none focus:border-accent disabled:opacity-50"
+          >
+            {(Object.keys(EFFORT_LABEL) as ModelTier[]).map((tier) => (
+              <option key={tier} value={tier}>
+                {EFFORT_LABEL[tier]}
               </option>
             ))}
           </select>

@@ -15,6 +15,7 @@ import type { AgentAdapter } from '@office/agents';
 import { parseJsonLoosely } from './extract-json';
 import { buildPlanPrompt, type PromptInput } from './prompt';
 import type { PlanRequest, PlanResult, Planner } from './planner';
+import { DefaultModelPolicy, type ModelPolicy } from './model-policy';
 
 /**
  * Planejar e tarefa curta e limitada: ler o projeto e responder. O orcamento
@@ -34,6 +35,12 @@ export interface AgentPlannerOptions {
    * Ausente, os eventos sao descartados (e o que o harness faz).
    */
   readonly emit?: (event: AnyEventDraft) => void;
+  /**
+   * Que modelo cada passo pede. Fica aqui, e nao no prompt, porque o modelo
+   * nao escolhe o proprio modelo -- ele descreve o trabalho, e o sistema le a
+   * descricao.
+   */
+  readonly modelPolicy?: ModelPolicy;
 }
 
 /**
@@ -223,7 +230,7 @@ export class AgentPlanner implements Planner {
       revision,
       createdBy,
       goal: request.goal,
-      subtasks: withSystemFields(draft.value),
+      subtasks: withSystemFields(draft.value, this.options.modelPolicy ?? new DefaultModelPolicy()),
       contracts: draft.value.contracts,
     };
 
@@ -235,12 +242,27 @@ export class AgentPlanner implements Planner {
   }
 }
 
-/** Id de portao e orcamento sao do sistema: o modelo nunca os escolhe. */
-function withSystemFields(draft: PlanDraft): Plan['subtasks'] {
+/** Id de portao, orcamento e degrau de modelo sao do sistema: o modelo nunca os escolhe. */
+function withSystemFields(draft: PlanDraft, policy: ModelPolicy): Plan['subtasks'] {
   const budget = budgetSchema.parse({});
-  return draft.subtasks.map((subtask) => ({
-    ...subtask,
-    gate: { ...subtask.gate, id: newGateId() },
-    budget,
-  }));
+  const dependents = new Map<string, number>();
+  for (const subtask of draft.subtasks) {
+    for (const dependency of subtask.dependsOn) {
+      dependents.set(dependency, (dependents.get(dependency) ?? 0) + 1);
+    }
+  }
+
+  return draft.subtasks.map((subtask) => {
+    const recommendation = policy.recommend({
+      subtask,
+      dependents: dependents.get(subtask.id) ?? 0,
+    });
+    return {
+      ...subtask,
+      gate: { ...subtask.gate, id: newGateId() },
+      budget,
+      modelTier: recommendation.tier,
+      modelReason: recommendation.reason,
+    };
+  });
 }

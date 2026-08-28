@@ -23,16 +23,31 @@ import { openProject, pickProject } from './project-dialog';
  * Roster inicial. E configuracao, nao constante do sistema: mora aqui so ate
  * existir a tela onde o usuario edita papeis e associa cada um a uma CLI.
  */
+/**
+ * A escada de modelos do Claude Code. Os tres aliases sao de primeira mao e
+ * estao documentados no `--help` da CLI. Medido com o mesmo prompt trivial:
+ * haiku US$ 0,0165, sonnet US$ 0,0408, opus US$ 0,0680.
+ */
+const CLAUDE_MODELS = { economico: 'haiku', padrao: 'sonnet', caprichado: 'opus' } as const;
+
+/**
+ * O Kimi fica **sem escada** de proposito. Os aliases dele nao sao fixos: saem
+ * do `config.toml` de cada usuario, e mandar um nome que a CLI nao conhece
+ * derruba a execucao inteira. Sem escada, o papel roda no modelo padrao da CLI
+ * e a postura escolhida simplesmente nao o afeta -- que e honesto, e melhor que
+ * chutar um alias.
+ */
 export const DEFAULT_ROSTER: Roster = rosterSchema.parse([
-  { id: 'gerente', title: 'Gerente', adapter: 'claude', model: 'opus', canDelegate: true,
+  { id: 'gerente', title: 'Gerente', adapter: 'claude', model: 'opus', models: CLAUDE_MODELS,
+    canDelegate: true,
     description: 'Decompoe a task, publica contratos, valida entregas e integra.' },
-  { id: 'executor', title: 'Agente', adapter: 'claude', canDelegate: false,
+  { id: 'executor', title: 'Agente', adapter: 'claude', models: CLAUDE_MODELS, canDelegate: false,
     description: 'Executa uma tarefa sozinho, direto na pasta do projeto.' },
   { id: 'frontend', title: 'Interface e 3D', adapter: 'kimi', canDelegate: false,
     description: 'Telas, componentes e o escritorio 3D.' },
-  { id: 'backend', title: 'Backend', adapter: 'claude', canDelegate: false,
+  { id: 'backend', title: 'Backend', adapter: 'claude', models: CLAUDE_MODELS, canDelegate: false,
     description: 'Dados, rotas e regras de negocio.' },
-  { id: 'revisao', title: 'Revisao', adapter: 'claude', canDelegate: false,
+  { id: 'revisao', title: 'Revisao', adapter: 'claude', models: CLAUDE_MODELS, canDelegate: false,
     description: 'Le o que os outros entregaram antes de integrar.' },
 ]);
 
@@ -88,7 +103,11 @@ function buildHandlers(context: IpcContext): Handlers {
       // A uniao ja estreitou: cada modo tem exatamente os campos que precisa.
       const runId =
         request.mode === 'queue'
-          ? await runs.start({ projectPath, tasks: request.tasks })
+          ? await runs.start({
+              projectPath,
+              tasks: request.tasks,
+              modelTier: request.modelTier,
+            })
           : await runs.startPlanned({ projectPath, goal: request.goal });
       // Segue a execucao assim que ela existe: o primeiro evento ja chega na
       // janela sem precisar de um segundo comando.

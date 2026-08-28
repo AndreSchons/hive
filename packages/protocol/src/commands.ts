@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { questionId, runId } from './ids';
-import { roleId, rosterSchema } from './roles';
+import { modelTierSchema, roleId, rosterSchema } from './roles';
 
 /** Uma pasta de projeto ja escolhida pelo usuario. */
 export const projectRefSchema = z.object({
@@ -67,6 +67,16 @@ export const commands = {
             .array(z.object({ goal: z.string().min(1), role: roleId }))
             .min(1)
             .max(8),
+          /**
+           * Quanto capricho a pessoa quer. So existe na fila manual: no modo
+           * planejado o gerente recomenda por passo e a escolha entra no aval
+           * do plano.
+           *
+           * Padrao economico porque e para isso que este modo existe -- quem
+           * escolhe o proprio papel ja sabe que a tarefa e pequena. O portao
+           * continua valendo, entao economizar aqui nao afrouxa nada.
+           */
+          modelTier: modelTierSchema.default('economico'),
         }),
         z.object({ mode: z.literal('planned'), goal: z.string().min(1) }),
       ]),

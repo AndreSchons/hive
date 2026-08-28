@@ -17,9 +17,9 @@ const STATUS_LABEL = {
 } as const;
 
 export function Hub() {
-  const { project, world, roles, queue, busy, failure, startRun, startPlannedRun, addTask,
-    removeTask, startSimulation, answerQuestion, closeProject, dismissFailure } =
-    useHub();
+  const { project, world, roles, queue, effort, busy, failure, startRun, startPlannedRun,
+    addTask, setEffort, removeTask, startSimulation, answerQuestion, closeProject,
+    dismissFailure } = useHub();
 
   const agents = useMemo(() => Object.values(world.agents), [world.agents]);
   const running = world.status === 'running';
@@ -62,7 +62,9 @@ export function Hub() {
           <TaskInput
             disabled={busy || running}
             roles={roles}
+            effort={effort}
             onAdd={addTask}
+            onEffort={setEffort}
             onPlan={(goal) => void startPlannedRun(goal)}
           />
           <TaskQueue
