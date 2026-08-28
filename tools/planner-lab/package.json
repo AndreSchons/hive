@@ -1,0 +1,19 @@
+{
+  "name": "@office/planner-lab",
+  "version": "0.0.1",
+  "private": true,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "bin": { "office-plan-lab": "./dist/cli.js" },
+  "scripts": {
+    "build": "tsc -b",
+    "typecheck": "tsc -p tsconfig.test.json",
+    "test": "vitest run --passWithNoTests",
+    "start": "node dist/cli.js"
+  },
+  "dependencies": {
+    "@office/agents": "workspace:*",
+    "@office/coordination": "workspace:*",
+    "@office/protocol": "workspace:*"
+  }
+}

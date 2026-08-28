@@ -135,6 +135,18 @@ importers:
         specifier: 9.6.0
         version: 9.6.0
 
+  tools/planner-lab:
+    dependencies:
+      '@office/agents':
+        specifier: workspace:*
+        version: link:../../packages/agents
+      '@office/coordination':
+        specifier: workspace:*
+        version: link:../../packages/coordination
+      '@office/protocol':
+        specifier: workspace:*
+        version: link:../../packages/protocol
+
   tools/simulator:
     dependencies:
       '@office/protocol':

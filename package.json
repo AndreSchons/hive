@@ -13,6 +13,7 @@
     "dev": "turbo run dev",
     "app": "turbo run build && pnpm --filter @office/shell start",
     "simulate": "pnpm --filter @office/simulator start",
+    "plan-lab": "turbo run build && pnpm --filter @office/planner-lab start",
     "app:nosandbox": "turbo run build && pnpm --filter @office/shell start:nosandbox"
   },
   "devDependencies": {
