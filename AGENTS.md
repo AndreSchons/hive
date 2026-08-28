@@ -73,6 +73,7 @@ packages/coordination  protocol, agents          -- nunca apps/*
 apps/shell             protocol, store, agents, coordination, simulator
 apps/hub               protocol                  -- e so
 tools/simulator        protocol, store
+tools/planner-lab      protocol, agents, coordination
 ```
 
 Regras que nao se negociam:
@@ -111,19 +112,59 @@ pnpm typecheck
 pnpm test
 pnpm dev         # vite + electron com recarga
 pnpm app         # abre o app com o hub ja compilado
+pnpm app:nosandbox   # idem, sem o sandbox do Chromium (ver nota de Linux)
 pnpm --filter @office/simulator start -- --db <caminho> --project <pasta>
+pnpm plan-lab -- --task all --project .   # so o gerente, sem executar nada
 ```
+
+## Se voce esta mexendo em custo, portao ou escalonamento
+
+O sistema existe para sair mais barato que rodar a CLI na mao, e
+`tools/planner-lab/BASELINE.md` guarda o numero que diz se isso e verdade. Leia
+antes de otimizar qualquer coisa, e refaca a medicao depois.
+
+- **`agent.usage` sai um por modelo**, nunca um total: uma execucao mistura
+  modelos, e o total sozinho nao diz qual modelo vale para qual passo. CLI que
+  nao reporta consumo **nao emite** -- zero se leria como "de graca".
+- **Preparar a copia e do `WorktreePreparer`, nao do portao**, e acontece antes
+  de o agente comecar. Instala uma vez por execucao e replica por hardlink
+  (`cp -al`) nas seguintes: 16s contra 0,12s. Symlink do `node_modules` do
+  projeto foi tentado e nao serve -- o pnpm recusa pasta de modulos fora da
+  raiz, e num monorepo o portao leria a versao antiga dos pacotes vizinhos.
+- **O portao de subtask nunca ve a juncao.** `verifyIntegrated` roda os portoes
+  do plano no repositorio ja integrado antes de declarar entregue: dois passos
+  podem passar sozinhos e quebrar juntos.
+- **Modelo e decisao de quem paga.** `DefaultModelPolicy` recomenda um degrau
+  por passo a partir do que o plano ja declara; a pessoa escolhe a postura no
+  aval do plano. `modelTier` fica fora de `subtaskDraftSchema` pela mesma razao
+  que `budget` fica.
+
+Tres regras do produto viram codigo aqui, e cada uma tem um lugar so:
+
+- **Nenhum agente aprova o proprio trabalho.** `CommandGateRunner` roda um
+  comando do proprio projeto na copia do agente, por fora dele, e codigo de
+  saida e o unico criterio. Preparacao que falha **para** a execucao em vez de
+  culpar o agente: quem errou nao foi ele, e nao ha o que ele conserte.
+- **Escalonar e decidir entre tres coisas.** `DefaultEscalationPolicy` e o unico
+  lugar que escolhe entre tentar de novo, perguntar e desistir -- e o unico que
+  escreve texto de parada, tanto a frase da pessoa quanto a instrucao do agente.
+  Portao vermelho ganha **uma** segunda chance com o erro colado no pedido; a
+  duvida do proprio agente nunca vira nova tentativa, sobe como ele escreveu.
+- **Limite e por subtask, nao por tentativa.** `budget.start` uma vez, cada
+  tentativa recebe `budget.remaining()`. Um teto que se renova a cada tentativa
+  nao e teto.
 
 ## O que ainda nao existe
 
 Pathfinding no 3D (o movimento dos personagens segue caminhos em L sobre o
 layout fixo do escritorio). Animacoes proprias para `talking` e `blocked` (hoje
-caem no `idle`). Adaptadores reais de CLI (a interface
-esta desenhada para eles, so ha `MockAdapter`). Implementacoes de `coordination`
-(so os tipos). Prompts de agente. Autenticacao. Empacotamento para distribuicao.
+caem no `idle`). Paralelismo: o gerente monta o grafo, mas o executor roda uma
+subtask de cada vez, e `Assigner` continua so como tipo. Replanejamento
+automatico depois de subtask que falha. Mais de um portao por subtask
+(`Subtask.gate` e um so). Autenticacao. Empacotamento para distribuicao.
 
-`run.start` recusa explicitamente com uma frase para o usuario ate o orquestrador
-existir. Use a execucao simulada (`dev.simulate`) para ver o fluxo inteiro.
+O roteiro do simulador (`dev.simulate`) continua util para ver o fluxo inteiro
+sem gastar chamada de modelo.
 
 ## Nota de ambiente (Linux)
 
@@ -136,5 +177,7 @@ sudo chown root:root node_modules/.pnpm/electron@*/node_modules/electron/dist/ch
 sudo chmod 4755 node_modules/.pnpm/electron@*/node_modules/electron/dist/chrome-sandbox
 ```
 
-Sem isso o app aborta na inicializacao. `--no-sandbox` contorna, mas desliga o
-sandbox do Chromium e nao deve virar padrao.
+Sem isso o app aborta na inicializacao -- em algumas maquinas com `FATAL` sobre
+o SUID sandbox, em outras com SIGSEGV logo depois da inicializacao do GTK.
+`pnpm app:nosandbox` contorna para desenvolver, mas desliga o sandbox do
+Chromium e nao deve virar o caminho padrao.

@@ -81,7 +81,11 @@ export class KimiRun implements AgentRun {
       budget: request.budget,
     });
 
-    this.child = spawn(options.executable, ['acp'], {
+    // `-m` e opcao global do `kimi`, entao vem antes do subcomando. Sem isto o
+    // modelo escolhido viajava so no evento `agent.spawned`: o log afirmava um
+    // modelo que a CLI nunca chegou a usar.
+    const args = request.model === undefined ? ['acp'] : ['-m', request.model, 'acp'];
+    this.child = spawn(options.executable, args, {
       cwd: request.cwd,
       stdio: ['pipe', 'pipe', 'pipe'],
       env: { ...process.env, ...request.env },

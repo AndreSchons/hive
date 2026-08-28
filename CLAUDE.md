@@ -225,6 +225,172 @@ aceitam os dois desfechos e ficam como leitura.
 pnpm plan-lab -- --task all --project . --out /tmp/planos
 ```
 
+## Quanto custa, e por que isso vem antes de tudo
+
+O sistema existe para entregar mais rapido e mais barato que rodar a CLI na mao.
+`tools/planner-lab/BASELINE.md` guarda o numero que diz se isso e verdade -- e
+na primeira medicao **nao era**: so planejar uma troca de rotulo de botao custou
+US$ 0,30, contra US$ 0,19 que a CLI cobrou para fazer o trabalho inteiro.
+
+Nada se otimiza sem esse numero, entao ele e evento de primeira classe.
+
+- **`agent.usage` sai um por modelo**, nao um total. Uma unica execucao da CLI
+  mistura modelos (ela usa um barato para trabalho interno dela), e o total
+  sozinho nao responde a unica pergunta que interessa: qual modelo vale para
+  qual passo. Vem de `modelUsage` na linha `result`, que as fixtures gravadas ja
+  traziam.
+- **CLI que nao reporta consumo nao emite nada.** Zero se leria como "foi de
+  graca", e essa e a unica coisa que este numero nao pode dizer. O ACP do Kimi
+  nao reporta, entao execucao de Kimi aparece sem custo -- ausente, nao zerada.
+- **`cacheCreationTokens` e `cacheReadTokens` vivem separados** porque e a
+  diferenca entre eles que explica o preco: naquela fixture, 6.744 tokens
+  escritos no cache contra 28.295 lidos, com 6 de input novo. Praticamente todo
+  o input e cache, e **o cache morre junto com a sessao** -- e o argumento
+  numerico contra dividir trabalho em muitas sessoes curtas.
+- O gasto do **gerente conta**. `RunSupervisor.track` e o unico caminho de
+  escrita no log, e o planejamento passa por ele como qualquer agente: deixa-lo
+  de fora faria o total mentir para menos justamente no passo que roda sempre.
+- `pnpm plan-lab` imprime custo por task e o total da rodada. E o loop de
+  realimentacao mais barato do repositorio: dez planejamentos dizem se uma
+  mudanca de prompt ficou mais cara.
+
+## Como uma entrega e aceita
+
+Um agente dizer "terminei" nao termina nada. Entre o desfecho da CLI e o merge
+existe um portao: um comando do proprio projeto, rodado por fora, na copia do
+agente, com codigo de saida como unico criterio. `CommandGateRunner`
+(`packages/coordination/src/gate-runner.ts`) e quem roda.
+
+- **Preparar a copia nao e trabalho do portao** -- e do `WorktreePreparer`, e
+  acontece **antes de o agente comecar**, nao antes de verificar. Assim o
+  proprio agente consegue rodar a verificacao enquanto trabalha.
+- **Instala uma vez por execucao, nao uma por subtask.** A primeira copia paga a
+  instalacao de verdade (16s medidos aqui, com o cache do gerenciador quente) e
+  deixa uma replica em `<worktrees>/<runId>/deps`; as seguintes saem dela por
+  `cp -al` -- **0,12s para 600 MB**. O cache mora fora das copias porque a copia
+  do primeiro agente e apagada assim que o trabalho dele entra no projeto: usar
+  a copia anterior como semente funcionaria uma vez e nunca mais.
+- **Hardlink e nao symlink, e isso importa duas vezes.** Ligar o `node_modules`
+  do projeto por symlink foi tentado e nao serve: o pnpm recusa uma pasta de
+  modulos que resolve para fora da raiz (`ERR_PNPM_UNSAFE_MODULES_DIR`), e, num
+  monorepo, os links dos pacotes vizinhos apontariam para o repositorio
+  original -- o portao leria a versao **antiga** do vizinho e ficaria verde
+  sobre codigo que nem existe mais. Com hardlink os arquivos ficam fisicamente
+  dentro da copia, e os links de workspace do pnpm, que sao **relativos**
+  (`../../../protocol`), passam a apontar para os fontes daquela copia. A
+  correcao vem de graca junto com a velocidade.
+- **`TURBO_CACHE_DIR` aponta para a pasta da execucao**, entao a segunda subtask
+  so recompila o que a primeira mexeu. Isso nao afrouxa o portao: o turbo indexa
+  por hash do conteudo, e arquivo mexido invalida a entrada -- conferido
+  introduzindo um erro de tipo numa copia semeada, que reprovou normalmente.
+- **Toda instalacao trava a versao** (`--frozen-lockfile`, `npm ci`), e o caso
+  sem lockfile usa `--no-package-lock`: um `package-lock.json` criado por uma
+  verificacao viraria commit no projeto da pessoa -- decisao de projeto tomada
+  por um portao.
+- **Nao ter conseguido preparar nao e reprovar.** `PrepareResult.failed` **para
+  a execucao** em vez de virar pedido de correcao: quem errou nao foi o agente,
+  e nao ha o que ele conserte. `GateFailure` so contem o que da para cobrar
+  dele, entao o tipo impede culpar o agente por problema de ambiente.
+- **O timeout mata o grupo, nao o processo.** `pnpm build` vira turbo, que vira
+  um `tsc` por pacote; matar so o shell deixaria todos rodando na maquina de
+  quem esta usando. E o veredito sai depois do prazo mesmo que `close` nunca
+  chegue: um processo morto continua segurando a saida enquanto algum filho
+  tiver o descritor aberto, e um portao nao pode pendurar a execucao inteira
+  esperando um comando que ele mesmo mandou parar.
+- **`commitAll` nunca estagia `node_modules`**, mesmo que o projeto nao o
+  ignore. A preparacao instala dependencia dentro da copia, e a exclusao nao
+  pode depender do `.gitignore` de quem esta usando o app.
+- A fila que a pessoa monta na mao nao passa por plano e nao traz portao
+  declarado, entao `defaultGate` escolhe um dos comandos do proprio projeto
+  (`typecheck` > `build` > `test` > `lint`, do sinal mais barato para o mais
+  caro). Sem isso a fila manual seria o unico caminho do sistema em que
+  "terminei" e aceito sem ninguem conferir.
+
+### O portao do conjunto
+
+O portao de cada subtask roda na copia daquele agente, sobre o trabalho daquele
+agente. **Nenhum deles ve o resultado da juncao** -- e e exatamente ai que mora
+a quebra que ninguem previu: dois passos que passam sozinhos e nao passam
+juntos, porque cada copia saiu do mesmo ponto de partida e nao conhecia o
+trabalho do outro.
+
+Por isso `verifyIntegrated` roda os portoes do plano **no repositorio ja
+integrado**, antes de declarar entregue. Reprovou, a frase diz que o trabalho
+**ja esta no projeto**: nesse ponto nao ha o que desfazer sozinho, e o que a
+pessoa precisa decidir e se reverte ou se conserta.
+
+Estreitar o comando do portao ao que a subtask tocou (`--filter` por pacote) foi
+considerado e **nao entrou**: com o cache compartilhado, um `pnpm typecheck`
+completo na copia semeada custa 0,95s em cache cheio e 2s quando ha mudanca, e
+estreitar economizaria cerca de um segundo em troca de cirurgia de string
+especifica por ferramenta -- e de um filtro que nao casa com nada **sair com
+zero**, que e portao verde falso. O cache resolveu o problema que o estreitamento
+resolveria.
+
+### Tentar de novo, perguntar, ou desistir
+
+`DefaultEscalationPolicy` (`packages/coordination/src/escalation.ts`) e o unico
+lugar que decide isso, e o unico lugar que escreve texto de parada -- tanto a
+frase que a pessoa le quanto a instrucao que o agente recebe.
+
+**Portao vermelho ganha uma segunda chance, e so uma.** A primeira falha vira
+pedido de correcao com a saida do comando colada no prompt; a segunda vira
+pergunta. E a mesma conta que o gerente ja faz quando o JSON do plano nao
+valida, e pela mesma razao: o erro que o modelo conserta sozinho ele conserta na
+segunda tentativa, e a terceira so repete a segunda.
+
+Duas frases do pedido de correcao nao podem sair dali: **nao apague nem
+desative teste, verificacao ou regra**, e **nao mude o objetivo da tarefa**. Sem
+elas o caminho mais curto para o portao ficar verde e apagar o teste que
+reprovou -- e ai o portao para de significar qualquer coisa.
+
+A duvida do proprio agente (`agent_asked`) **nunca** vira nova tentativa: sobe
+com as palavras dele, porque quem sabe o que falta e ele, e chutar aqui entrega
+a coisa errada. A resposta volta para a **mesma conversa** (`sessionId`), nao
+para um agente novo sem contexto -- e a diferenca entre `onAnswer: 'session'` e
+`'restart'` na decisao.
+
+O orcamento vale pela **subtask inteira**, nao por tentativa: `runOne` chama
+`budget.start` uma vez, o supervisor conta cada `tool.call` que passa pelo log,
+e cada tentativa recebe `budget.remaining()`. Sem isso "trinta turnos" viraria
+trinta por tentativa, que nao e teto nenhum. Quando a pessoa responde "pode
+continuar" depois de um estouro, o teto volta a valer do zero -- foi ela quem
+assumiu.
+
+Acima de tudo isso ha `ATTEMPT_CEILING`, que so existe para "tentar de novo"
+respondido muitas vezes seguidas nao virar laco infinito.
+
+### Qual modelo cada passo usa
+
+O sistema recomenda, a pessoa decide. A escolha entra no **aval do plano**, que
+ja e uma parada obrigatoria: uma pergunta so para escolher modelo seria uma
+interrupcao a mais por uma decisao que cabe nesta.
+
+`DefaultModelPolicy` (`packages/coordination/src/model-policy.ts`) recomenda um
+degrau por subtask a partir de sinais que o plano **ja declara** -- quantas
+areas toca, se tem contrato de entrada, quantos passos dependem dela -- e nunca
+de opiniao do modelo sobre o proprio trabalho. E a mesma regra que ja vale para
+orcamento, pela mesma razao: quem paga a conta e quem decide. Por isso
+`modelTier` e `modelReason` saem de `subtaskDraftSchema` e entram em
+`withSystemFields`, ao lado de `gate.id` e `budget`.
+
+A ordem das regras vai do risco maior para o menor: um passo do qual outros
+dependem erra caro, porque o erro dele viaja para todos os que vem depois.
+
+O aval oferece tres formas de comecar -- economico, como sugerido, caprichado --
+e a postura desloca a escada inteira um degrau, sem obrigar ninguem a escolher
+passo a passo. `modelReason` e escrito para quem nao le codigo ("mexe numa area
+so"), porque e ele que aparece na tela: "sonnet" nao diz nada para essa pessoa.
+
+Quem resolve degrau -> alias e o **papel**, que e quem conhece a CLI
+(`RoleDefinition.models`). Papel sem escada roda no modelo padrao da CLI e a
+postura simplesmente nao o afeta -- e o caso do Kimi, cujos aliases saem do
+`config.toml` de cada usuario: mandar um nome que a CLI nao conhece derruba a
+execucao inteira, e um padrao honesto vale mais que um alias chutado.
+
+Medido com o mesmo prompt trivial no Claude Code: haiku US$ 0,0165, sonnet
+US$ 0,0408, opus US$ 0,0680. A escada e real, e e por isso que a escolha importa.
+
 ## Isolamento e integracao
 
 `GitWorktreeManager` (`packages/agents/src/git/`) roda `git` de verdade. Conflito,
@@ -248,12 +414,26 @@ pergunta. So depois de a pessoa autorizar e que um agente e mandado juntar.
 
 Personagens, animacoes e pathfinding no 3D. Paralelismo: o gerente monta o
 grafo, mas o executor pega sempre a primeira subtask liberada e roda uma de cada
-vez. `Assigner`, `BudgetTracker`, `EscalationPolicy` e `GateRunner` continuam so
-como tipos. Portoes de verificacao rodando de verdade -- o plano **contem**
-`gate`, mas nada roda `test`/`build` na worktree, que alias nasce sem
-`node_modules`. Replanejamento automatico depois de subtask que falha
-(`Planner.revise` existe e ninguem chama ainda). Autenticacao. Empacotamento
-para distribuicao.
+vez, e `Assigner` continua so como tipo. Replanejamento automatico depois de
+subtask que falha (`Planner.revise` existe e ninguem chama ainda). Autenticacao.
+Empacotamento para distribuicao.
+
+O portao roda uma verificacao por subtask, a que o plano declarou -- rodar
+`typecheck` **e** `test` na mesma entrega precisaria de uma lista no schema, e
+hoje `Subtask.gate` e um so.
+
+O que ainda **falta para o sistema ficar mais barato que a CLI**, na ordem em
+que vale, esta medido em `tools/planner-lab/BASELINE.md`:
+
+1. **Brief do projeto injetado em cada subtask.** E o maior corte de tokens que
+   sobra. A fixture mostra que quase todo o input e cache e que o cache morre
+   com a sessao; um resumo da estrutura e das convencoes, produzido uma vez pelo
+   gerente e passado num `AgentRunRequest.context` novo, evita N reexploracoes
+   do mesmo repositorio. Tem risco proprio: um brief errado contamina todas as
+   subtasks de uma vez.
+2. **Paralelismo**, que transforma soma em caminho critico.
+3. **Subir de modelo quando o portao reprova**, em vez de repetir o mesmo --
+   encaixa direto em `EscalationDecision.retry`.
 
 `dev.simulate` deixou de ser o unico jeito de ver gerente e contrato -- agora o
 modo planejado faz isso com CLI de verdade. O roteiro do simulador continua util
