@@ -1,5 +1,5 @@
-import type { AnyEventDraft, ProjectRef, RunId, Roster } from '@office/protocol';
-import type { AdapterRegistry } from '@office/agents';
+import type { AnyEventDraft, ProjectRef, RunId, Roster } from '@hive/protocol';
+import type { AdapterRegistry } from '@hive/agents';
 import type { Assigner } from './assigner';
 import type { BudgetTracker } from './budget';
 import type { EscalationPolicy } from './escalation';

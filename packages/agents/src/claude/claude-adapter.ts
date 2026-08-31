@@ -2,7 +2,7 @@ import { execFile } from 'node:child_process';
 import {
   adapterId,
   type AdapterId,
-} from '@office/protocol';
+} from '@hive/protocol';
 import type {
   AdapterCapabilities,
   AdapterProbe,

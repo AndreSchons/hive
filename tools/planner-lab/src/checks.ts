@@ -1,5 +1,5 @@
-import type { Plan, Roster, Subtask } from '@office/protocol';
-import { chooseCoRunnable, pathsOverlap, type AvailableGate } from '@office/coordination';
+import type { Plan, Roster, Subtask } from '@hive/protocol';
+import { chooseCoRunnable, pathsOverlap, type AvailableGate } from '@hive/coordination';
 
 /**
  * O que da para medir sem opiniao.

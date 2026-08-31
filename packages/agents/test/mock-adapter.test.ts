@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { newAgentId, newTaskId, roleId, type AnyEventDraft } from '@office/protocol';
+import { newAgentId, newTaskId, roleId, type AnyEventDraft } from '@hive/protocol';
 import { MockAdapter, createAdapterRegistry, type AgentRun, type AgentRunRequest } from '../src/index';
 
 const request = (): AgentRunRequest => ({

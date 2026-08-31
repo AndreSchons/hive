@@ -6,7 +6,7 @@ import type {
   QuestionId,
   RoleId,
   TaskId,
-} from '@office/protocol';
+} from '@hive/protocol';
 
 /**
  * O que uma CLI de agente sabe fazer. O orquestrador consulta isto antes de

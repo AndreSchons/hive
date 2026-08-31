@@ -1,5 +1,5 @@
-import type { AgentId, Plan, RoleId, Subtask } from '@office/protocol';
-import type { Worktree } from '@office/agents';
+import type { AgentId, Plan, RoleId, Subtask } from '@hive/protocol';
+import type { Worktree } from '@hive/agents';
 
 export interface ActiveAgent {
   readonly agentId: AgentId;

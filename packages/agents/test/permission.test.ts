@@ -4,8 +4,8 @@ import { join } from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
 import { decidePermission, isInside } from '../src/index';
 
-const root = mkdtempSync(join(tmpdir(), 'office-perm-'));
-const fora = mkdtempSync(join(tmpdir(), 'office-fora-'));
+const root = mkdtempSync(join(tmpdir(), 'hive-perm-'));
+const fora = mkdtempSync(join(tmpdir(), 'hive-fora-'));
 mkdirSync(join(root, 'src'), { recursive: true });
 writeFileSync(join(fora, 'segredo.txt'), 'nao e para ler');
 

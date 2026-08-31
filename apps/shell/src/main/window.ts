@@ -13,7 +13,7 @@ export function createWindow(): BrowserWindow {
     minHeight: 700,
     backgroundColor: '#0b0f17',
     show: false,
-    title: 'Agent Office',
+    title: 'Hive',
     webPreferences: {
       preload: join(__dirname, '..', 'preload', 'preload.js'),
       // O renderer roda uma cena 3D e nada mais: sem Node, sem acesso direto ao

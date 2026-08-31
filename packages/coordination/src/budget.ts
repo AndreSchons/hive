@@ -1,4 +1,4 @@
-import { budgetSchema, type AgentId, type Budget, type TaskId } from '@office/protocol';
+import { budgetSchema, type AgentId, type Budget, type TaskId } from '@hive/protocol';
 
 export type BudgetKind = 'turns' | 'time';
 

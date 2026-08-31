@@ -1,6 +1,6 @@
-import type { RunId } from '@office/protocol';
-import { newRunId } from '@office/protocol';
-import type { EventStore } from '@office/store';
+import type { RunId } from '@hive/protocol';
+import { newRunId } from '@hive/protocol';
+import type { EventStore } from '@hive/store';
 import { buildScriptedRun } from './script';
 
 export interface ScriptedDemoOptions {

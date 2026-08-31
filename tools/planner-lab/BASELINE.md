@@ -11,12 +11,12 @@ Como refazer a medicao esta no fim.
 Tarefa: `trivial` do harness -- *"O botao 'trocar' no topo da barra lateral devia
 dizer 'trocar projeto'."* Uma linha de texto, um arquivo.
 
-Repositorio: `office` em `3337882`. Claude Code 2.1.250, modelo padrao.
+Repositorio: `hive` em `3337882`. Claude Code 2.1.250, modelo padrao.
 
 | | custo | tempo | o que entregou |
 | --- | --- | --- | --- |
 | `claude -p` direto | **US$ 0,1921** | 9,2 s | **a mudanca feita** |
-| Agent Office, so o gerente planejando | **US$ 0,3018** | 23,9 s | um plano de 1 subtask |
+| Hive, so o gerente planejando | **US$ 0,3018** | 23,9 s | um plano de 1 subtask |
 
 O planejamento sozinho custa **57% mais que a CLI cobrou para fazer o trabalho
 inteiro** -- e ainda nao mexeu em nada. Depois dele viriam: a sessao fria da
@@ -81,8 +81,8 @@ todo-Claude -- que hoje e o unico que existe.
 | | custo | tempo | entregou |
 | --- | --- | --- | --- |
 | `claude -p` direto | US$ 0,1921 | 9,2 s | a mudanca feita |
-| Agent Office, gerente em **opus** | US$ 0,3337 | 78,0 s | a mudanca feita e integrada |
-| Agent Office, gerente em **sonnet** | **US$ 0,1637** | 44,9 s | a mudanca feita e integrada |
+| Hive, gerente em **opus** | US$ 0,3337 | 78,0 s | a mudanca feita e integrada |
+| Hive, gerente em **sonnet** | **US$ 0,1637** | 44,9 s | a mudanca feita e integrada |
 
 Onde o dinheiro foi, na rodada com opus:
 

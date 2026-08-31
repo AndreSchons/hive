@@ -12,7 +12,7 @@ import {
   type AdapterId,
   type AnyEventDraft,
   type RunId,
-} from '@office/protocol';
+} from '@hive/protocol';
 import {
   AsyncQueue,
   GitWorktreeManager,
@@ -21,9 +21,9 @@ import {
   type AgentOutcome,
   type AgentRun,
   type AgentRunRequest,
-} from '@office/agents';
-import { CONTRACTS_DIR, CommandGateRunner, InstallWorktreePreparer } from '@office/coordination';
-import { EventStore, openDatabase } from '@office/store';
+} from '@hive/agents';
+import { CONTRACTS_DIR, CommandGateRunner, InstallWorktreePreparer } from '@hive/coordination';
+import { EventStore, openDatabase } from '@hive/store';
 import { RunSupervisor } from '../src/main/run-supervisor';
 
 /**
@@ -97,7 +97,7 @@ beforeEach(() => {
   home = mkdtempSync(join(tmpdir(), 'sup-home-'));
   g('init', '--initial-branch=main');
   g('config', 'user.name', 'Teste');
-  g('config', 'user.email', 'teste@office.local');
+  g('config', 'user.email', 'teste@hive.local');
   writeFileSync(join(repo, ARQUIVO), 'titulo\nlinha dois\nrodape\n');
   g('add', '-A');
   g('commit', '-m', 'inicio');
@@ -211,7 +211,7 @@ describe('fila em sequencia', () => {
 
     // Nenhuma copia e nenhum branch sobrando no repositorio da pessoa.
     expect(g('worktree', 'list').trim().split('\n')).toHaveLength(1);
-    expect(g('branch', '--list', 'office/*').trim()).toBe('');
+    expect(g('branch', '--list', 'hive/*').trim()).toBe('');
     expect(g('status', '--porcelain').trim()).toBe('');
   });
 });
@@ -652,7 +652,7 @@ describe('agente que entrega codigo quebrado', () => {
     // E nada sobrou no disco de quem esta usando o projeto.
     expect(g('status', '--porcelain').trim()).toBe('');
     expect(g('worktree', 'list').trim().split('\n')).toHaveLength(1);
-    expect(g('branch', '--list', 'office/*').trim()).toBe('');
+    expect(g('branch', '--list', 'hive/*').trim()).toBe('');
   });
 
   it('portao verde na segunda tentativa integra normalmente', async () => {
@@ -1469,8 +1469,8 @@ describe('dois especialistas ao mesmo tempo', () => {
     const runId = await supervisor.startPlanned({ projectPath: repo, goal: 'os dois lados' });
     await drain(supervisor, runId, 'comecar');
 
-    expect(existsSync(join(repo, '.office'))).toBe(false);
-    expect(g('log', '--name-only', '--pretty=format:')).not.toContain('.office');
+    expect(existsSync(join(repo, '.hive'))).toBe(false);
+    expect(g('log', '--name-only', '--pretty=format:')).not.toContain('.hive');
     expect(g('status', '--porcelain').trim()).toBe('');
   });
 
@@ -1566,7 +1566,7 @@ describe('dois especialistas ao mesmo tempo', () => {
     expect(falhou.payload.reason).not.toContain('Error');
 
     expect(g('worktree', 'list').trim().split('\n')).toHaveLength(1);
-    expect(g('branch', '--list', 'office/*').trim()).toBe('');
+    expect(g('branch', '--list', 'hive/*').trim()).toBe('');
     expect(g('status', '--porcelain').trim()).toBe('');
   });
 

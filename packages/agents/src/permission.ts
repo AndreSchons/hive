@@ -1,7 +1,7 @@
 import { existsSync, realpathSync } from 'node:fs';
 import { dirname, isAbsolute, relative, resolve } from 'node:path';
 import { z } from 'zod';
-import type { BlockCause } from '@office/protocol';
+import type { BlockCause } from '@hive/protocol';
 import { describeToolCall } from './tool-summary';
 
 /**

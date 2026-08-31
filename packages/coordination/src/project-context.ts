@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { gateSchema, newGateId, type Gate, type GateKind } from '@office/protocol';
+import { gateSchema, newGateId, type Gate, type GateKind } from '@hive/protocol';
 
 /**
  * Descobre os comandos de verificacao que o projeto realmente tem.

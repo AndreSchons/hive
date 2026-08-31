@@ -4,21 +4,21 @@ import type {
   CommandResponse,
   EventBatch,
   OfficeBridge,
-} from '@office/protocol';
+} from '@hive/protocol';
 
 /**
  * Acesso a ponte. Abrir a pagina direto no navegador (sem Electron) e situacao
  * possivel durante o desenvolvimento, entao vira estado tratado e nao crash.
  */
 export function getBridge(): OfficeBridge | null {
-  return typeof window === 'undefined' ? null : (window.office ?? null);
+  return typeof window === 'undefined' ? null : (window.hive ?? null);
 }
 
 export const isInsideApp = (): boolean => getBridge() !== null;
 
 const OFFLINE = {
   message: 'Esta pagina esta aberta fora do aplicativo, entao nao consegue falar com o projeto.',
-  detail: 'window.office nao foi injetado -- abra pelo Agent Office em vez do navegador.',
+  detail: 'window.hive nao foi injetado -- abra pelo Hive em vez do navegador.',
 } as const;
 
 /** Invoca um comando. Nunca lanca: falha e resposta. */

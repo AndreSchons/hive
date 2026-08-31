@@ -1,6 +1,6 @@
 import { existsSync } from 'node:fs';
 import { basename, resolve } from 'node:path';
-import type { ProjectRef } from '@office/protocol';
+import type { ProjectRef } from '@hive/protocol';
 import type { Db } from './db';
 import { rowToProjectRef } from './rows';
 

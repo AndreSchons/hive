@@ -1,4 +1,4 @@
-import { newRunId, draft, parseEvent, SCHEMA_VERSION, type AnyEvent, type AnyEventDraft, type ProjectRef } from '@office/protocol';
+import { newRunId, draft, parseEvent, SCHEMA_VERSION, type AnyEvent, type AnyEventDraft, type ProjectRef } from '@hive/protocol';
 import { applyAll, emptyWorld } from './state/event-reducer';
 import { useHub } from './state/world-store';
 
@@ -12,7 +12,7 @@ export async function loadDemoWorld(): Promise<void> {
   if (!import.meta.env.DEV) return;
   if (!new URLSearchParams(window.location.search).has('demo')) return;
 
-  const { buildScriptedRun } = await import('@office/simulator');
+  const { buildScriptedRun } = await import('@hive/simulator');
   const runId = newRunId();
   const script = buildScriptedRun(runId, '/tmp/demo', 'Escritorio demo');
   const drafts: AnyEventDraft[] = script.beforeBlock

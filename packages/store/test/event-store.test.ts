@@ -7,7 +7,7 @@ import {
   newTaskId,
   type AnyEventDraft,
   type RunId,
-} from '@office/protocol';
+} from '@hive/protocol';
 import { AppStore, CorruptEventError, EventStore, InvalidEventError, openDatabase, type Db } from '../src/index';
 
 let db: Db;

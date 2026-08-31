@@ -1,5 +1,5 @@
 {
-  "name": "@office/shell",
+  "name": "@hive/shell",
   "version": "0.0.1",
   "private": true,
   "main": "./dist/main/main.js",
@@ -13,15 +13,15 @@
     "start:nosandbox": "electron . --no-sandbox"
   },
   "dependencies": {
-    "@office/agents": "workspace:*",
-    "@office/coordination": "workspace:*",
-    "@office/protocol": "workspace:*",
-    "@office/simulator": "workspace:*",
-    "@office/store": "workspace:*",
+    "@hive/agents": "workspace:*",
+    "@hive/coordination": "workspace:*",
+    "@hive/protocol": "workspace:*",
+    "@hive/simulator": "workspace:*",
+    "@hive/store": "workspace:*",
     "zod": "4.4.3"
   },
   "devDependencies": {
     "electron": "44.0.0"
   },
-  "productName": "Agent Office"
+  "productName": "Hive"
 }

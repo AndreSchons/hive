@@ -1,4 +1,4 @@
-import type { Plan, RoleDefinition } from '@office/protocol';
+import type { Plan, RoleDefinition } from '@hive/protocol';
 import { TIER_LABEL } from '../state/describe';
 
 export interface PlanReviewProps {

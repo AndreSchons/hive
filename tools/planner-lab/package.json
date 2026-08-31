@@ -1,5 +1,5 @@
 {
-  "name": "@office/planner-lab",
+  "name": "@hive/planner-lab",
   "version": "0.0.1",
   "private": true,
   "main": "./dist/index.js",
@@ -12,8 +12,8 @@
     "start": "node dist/cli.js"
   },
   "dependencies": {
-    "@office/agents": "workspace:*",
-    "@office/coordination": "workspace:*",
-    "@office/protocol": "workspace:*"
+    "@hive/agents": "workspace:*",
+    "@hive/coordination": "workspace:*",
+    "@hive/protocol": "workspace:*"
   }
 }

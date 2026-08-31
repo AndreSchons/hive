@@ -1,6 +1,6 @@
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { budgetSchema, newAgentId, newTaskId, roleId, type AnyEventDraft } from '@office/protocol';
+import { budgetSchema, newAgentId, newTaskId, roleId, type AnyEventDraft } from '@hive/protocol';
 import { ClaudeAdapter } from '../src/index';
 
 const fakeCli = join(__dirname, 'fake-cli.mjs');

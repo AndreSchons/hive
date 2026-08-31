@@ -1,5 +1,5 @@
 {
-  "name": "agent-office",
+  "name": "hive",
   "private": true,
   "version": "0.0.1",
   "packageManager": "pnpm@11.24.0",
@@ -11,10 +11,10 @@
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
     "dev": "turbo run dev",
-    "app": "turbo run build && pnpm --filter @office/shell start",
-    "simulate": "pnpm --filter @office/simulator start",
-    "plan-lab": "turbo run build && pnpm --filter @office/planner-lab start",
-    "app:nosandbox": "turbo run build && pnpm --filter @office/shell start:nosandbox"
+    "app": "turbo run build && pnpm --filter @hive/shell start",
+    "simulate": "pnpm --filter @hive/simulator start",
+    "plan-lab": "turbo run build && pnpm --filter @hive/planner-lab start",
+    "app:nosandbox": "turbo run build && pnpm --filter @hive/shell start:nosandbox"
   },
   "devDependencies": {
     "@types/node": "26.3.0",

@@ -10,8 +10,8 @@ import {
   type Plan,
   type PlanDraft,
   type RoleDefinition,
-} from '@office/protocol';
-import type { AgentAdapter } from '@office/agents';
+} from '@hive/protocol';
+import type { AgentAdapter } from '@hive/agents';
 import { parseJsonLoosely } from './extract-json';
 import { buildPlanPrompt, type PromptInput } from './prompt';
 import type { PlanRequest, PlanResult, Planner } from './planner';

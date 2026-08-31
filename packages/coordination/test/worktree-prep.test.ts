@@ -14,8 +14,8 @@ import {
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { agentId } from '@office/protocol';
-import type { Worktree } from '@office/agents';
+import { agentId } from '@hive/protocol';
+import type { Worktree } from '@hive/agents';
 import { InstallWorktreePreparer } from '../src/worktree-prep';
 import { installCommand } from '../src/project-context';
 
@@ -47,7 +47,7 @@ function copia(nome: string): Worktree {
     agentId: agentId.parse(`agt_${nome}`),
     repositoryPath: repo,
     path,
-    branch: `office/${nome}`,
+    branch: `hive/${nome}`,
     base: 'main',
     createdAt: 0,
   };
@@ -80,8 +80,8 @@ function popular(path: string): void {
   mkdirSync(join(path, 'node_modules', '.cache', 'turbo'), { recursive: true });
   writeFileSync(join(path, 'node_modules', '.cache', 'turbo', 'abc.json'), '{}');
   mkdirSync(join(path, 'packages', 'protocol'), { recursive: true });
-  mkdirSync(join(path, 'packages', 'agents', 'node_modules', '@office'), { recursive: true });
-  symlinkSync('../../../protocol', join(path, 'packages', 'agents', 'node_modules', '@office', 'protocol'));
+  mkdirSync(join(path, 'packages', 'agents', 'node_modules', '@hive'), { recursive: true });
+  symlinkSync('../../../protocol', join(path, 'packages', 'agents', 'node_modules', '@hive', 'protocol'));
 }
 
 describe('a primeira copia', () => {
@@ -183,7 +183,7 @@ describe('o cache de dependencias da execucao', () => {
     const segunda = copia('segunda');
     await preparer.prepare(segunda, cache);
 
-    const link = join(segunda.path, 'packages', 'agents', 'node_modules', '@office', 'protocol');
+    const link = join(segunda.path, 'packages', 'agents', 'node_modules', '@hive', 'protocol');
     expect(lstatSync(link).isSymbolicLink()).toBe(true);
     expect(readlinkSync(link)).toBe('../../../protocol');
   });

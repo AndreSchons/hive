@@ -1,4 +1,4 @@
-import { parallelismGain, type AnyEvent, type ModelTier } from '@office/protocol';
+import { parallelismGain, type AnyEvent, type ModelTier } from '@hive/protocol';
 
 export type Tone = 'neutral' | 'good' | 'warn' | 'bad' | 'ask';
 

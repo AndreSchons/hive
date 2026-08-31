@@ -1,4 +1,4 @@
-import type { AgentId } from '@office/protocol';
+import type { AgentId } from '@hive/protocol';
 
 /**
  * Isolamento por git worktree. Cada agente ativo trabalha numa copia propria,

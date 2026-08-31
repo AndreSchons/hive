@@ -1,4 +1,4 @@
-import { MODEL_TIERS, type GateKind, type ModelTier, type RoleDefinition } from '@office/protocol';
+import { MODEL_TIERS, type GateKind, type ModelTier, type RoleDefinition } from '@hive/protocol';
 
 export interface ModelRecommendation {
   readonly tier: ModelTier;

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { agentId, budgetSchema, type AgentId, type Budget } from '@office/protocol';
+import { agentId, budgetSchema, type AgentId, type Budget } from '@hive/protocol';
 import { InMemoryBudgetTracker } from '../src/budget';
 
 const AGENTE: AgentId = agentId.parse('agt_teste_1');

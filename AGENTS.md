@@ -1,4 +1,4 @@
-# Agent Office -- instrucoes para agentes
+# Hive -- instrucoes para agentes
 
 App desktop que orquestra a CLI de agente ja instalada no terminal do usuario
 (Claude Code) trabalhando no mesmo repositorio, com a execucao visualizada como
@@ -36,7 +36,7 @@ trava. Escalonamento e a experiencia principal, nao um caminho de erro.
 E o unico lugar do repositorio com React e Three.js, e o mais tentador de
 estragar. Antes de escrever:
 
-- Voce pode importar `@office/protocol`. **Nada mais do workspace.** Precisou de
+- Voce pode importar `@hive/protocol`. **Nada mais do workspace.** Precisou de
   um dado que nao existe? Ele entra no protocol como campo de evento, e o
   produtor daquele evento passa a preenche-lo. Nao busque o dado por outro
   caminho.
@@ -59,7 +59,7 @@ estragar. Antes de escrever:
   precisa cair sempre no mesmo ponto da tela (a nuvem de pensamento) sai de
   `billboardAnchor`: deslocar na direcao da camera nao move nada na projecao
   ortografica, e o adorno acaba em cima da cabeca.
-- O vite resolve `@office/protocol` e `@office/simulator` pelos fontes TS
+- O vite resolve `@hive/protocol` e `@hive/simulator` pelos fontes TS
   (`resolve.alias`): os dists sao CJS e o interop nao enxerga os nomes
   re-exportados. Os tipos continuam vindo dos `.d.ts`.
 
@@ -79,7 +79,7 @@ tools/planner-lab      protocol, agents, coordination
 Regras que nao se negociam:
 
 - `packages/protocol` nao importa nada do workspace. E a fronteira do sistema.
-- `apps/hub` importa **apenas** `@office/protocol`. Nao conhece SQLite, Electron,
+- `apps/hub` importa **apenas** `@hive/protocol`. Nao conhece SQLite, Electron,
   CLI nem subprocesso. Se o hub precisa de um dado novo, ele entra no protocol
   como evento ou comando -- nunca como import atravessado.
 - `packages/coordination` nao importa nada de `apps/`. O orquestrador nao sabe o
@@ -113,7 +113,7 @@ pnpm test
 pnpm dev         # vite + electron com recarga
 pnpm app         # abre o app com o hub ja compilado
 pnpm app:nosandbox   # idem, sem o sandbox do Chromium (ver nota de Linux)
-pnpm --filter @office/simulator start -- --db <caminho> --project <pasta>
+pnpm --filter @hive/simulator start -- --db <caminho> --project <pasta>
 pnpm plan-lab -- --task all --project .   # so o gerente, sem executar nada
 ```
 

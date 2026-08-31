@@ -7,7 +7,7 @@ import { join } from 'node:path';
  * historico de execucoes nao pertence ao repo que esta sendo trabalhado.
  */
 export function databasePath(): string {
-  return join(app.getPath('userData'), 'agent-office.sqlite');
+  return join(app.getPath('userData'), 'hive.sqlite');
 }
 
 export function rendererDistPath(): string {

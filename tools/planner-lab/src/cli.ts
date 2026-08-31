@@ -6,14 +6,14 @@ import {
   newRunId,
   type RoleDefinition,
   type Roster,
-} from '@office/protocol';
-import { ClaudeAdapter, type AgentAdapter } from '@office/agents';
+} from '@hive/protocol';
+import { ClaudeAdapter, type AgentAdapter } from '@hive/agents';
 import {
   AgentPlanner,
   discoverGates,
   type AvailableGate,
   type PlanResult,
-} from '@office/coordination';
+} from '@hive/coordination';
 import { checkPlan } from './checks';
 import { TASKS, findTask, type ExampleTask } from './tasks';
 
@@ -47,7 +47,7 @@ function readFlag(name: string): string | undefined {
 }
 
 const USO = [
-  'uso: office-plan-lab [--task <id>|all] [--project <pasta>] [--out <pasta>]',
+  'uso: hive-plan-lab [--task <id>|all] [--project <pasta>] [--out <pasta>]',
   '',
   'tasks disponiveis:',
   ...TASKS.map((task) => `  ${task.id.padEnd(20)} ${task.probes}`),

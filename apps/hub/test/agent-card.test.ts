@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { newRunId, parseEvent, rosterSchema, SCHEMA_VERSION, type AnyEvent } from '@office/protocol';
-import { buildScriptedRun } from '@office/simulator';
+import { newRunId, parseEvent, rosterSchema, SCHEMA_VERSION, type AnyEvent } from '@hive/protocol';
+import { buildScriptedRun } from '@hive/simulator';
 import { applyAll, emptyWorld } from '../src/state/event-reducer';
 import { buildAgentCard, shortModel } from '../src/state/agent-card';
 
@@ -99,11 +99,11 @@ describe('buildAgentCard', () => {
   it('detalhe tecnico existe, e fica so no detalhe', () => {
     const card = buildAgentCard(meio, script.backend, roles)!;
 
-    expect(card.detail).toContain('office/backend');
+    expect(card.detail).toContain('hive/backend');
     expect(card.detail).toContain('claude-sonnet-4-5');
     // Nada disso pode ter vazado para a frase principal de nenhuma linha.
     const frases = card.rows.flatMap((item) => [item.value, item.note ?? '']).join(' ');
-    expect(frases).not.toContain('office/');
+    expect(frases).not.toContain('hive/');
     expect(frases).not.toContain('claude-sonnet-4-5');
   });
 });

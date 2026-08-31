@@ -4,7 +4,7 @@ import {
   type BlockCause as QuestionCause,
   type QuestionId,
   type TaskId,
-} from '@office/protocol';
+} from '@hive/protocol';
 import type { BudgetVerdict } from './budget';
 import type { GateFailure } from './gate-runner';
 

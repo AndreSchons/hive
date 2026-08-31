@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { rosterSchema, type GateKind, type RoleDefinition } from '@office/protocol';
+import { rosterSchema, type GateKind, type RoleDefinition } from '@hive/protocol';
 import {
   DefaultModelPolicy,
   modelFor,

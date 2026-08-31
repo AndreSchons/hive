@@ -12,7 +12,7 @@ export function ProjectPicker() {
   return (
     <div className="flex h-full items-center justify-center p-8">
       <div className="w-full max-w-lg">
-        <h1 className="text-2xl font-medium">Agent Office</h1>
+        <h1 className="text-2xl font-medium">Hive</h1>
         <p className="mt-2 text-sm text-muted">
           Escolha a pasta do projeto em que os agentes vao trabalhar.
         </p>

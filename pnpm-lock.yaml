@@ -23,7 +23,7 @@ importers:
 
   apps/hub:
     dependencies:
-      '@office/protocol':
+      '@hive/protocol':
         specifier: workspace:*
         version: link:../../packages/protocol
       '@react-three/drei':
@@ -45,7 +45,7 @@ importers:
         specifier: 5.0.15
         version: 5.0.15(@types/react@19.2.18)(react@19.2.8)(use-sync-external-store@1.6.0(react@19.2.8))
     devDependencies:
-      '@office/simulator':
+      '@hive/simulator':
         specifier: workspace:*
         version: link:../../tools/simulator
       '@tailwindcss/vite':
@@ -72,19 +72,19 @@ importers:
 
   apps/shell:
     dependencies:
-      '@office/agents':
+      '@hive/agents':
         specifier: workspace:*
         version: link:../../packages/agents
-      '@office/coordination':
+      '@hive/coordination':
         specifier: workspace:*
         version: link:../../packages/coordination
-      '@office/protocol':
+      '@hive/protocol':
         specifier: workspace:*
         version: link:../../packages/protocol
-      '@office/simulator':
+      '@hive/simulator':
         specifier: workspace:*
         version: link:../../tools/simulator
-      '@office/store':
+      '@hive/store':
         specifier: workspace:*
         version: link:../../packages/store
       zod:
@@ -97,7 +97,7 @@ importers:
 
   packages/agents:
     dependencies:
-      '@office/protocol':
+      '@hive/protocol':
         specifier: workspace:*
         version: link:../protocol
       zod:
@@ -106,10 +106,10 @@ importers:
 
   packages/coordination:
     dependencies:
-      '@office/agents':
+      '@hive/agents':
         specifier: workspace:*
         version: link:../agents
-      '@office/protocol':
+      '@hive/protocol':
         specifier: workspace:*
         version: link:../protocol
 
@@ -121,7 +121,7 @@ importers:
 
   packages/store:
     dependencies:
-      '@office/protocol':
+      '@hive/protocol':
         specifier: workspace:*
         version: link:../protocol
       better-sqlite3:
@@ -137,22 +137,22 @@ importers:
 
   tools/planner-lab:
     dependencies:
-      '@office/agents':
+      '@hive/agents':
         specifier: workspace:*
         version: link:../../packages/agents
-      '@office/coordination':
+      '@hive/coordination':
         specifier: workspace:*
         version: link:../../packages/coordination
-      '@office/protocol':
+      '@hive/protocol':
         specifier: workspace:*
         version: link:../../packages/protocol
 
   tools/simulator:
     dependencies:
-      '@office/protocol':
+      '@hive/protocol':
         specifier: workspace:*
         version: link:../../packages/protocol
-      '@office/store':
+      '@hive/store':
         specifier: workspace:*
         version: link:../../packages/store
 

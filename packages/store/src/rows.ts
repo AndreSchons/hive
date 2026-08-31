@@ -9,7 +9,7 @@ import {
   runSummarySchema,
   projectRefSchema,
   type ProjectRef,
-} from '@office/protocol';
+} from '@hive/protocol';
 
 /**
  * Linhas cruas do SQLite. Nada confia no banco: toda leitura passa pelo schema

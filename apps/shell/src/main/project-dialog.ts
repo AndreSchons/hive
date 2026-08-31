@@ -1,7 +1,7 @@
 import { dialog, type BrowserWindow } from 'electron';
 import { statSync } from 'node:fs';
-import type { ProjectRef } from '@office/protocol';
-import type { AppStore } from '@office/store';
+import type { ProjectRef } from '@hive/protocol';
+import type { AppStore } from '@hive/store';
 
 /**
  * Dialogo nativo de selecao de pasta. Cancelar e resposta valida (null), nao

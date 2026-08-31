@@ -1,6 +1,6 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join, posix } from 'node:path';
-import type { Contract } from '@office/protocol';
+import type { Contract } from '@hive/protocol';
 
 /**
  * O contrato como artefato de verdade, e nao so como paragrafo de prompt.
@@ -12,7 +12,7 @@ import type { Contract } from '@office/protocol';
  */
 
 /** Onde o artefato mora dentro da copia do agente. */
-export const CONTRACTS_DIR = '.office/contratos';
+export const CONTRACTS_DIR = '.hive/contratos';
 
 /** Caminho relativo a raiz da copia. Vai para `Contract.path` como declarado. */
 export const contractPath = (contract: Contract): string =>
@@ -20,7 +20,7 @@ export const contractPath = (contract: Contract): string =>
 
 /**
  * Escreve os contratos na copia. Nao commita e nao entra no projeto da pessoa:
- * `commitAll` tira `.office/` do indice pela mesma razao que tira
+ * `commitAll` tira `.hive/` do indice pela mesma razao que tira
  * `node_modules` -- e andaime do app, e um andaime que virasse commit seria uma
  * decisao de projeto tomada por quem so ia conferir trabalho.
  */

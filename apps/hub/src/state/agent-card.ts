@@ -1,4 +1,4 @@
-import { MODEL_TIERS, type RoleDefinition, type Subtask } from '@office/protocol';
+import { MODEL_TIERS, type RoleDefinition, type Subtask } from '@hive/protocol';
 import { STATE_LABEL, TIER_LABEL, adapterLabel, dinheiro } from './describe';
 import type { AgentView, WorldState } from './event-reducer';
 

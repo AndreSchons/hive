@@ -1,5 +1,5 @@
 {
-  "name": "@office/store",
+  "name": "@hive/store",
   "version": "0.0.1",
   "private": true,
   "main": "./dist/index.js",
@@ -10,7 +10,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@office/protocol": "workspace:*",
+    "@hive/protocol": "workspace:*",
     "better-sqlite3": "13.0.3",
     "zod": "4.4.3"
   },

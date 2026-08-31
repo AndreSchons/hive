@@ -1,4 +1,4 @@
-# Agent Office
+# Hive
 
 App desktop que orquestra a CLI de agente ja instalada no terminal do usuario
 (Claude Code) trabalhando no mesmo repositorio, com a execucao visualizada como
@@ -49,7 +49,7 @@ tools/planner-lab      protocol, agents, coordination
 Regras que nao se negociam:
 
 - `packages/protocol` nao importa nada do workspace. E a fronteira do sistema.
-- `apps/hub` importa **apenas** `@office/protocol`. Nao conhece SQLite, Electron,
+- `apps/hub` importa **apenas** `@hive/protocol`. Nao conhece SQLite, Electron,
   CLI nem subprocesso. Se o hub precisa de um dado novo, ele entra no protocol
   como evento ou comando -- nunca como import atravessado.
 - `packages/coordination` nao importa nada de `apps/`. O orquestrador nao sabe o
@@ -91,7 +91,7 @@ pnpm test
 pnpm dev         # vite + electron com recarga
 pnpm app         # compila e abre o app
 pnpm app:nosandbox   # idem, sem o sandbox do Chromium (ver nota de Linux)
-pnpm --filter @office/simulator start -- --db <caminho> --project <pasta>
+pnpm --filter @hive/simulator start -- --db <caminho> --project <pasta>
 pnpm plan-lab -- --task all --project .   # so o gerente, sem executar nada
 ```
 

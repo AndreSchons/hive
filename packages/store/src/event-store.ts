@@ -8,7 +8,7 @@ import {
   type AnyEventDraft,
   type RunId,
   type RunSummary,
-} from '@office/protocol';
+} from '@hive/protocol';
 import type { Db } from './db';
 import { describe } from './db';
 import { rowToEvent, rowToRunSummary } from './rows';

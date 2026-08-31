@@ -2,8 +2,8 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { agentId, gateSchema, newGateId, newTaskId, type Gate, type GateKind } from '@office/protocol';
-import type { Worktree } from '@office/agents';
+import { agentId, gateSchema, newGateId, newTaskId, type Gate, type GateKind } from '@hive/protocol';
+import type { Worktree } from '@hive/agents';
 import { CommandGateRunner } from '../src/gate-runner';
 
 /**
@@ -28,7 +28,7 @@ const worktree = (): Worktree => ({
   agentId: agentId.parse('agt_teste_1'),
   repositoryPath: repo,
   path: copia,
-  branch: 'office/agt_teste_1',
+  branch: 'hive/agt_teste_1',
   base: 'main',
   createdAt: 0,
 });

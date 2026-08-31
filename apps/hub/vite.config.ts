@@ -13,8 +13,8 @@ export default defineConfig({
   plugins: [react(), tailwind()],
   resolve: {
     alias: {
-      '@office/protocol': protocolSrc,
-      '@office/simulator': simulatorSrc,
+      '@hive/protocol': protocolSrc,
+      '@hive/simulator': simulatorSrc,
     },
   },
   // Caminhos relativos: em producao o Electron carrega o index.html por file://,

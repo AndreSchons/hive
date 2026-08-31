@@ -6,8 +6,8 @@ import type { CommandInput, CommandName, CommandResult } from './commands';
  * evento voltando. Tudo que o app faz cabe nesses dois sentidos.
  */
 export const IPC_CHANNELS = {
-  command: 'office:command',
-  events: 'office:events',
+  command: 'hive:command',
+  events: 'hive:events',
 } as const;
 
 /** Falha de IPC e caso esperado, entao ela e valor de retorno e nao exception. */
@@ -29,7 +29,7 @@ export interface EventBatch {
 }
 
 /**
- * O que o preload expoe em `window.office`. Renderer e processo principal
+ * O que o preload expoe em `window.hive`. Renderer e processo principal
  * derivam os tipos daqui, entao nao ha como discordarem sobre um canal.
  */
 export interface OfficeBridge {

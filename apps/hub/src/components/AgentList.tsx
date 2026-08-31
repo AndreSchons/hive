@@ -1,4 +1,4 @@
-import type { AgentState } from '@office/protocol';
+import type { AgentState } from '@hive/protocol';
 import { STATE_LABEL, adapterLabel } from '../state/describe';
 import type { AgentView, TaskView } from '../state/event-reducer';
 

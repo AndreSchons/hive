@@ -2,7 +2,7 @@ import { execFileSync } from 'node:child_process';
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { newAgentId, type AgentId } from '@office/protocol';
+import { newAgentId, type AgentId } from '@hive/protocol';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { GitWorktreeManager, branchFor } from '../src/index';
 import type { Worktree } from '../src/index';
@@ -22,12 +22,12 @@ const manager = new GitWorktreeManager();
 const ARQUIVO = 'src/login.txt';
 
 beforeEach(() => {
-  repo = mkdtempSync(join(tmpdir(), 'office-repo-'));
-  homes = mkdtempSync(join(tmpdir(), 'office-wt-'));
+  repo = mkdtempSync(join(tmpdir(), 'hive-repo-'));
+  homes = mkdtempSync(join(tmpdir(), 'hive-wt-'));
 
   run(repo, 'init', '--initial-branch=main');
   run(repo, 'config', 'user.name', 'Teste');
-  run(repo, 'config', 'user.email', 'teste@office.local');
+  run(repo, 'config', 'user.email', 'teste@hive.local');
   execFileSync('mkdir', ['-p', join(repo, 'src')]);
   writeFileSync(join(repo, ARQUIVO), 'linha um\nlinha dois\nlinha tres\n');
   run(repo, 'add', '-A');
@@ -58,7 +58,7 @@ const editarSegundaLinha = (worktree: Worktree, texto: string): void => {
 
 describe('check', () => {
   it('recusa pasta que nao e repositorio', async () => {
-    const solta = mkdtempSync(join(tmpdir(), 'office-solta-'));
+    const solta = mkdtempSync(join(tmpdir(), 'hive-solta-'));
     const resultado = await manager.check(solta);
     expect(resultado.ok).toBe(false);
     if (!resultado.ok) expect(resultado.reason).toContain('repositorio git');

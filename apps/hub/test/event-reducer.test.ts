@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { newRunId, parseEvent, SCHEMA_VERSION, type AnyEvent } from '@office/protocol';
-import { buildScriptedRun } from '@office/simulator';
+import { newRunId, parseEvent, SCHEMA_VERSION, type AnyEvent } from '@hive/protocol';
+import { buildScriptedRun } from '@hive/simulator';
 import { applyAll, applyEvent, emptyWorld, FEED_LIMIT } from '../src/state/event-reducer';
 import { adapterLabel, describeEvent } from '../src/state/describe';
 
@@ -209,7 +209,7 @@ describe('worktree', () => {
       seal([
         {
           type: 'worktree.created',
-          payload: { agentId, path: '/copias/frontend', branch: 'office/frontend', base: 'main' },
+          payload: { agentId, path: '/copias/frontend', branch: 'hive/frontend', base: 'main' },
         },
         {
           type: 'agent.spawned',
@@ -221,7 +221,7 @@ describe('worktree', () => {
       ]),
     );
 
-    expect(world.agents[agentId]?.branch).toBe('office/frontend');
+    expect(world.agents[agentId]?.branch).toBe('hive/frontend');
     expect(world.agents[agentId]?.displayName).toBe('Interface');
   });
 
@@ -230,7 +230,7 @@ describe('worktree', () => {
       {
         type: 'worktree.conflict',
         payload: {
-          agentId, taskId: 'tsk_x', branch: 'office/frontend', into: 'main',
+          agentId, taskId: 'tsk_x', branch: 'hive/frontend', into: 'main',
           files: ['src/telas/Login.tsx'],
         },
       },
@@ -247,12 +247,12 @@ describe('worktree', () => {
     const [sozinho, juntado] = seal([
       {
         type: 'worktree.merged',
-        payload: { agentId, taskId: 'tsk_x', branch: 'office/a', into: 'main', filesChanged: 2 },
+        payload: { agentId, taskId: 'tsk_x', branch: 'hive/a', into: 'main', filesChanged: 2 },
       },
       {
         type: 'worktree.merged',
         payload: {
-          agentId, taskId: 'tsk_x', branch: 'office/b', into: 'main', filesChanged: 2,
+          agentId, taskId: 'tsk_x', branch: 'hive/b', into: 'main', filesChanged: 2,
           resolvedBy: script.manager,
         },
       },

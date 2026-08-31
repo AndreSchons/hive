@@ -4,7 +4,7 @@ import {
   newQuestionId,
   type AnyEventDraft,
   type QuestionId,
-} from '@office/protocol';
+} from '@hive/protocol';
 import type { AgentOutcome, AgentRun, AgentRunRequest } from '../adapter';
 import { AsyncQueue } from '../process/async-queue';
 import { LineSplitter, parseLine } from '../process/stream-json';

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { agentId, taskId, type AgentId, type TaskId } from '@office/protocol';
+import { agentId, taskId, type AgentId, type TaskId } from '@hive/protocol';
 import { DefaultEscalationPolicy, OPTION_RESOLVE, OPTION_RETRY, OPTION_STOP } from '../src/escalation';
 import type { BlockCause, EscalationDecision, HumanQuestion } from '../src/escalation';
 import type { GateFailure } from '../src/gate-runner';

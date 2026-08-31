@@ -1,4 +1,4 @@
-import type { Subtask } from '@office/protocol';
+import type { Subtask } from '@hive/protocol';
 
 /**
  * Quem pode correr junto com quem.

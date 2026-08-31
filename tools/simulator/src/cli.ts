@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { resolve } from 'node:path';
-import { EventStore, openDatabase } from '@office/store';
+import { EventStore, openDatabase } from '@hive/store';
 import { runScriptedDemo } from './index';
 
 /**
@@ -21,7 +21,7 @@ async function main(): Promise<void> {
   if (dbPath === undefined) {
     console.error(
       [
-        'uso: office-simulate --db <caminho.sqlite> [--project <pasta>] [--goal "<texto>"] [--delay <ms>] [--auto-answer <ms>]',
+        'uso: hive-simulate --db <caminho.sqlite> [--project <pasta>] [--goal "<texto>"] [--delay <ms>] [--auto-answer <ms>]',
         '',
         'o caminho do banco aparece no hub, no rodape da tela de selecao de pasta.',
       ].join('\n'),

@@ -9,14 +9,14 @@ import {
   type AgentId,
   type AnyEventDraft,
   type RoleDefinition,
-} from '@office/protocol';
+} from '@hive/protocol';
 import type {
   AdapterProbe,
   AgentAdapter,
   AgentOutcome,
   AgentRun,
   AgentRunRequest,
-} from '@office/agents';
+} from '@hive/agents';
 import { AgentPlanner } from '../src/index';
 import type { PlanRequest } from '../src/index';
 

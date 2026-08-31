@@ -1,5 +1,5 @@
 {
-  "name": "@office/simulator",
+  "name": "@hive/simulator",
   "version": "0.0.1",
   "private": true,
   "main": "./dist/index.js",
@@ -12,7 +12,7 @@
     "start": "node dist/cli.js"
   },
   "dependencies": {
-    "@office/protocol": "workspace:*",
-    "@office/store": "workspace:*"
+    "@hive/protocol": "workspace:*",
+    "@hive/store": "workspace:*"
   }
 }

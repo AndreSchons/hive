@@ -1,4 +1,4 @@
-import { planJsonSchema, type Plan, type Roster } from '@office/protocol';
+import { planJsonSchema, type Plan, type Roster } from '@hive/protocol';
 import type { ProjectContext } from './planner';
 
 /**

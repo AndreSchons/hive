@@ -1,4 +1,4 @@
-import type { AgentState } from '@office/protocol';
+import type { AgentState } from '@hive/protocol';
 import type { AgentView } from '../../state/event-reducer';
 import { agentColor, HAIR_TONES, hashString, PANTS_TONES, SKIN_TONES } from './palette';
 import { allocateDesks, OVERFLOW_DESK } from './deskAllocator';

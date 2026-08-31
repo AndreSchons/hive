@@ -12,9 +12,9 @@ import {
   type CommandResult,
   type Roster,
   type RunId,
-} from '@office/protocol';
-import { AppStore, EventStore } from '@office/store';
-import { runScriptedDemo } from '@office/simulator';
+} from '@hive/protocol';
+import { AppStore, EventStore } from '@hive/store';
+import { runScriptedDemo } from '@hive/simulator';
 import type { EventBridge } from './event-bridge';
 import type { RunSupervisor } from './run-supervisor';
 import { openProject, pickProject } from './project-dialog';

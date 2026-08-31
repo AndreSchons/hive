@@ -1,7 +1,7 @@
 import type { BrowserWindow } from 'electron';
-import type { AnyEvent, RunId } from '@office/protocol';
-import { IPC_CHANNELS } from '@office/protocol';
-import { EventStore } from '@office/store';
+import type { AnyEvent, RunId } from '@hive/protocol';
+import { IPC_CHANNELS } from '@hive/protocol';
+import { EventStore } from '@hive/store';
 
 const POLL_INTERVAL_MS = 200;
 /** Procurar execucao nova e mais barato de fazer raramente do que a cada tick. */

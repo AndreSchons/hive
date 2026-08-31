@@ -2,7 +2,7 @@ import { spawn } from 'node:child_process';
 import { existsSync, readdirSync } from 'node:fs';
 import { mkdir } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
-import type { Worktree } from '@office/agents';
+import type { Worktree } from '@hive/agents';
 import { installCommand } from './project-context';
 
 export type PrepareResult =

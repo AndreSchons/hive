@@ -5,7 +5,7 @@ import type {
   Contract,
   ParallelismMeasure,
   Plan,
-} from '@office/protocol';
+} from '@hive/protocol';
 import { describeEvent, type FeedItem } from './describe';
 
 /**

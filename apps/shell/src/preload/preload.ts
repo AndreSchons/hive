@@ -5,7 +5,7 @@ import type {
   CommandResponse,
   EventBatch,
   OfficeBridge,
-} from '@office/protocol';
+} from '@hive/protocol';
 
 /**
  * Conduite tipado e nada mais. Nao valida, nao decide, nao guarda estado: a
@@ -14,8 +14,8 @@ import type {
  * So importa tipos do protocol -- nenhum require em tempo de execucao alem do
  * proprio electron, que e o que permite manter `sandbox: true`.
  */
-const CHANNEL_COMMAND = 'office:command';
-const CHANNEL_EVENTS = 'office:events';
+const CHANNEL_COMMAND = 'hive:command';
+const CHANNEL_EVENTS = 'hive:events';
 
 const bridge: OfficeBridge = {
   async invoke<N extends CommandName>(name: N, input: CommandInput<N>): Promise<CommandResponse<N>> {
@@ -43,4 +43,4 @@ const bridge: OfficeBridge = {
   },
 };
 
-contextBridge.exposeInMainWorld('office', bridge);
+contextBridge.exposeInMainWorld('hive', bridge);

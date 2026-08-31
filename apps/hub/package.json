@@ -1,5 +1,5 @@
 {
-  "name": "@office/hub",
+  "name": "@hive/hub",
   "version": "0.0.1",
   "private": true,
   "type": "module",
@@ -10,7 +10,7 @@
     "dev": "vite"
   },
   "dependencies": {
-    "@office/protocol": "workspace:*",
+    "@hive/protocol": "workspace:*",
     "@react-three/drei": "10.7.8",
     "@react-three/fiber": "9.7.0",
     "react": "19.2.8",
@@ -26,6 +26,6 @@
     "@vitejs/plugin-react": "6.1.0",
     "tailwindcss": "4.3.3",
     "vite": "8.2.2",
-    "@office/simulator": "workspace:*"
+    "@hive/simulator": "workspace:*"
   }
 }

@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { AnyEvent, ModelTier, ProjectRef, RoleDefinition } from '@office/protocol';
+import type { AnyEvent, ModelTier, ProjectRef, RoleDefinition } from '@hive/protocol';
 import { invoke, onEvents } from '../ipc/bridge';
 import { applyAll, emptyWorld, type WorldState } from './event-reducer';
 

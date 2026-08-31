@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { newRunId, planSchema, readySubtasks, type RunId } from '@office/protocol';
-import { EventStore, openDatabase, type Db } from '@office/store';
+import { newRunId, planSchema, readySubtasks, type RunId } from '@hive/protocol';
+import { EventStore, openDatabase, type Db } from '@hive/store';
 import { buildScriptedRun, runScriptedDemo } from '../src/index';
 
 let db: Db;

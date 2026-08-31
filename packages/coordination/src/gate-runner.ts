@@ -1,8 +1,8 @@
 import { spawn } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
-import type { Gate, GateKind, TaskId } from '@office/protocol';
-import type { Worktree } from '@office/agents';
+import type { Gate, GateKind, TaskId } from '@hive/protocol';
+import type { Worktree } from '@hive/agents';
 import { installCommand } from './project-context';
 
 export type GateResult =

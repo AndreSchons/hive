@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react';
-import type { BlockCause } from '@office/protocol';
+import type { BlockCause } from '@hive/protocol';
 import type { PendingQuestion } from '../state/event-reducer';
 
 /**

@@ -1,6 +1,6 @@
 import { mkdir } from 'node:fs/promises';
 import { dirname } from 'node:path';
-import { agentId as agentIdSchema, type AgentId } from '@office/protocol';
+import { agentId as agentIdSchema, type AgentId } from '@hive/protocol';
 import type {
   CreateWorktreeInput,
   MergeResult,
@@ -11,7 +11,7 @@ import type {
 import { git, gitOrThrow, lines } from './git';
 
 /** Prefixo dos branches que este app cria. E o que separa nossa copia da do usuario. */
-export const BRANCH_PREFIX = 'office/';
+export const BRANCH_PREFIX = 'hive/';
 
 export const branchFor = (agent: AgentId): string => `${BRANCH_PREFIX}${agent}`;
 
@@ -156,7 +156,7 @@ export class GitWorktreeManager implements WorktreeManager {
    * Devolve falso quando o agente nao mudou nada.
    */
   async commitAll(worktree: Worktree, message: string): Promise<boolean> {
-    // `node_modules` e `.office` ficam de fora sempre, mesmo que o projeto nao
+    // `node_modules` e `.hive` ficam de fora sempre, mesmo que o projeto nao
     // os ignore: a preparacao instala dependencia dentro da copia e o gerente
     // materializa os contratos ali, e um projeto sem `.gitignore` veria os dois
     // virarem commit no repositorio de quem usa o app. Andaime do app nao vira
@@ -173,13 +173,13 @@ export class GitWorktreeManager implements WorktreeManager {
     await git(worktree.path, [
       'reset', '-q', '--',
       ':(glob,top)**/node_modules/**', ':(glob,top)node_modules/**',
-      ':(glob,top).office/**',
+      ':(glob,top).hive/**',
     ]);
     const staged = await git(worktree.path, ['diff', '--cached', '--quiet']);
     if (staged.code === 0) return false;
 
     await gitOrThrow(worktree.path, [
-      '-c', 'user.name=Agent Office', '-c', 'user.email=agent@office.local',
+      '-c', 'user.name=Hive', '-c', 'user.email=agent@hive.local',
       'commit', '--no-verify', '-m', message,
     ]);
     return true;
@@ -245,7 +245,7 @@ export class GitWorktreeManager implements WorktreeManager {
     const unresolved = await this.markerFiles(repositoryPath);
     if (unresolved.length > 0) return { ok: false, files: unresolved };
     await gitOrThrow(repositoryPath, [
-      '-c', 'user.name=Agent Office', '-c', 'user.email=agent@office.local',
+      '-c', 'user.name=Hive', '-c', 'user.email=agent@hive.local',
       'commit', '--no-verify', '-m', message,
     ]);
 

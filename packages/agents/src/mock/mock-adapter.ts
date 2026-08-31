@@ -4,7 +4,7 @@ import {
   newQuestionId,
   type AdapterId,
   type AnyEventDraft,
-} from '@office/protocol';
+} from '@hive/protocol';
 import type {
   AdapterCapabilities,
   AdapterProbe,
@@ -126,7 +126,7 @@ class MockRun implements AgentRun {
           displayName: `${role} (simulado)`,
           adapter: adapterId.parse('mock'),
           worktreePath: cwd,
-          branch: `office/${role}`,
+          branch: `hive/${role}`,
         }),
       );
       if (this.stopIfCancelled()) return;

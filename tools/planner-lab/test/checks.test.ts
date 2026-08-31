@@ -7,7 +7,7 @@ import {
   planSchema,
   rosterSchema,
   type Plan,
-} from '@office/protocol';
+} from '@hive/protocol';
 import { checkPlan } from '../src/index';
 
 const ROSTER = rosterSchema.parse([

@@ -1,4 +1,4 @@
-import type { Plan, Roster, RunId } from '@office/protocol';
+import type { Plan, Roster, RunId } from '@hive/protocol';
 
 /** O que o gerente sabe sobre o repositorio antes de decompor a task. */
 export interface ProjectContext {

@@ -1,5 +1,5 @@
 {
-  "name": "@office/coordination",
+  "name": "@hive/coordination",
   "version": "0.0.1",
   "private": true,
   "main": "./dist/index.js",
@@ -10,7 +10,7 @@
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
-    "@office/agents": "workspace:*",
-    "@office/protocol": "workspace:*"
+    "@hive/agents": "workspace:*",
+    "@hive/protocol": "workspace:*"
   }
 }

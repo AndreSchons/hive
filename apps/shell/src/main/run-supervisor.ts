@@ -24,7 +24,7 @@ import {
   type RunId,
   type Subtask,
   type TaskId,
-} from '@office/protocol';
+} from '@hive/protocol';
 import {
   branchFor,
   GitWorktreeManager,
@@ -33,7 +33,7 @@ import {
   type AgentOutcome,
   type AgentRun,
   type Worktree,
-} from '@office/agents';
+} from '@hive/agents';
 import {
   AgentPlanner,
   CommandGateRunner,
@@ -60,8 +60,8 @@ import {
   type GateRunner,
   type Posture,
   type WorktreePreparer,
-} from '@office/coordination';
-import type { EventStore } from '@office/store';
+} from '@hive/coordination';
+import type { EventStore } from '@hive/store';
 
 /**
  * Conduz o trabalho de uma execucao, um agente por vez, cada um na propria

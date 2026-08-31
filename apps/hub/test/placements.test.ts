@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { AgentState } from '@office/protocol';
+import type { AgentState } from '@hive/protocol';
 import type { AgentView } from '../src/state/event-reducer';
 import { derivePlacements } from '../src/world/office/placements';
 import { AGENT_COLORS, agentColor, HAIR_TONES, PANTS_TONES, SKIN_TONES } from '../src/world/office/palette';
@@ -21,7 +21,7 @@ function agent(agentId: string, state: AgentState, present = true): AgentView {
     adapter: 'mock',
     state,
     worktreePath: '/copias/x',
-    branch: 'office/x',
+    branch: 'hive/x',
     currentTaskId: null,
     lastSaid: null,
     present,

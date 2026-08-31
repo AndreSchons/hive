@@ -1,16 +1,16 @@
 import { join } from 'node:path';
 import { BrowserWindow, app } from 'electron';
-import { ClaudeAdapter, GitWorktreeManager, createAdapterRegistry } from '@office/agents';
-import { AppStore, EventStore, openDatabase, type Db } from '@office/store';
+import { ClaudeAdapter, GitWorktreeManager, createAdapterRegistry } from '@hive/agents';
+import { AppStore, EventStore, openDatabase, type Db } from '@hive/store';
 import { EventBridge } from './event-bridge';
 import { DEFAULT_ROSTER, registerIpc, unregisterIpc } from './ipc';
 import { RunSupervisor } from './run-supervisor';
 import { databasePath } from './paths';
 import { createWindow } from './window';
 
-// O nome do pacote e "@office/shell", e a barra viraria diretorio dentro de
+// O nome do pacote e "@hive/shell", e a barra viraria diretorio dentro de
 // userData. Fixa aqui, antes de qualquer getPath.
-app.setName('agent-office');
+app.setName('hive');
 
 let db: Db | null = null;
 let bridge: EventBridge | null = null;

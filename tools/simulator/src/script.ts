@@ -14,7 +14,7 @@ import {
   type QuestionId,
   type RunId,
   type TaskId,
-} from '@office/protocol';
+} from '@hive/protocol';
 
 /**
  * Roteiro de uma execucao plausivel: o gerente decompoe, publica o contrato que
@@ -126,8 +126,8 @@ export function buildScriptedRun(runId: RunId, projectPath: string, goal: string
       displayName,
       adapter,
       ...(model === undefined ? {} : { model }),
-      worktreePath: `${projectPath}/.office/worktrees/${role}`,
-      branch: `office/${role}`,
+      worktreePath: `${projectPath}/.hive/worktrees/${role}`,
+      branch: `hive/${role}`,
     });
 
   /**
@@ -207,7 +207,7 @@ export function buildScriptedRun(runId: RunId, projectPath: string, goal: string
     usage(backend, 'claude-sonnet-4-5', 0.0839, { input: 6, output: 4_412, cacheWrite: 6_744, cacheRead: 28_295 }, apiTask),
     draft('task.completed', { taskId: apiTask, agentId: backend, summary: 'Rota de login pronta e testada', filesChanged: 3 }),
     state(backend, 'working', 'done'),
-    draft('worktree.merged', { agentId: manager, taskId: apiTask, branch: 'office/backend', into: 'main', filesChanged: 3 }),
+    draft('worktree.merged', { agentId: manager, taskId: apiTask, branch: 'hive/backend', into: 'main', filesChanged: 3 }),
 
     // O bloqueio: pergunta de produto, nao de codigo. Quem nao le codigo
     // consegue responder, e continuar tentando as cegas nao resolveria.
@@ -251,7 +251,7 @@ export function buildScriptedRun(runId: RunId, projectPath: string, goal: string
     draft('gate.passed', { gateId: uiGate.id, taskId: uiTask, agentId: frontend, kind: 'typecheck', durationMs: 3100 }),
     draft('task.completed', { taskId: uiTask, agentId: frontend, summary: 'Tela de login pronta', filesChanged: 2 }),
     state(frontend, 'working', 'done'),
-    draft('worktree.merged', { agentId: manager, taskId: uiTask, branch: 'office/frontend', into: 'main', filesChanged: 2 }),
+    draft('worktree.merged', { agentId: manager, taskId: uiTask, branch: 'hive/frontend', into: 'main', filesChanged: 2 }),
 
     state(manager, 'idle', 'working', 'Integrando as duas frentes'),
     draft('task.assigned', {

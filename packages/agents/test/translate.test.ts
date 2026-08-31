@@ -8,7 +8,7 @@ import {
   newTaskId,
   roleId,
   type AnyEventDraft,
-} from '@office/protocol';
+} from '@hive/protocol';
 import { parseCliLine, StreamTranslator } from '../src/index';
 
 /**

@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react';
-import type { ModelTier, RoleDefinition } from '@office/protocol';
+import type { ModelTier, RoleDefinition } from '@hive/protocol';
 import { adapterLabel } from '../state/describe';
 
 export interface TaskInputProps {

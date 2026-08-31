@@ -7,7 +7,7 @@ import {
   type Budget,
   type RoleId,
   type TaskId,
-} from '@office/protocol';
+} from '@hive/protocol';
 import type { CliLine } from './cli-messages';
 import { fileChangeFrom } from './patch';
 import { capSummary, describeToolCall, describeToolResult } from '../tool-summary';
