@@ -31,11 +31,12 @@ import { openProject, pickProject } from './project-dialog';
 const CLAUDE_MODELS = { economico: 'haiku', padrao: 'sonnet', caprichado: 'opus' } as const;
 
 /**
- * O Kimi fica **sem escada** de proposito. Os aliases dele nao sao fixos: saem
- * do `config.toml` de cada usuario, e mandar um nome que a CLI nao conhece
- * derruba a execucao inteira. Sem escada, o papel roda no modelo padrao da CLI
- * e a postura escolhida simplesmente nao o afeta -- que e honesto, e melhor que
- * chutar um alias.
+ * Todo papel roda na mesma CLI, mas a **escada e do papel, nao do sistema**:
+ * `RoleDefinition.models` e quem resolve degrau -> alias, porque quem conhece
+ * os aliases e quem conhece a CLI. Papel declarado sem escada roda sempre no
+ * modelo padrao da CLI e a postura escolhida simplesmente nao o afeta -- e o
+ * que sobra para uma CLI cujos aliases saem do config de cada usuario, onde
+ * mandar um nome desconhecido derrubaria a execucao inteira.
  */
 export const DEFAULT_ROSTER: Roster = rosterSchema.parse([
   { id: 'gerente', title: 'Gerente', adapter: 'claude', model: 'opus', models: CLAUDE_MODELS,
@@ -43,7 +44,7 @@ export const DEFAULT_ROSTER: Roster = rosterSchema.parse([
     description: 'Decompoe a task, publica contratos, valida entregas e integra.' },
   { id: 'executor', title: 'Agente', adapter: 'claude', models: CLAUDE_MODELS, canDelegate: false,
     description: 'Executa uma tarefa sozinho, direto na pasta do projeto.' },
-  { id: 'frontend', title: 'Interface e 3D', adapter: 'kimi', canDelegate: false,
+  { id: 'frontend', title: 'Interface e 3D', adapter: 'claude', models: CLAUDE_MODELS, canDelegate: false,
     description: 'Telas, componentes e o escritorio 3D.' },
   { id: 'backend', title: 'Backend', adapter: 'claude', models: CLAUDE_MODELS, canDelegate: false,
     description: 'Dados, rotas e regras de negocio.' },

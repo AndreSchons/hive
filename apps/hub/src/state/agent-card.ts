@@ -143,7 +143,7 @@ function doingRow(agent: AgentView, world: WorldState, subtask: Subtask | null):
 /**
  * Quanto este agente ja custou.
  *
- * Lista vazia e **ausencia de informacao**, nao gasto zero: o ACP do Kimi nao
+ * Lista vazia e **ausencia de informacao**, nao gasto zero: nem toda CLI
  * reporta consumo, e escrever "US$ 0,00" ali diria que foi de graca -- que e a
  * unica coisa que este numero nao pode dizer.
  *

@@ -7,7 +7,7 @@ import {
   type RoleDefinition,
   type Roster,
 } from '@office/protocol';
-import { ClaudeAdapter, KimiAdapter, type AgentAdapter } from '@office/agents';
+import { ClaudeAdapter, type AgentAdapter } from '@office/agents';
 import {
   AgentPlanner,
   discoverGates,
@@ -31,7 +31,7 @@ const ROSTER: Roster = rosterSchema.parse([
     description: 'Decompoe a task, publica contratos, valida entregas e integra.' },
   { id: 'backend', title: 'Backend', adapter: 'claude', canDelegate: false,
     description: 'Dados, rotas, schemas e regras de negocio.' },
-  { id: 'frontend', title: 'Interface e 3D', adapter: 'kimi', canDelegate: false,
+  { id: 'frontend', title: 'Interface e 3D', adapter: 'claude', canDelegate: false,
     description: 'Telas, componentes e o escritorio 3D.' },
   { id: 'revisao', title: 'Revisao', adapter: 'claude', canDelegate: false,
     description: 'Le o que os outros entregaram antes de integrar.' },
@@ -208,13 +208,8 @@ function save(outDir: string, stamp: string, task: ExampleTask, result: PlanResu
   );
 }
 
-function adapterFor(role: RoleDefinition): AgentAdapter {
-  switch (String(role.adapter)) {
-    case 'kimi':
-      return new KimiAdapter();
-    default:
-      return new ClaudeAdapter();
-  }
+function adapterFor(_role: RoleDefinition): AgentAdapter {
+  return new ClaudeAdapter();
 }
 
 const isTask = (task: ExampleTask | undefined): task is ExampleTask => task !== undefined;

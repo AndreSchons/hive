@@ -46,7 +46,7 @@ export const TASKS: readonly ExampleTask[] = [
   {
     id: 'nao-e-tarefa',
     expectStatus: 'needs_input',
-    goal: 'Por que o adaptador do Kimi usa ACP em vez do modo prompt?',
+    goal: 'Por que cada agente trabalha numa copia separada em vez de todos no mesmo repositorio?',
     probes: 'pedido que e pergunta',
     expect: 'needs_input, ou uma subtask de leitura. Nunca um plano de implementacao.',
   },

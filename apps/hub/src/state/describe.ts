@@ -155,7 +155,6 @@ export function describeEvent(event: AnyEvent): FeedItem {
  */
 const ADAPTER_LABEL: Record<string, string> = {
   claude: 'Claude Code',
-  kimi: 'Kimi',
   mock: 'Simulado',
 };
 

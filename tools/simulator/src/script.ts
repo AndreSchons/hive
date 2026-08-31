@@ -135,10 +135,9 @@ export function buildScriptedRun(runId: RunId, projectPath: string, goal: string
    * reporta. Os numeros sao da ordem de grandeza medida em
    * `tools/planner-lab/BASELINE.md`; o roteiro nao inventa desconto.
    *
-   * O agente do Kimi nao emite nenhum, de proposito: o ACP dele nao reporta
-   * consumo, e o roteiro existe para mostrar o fluxo como ele e. Zerar ali se
-   * leria como "foi de graca", que e a unica coisa que este numero nao pode
-   * dizer.
+   * O agente do frontend nao emite nenhum, de proposito: nem toda CLI reporta
+   * consumo, e a ficha precisa saber dizer isso. Zerar ali se leria como "foi
+   * de graca", que e a unica coisa que este numero nao pode dizer.
    */
   const usage = (
     agentId: AgentId,
@@ -175,8 +174,8 @@ export function buildScriptedRun(runId: RunId, projectPath: string, goal: string
     draft('contract.published', { contract, publishedBy: manager, unblocks: [apiTask, uiTask] }),
 
     spawn(backend, 'backend', 'Backend', 'claude', 'sonnet'),
-    // Sem alias: o papel do Kimi nao declara escada, entao roda no padrao da CLI.
-    spawn(frontend, 'frontend', 'Interface e 3D', 'kimi'),
+    // Sem alias: este papel nao declara escada, entao roda no padrao da CLI.
+    spawn(frontend, 'frontend', 'Interface e 3D', 'mock'),
 
     draft('task.assigned', {
       taskId: apiTask, title: 'Rota de login', role: 'backend',

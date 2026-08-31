@@ -1,8 +1,8 @@
 # Agent Office
 
-App desktop que orquestra as CLIs de agente ja instaladas no terminal do usuario
-(Claude Code, Kimi) trabalhando juntas no mesmo repositorio, com a execucao
-visualizada como um escritorio 3D isometrico.
+App desktop que orquestra a CLI de agente ja instalada no terminal do usuario
+(Claude Code) trabalhando no mesmo repositorio, com a execucao visualizada como
+um escritorio 3D isometrico. Varios agentes ao mesmo tempo, uma CLI so.
 
 O publico e quem nao le codigo. A pessoa descreve o que quer, o sistema coordena
 os agentes ate a entrega e **para para perguntar em linguagem simples** quando
@@ -121,43 +121,33 @@ A politica de permissao (`claude/permission.ts`) libera leitura e escrita dentro
 da pasta do projeto e escala o resto. As fixtures em `packages/agents/test/`
 sao NDJSON gravado da CLI de verdade: e contra elas que o parser e testado.
 
-## Como a CLI do Kimi entra
+## Uma CLI hoje, a interface para mais de uma
 
-`packages/agents/src/kimi/` fala **Agent Client Protocol** (`kimi acp`), JSON-RPC
-2.0 em NDJSON pelos dois sentidos. O modo obvio -- `kimi -p --output-format
-stream-json` -- foi descartado depois de lido o binario, e vale registrar por que
-antes que alguem tente de novo:
+O sistema roda **so o Claude Code**. Isso e uma decisao de escopo, nao um limite
+da arquitetura: `AgentAdapter` continua sendo o ponto de extensao, e o registro
+(`createAdapterRegistry`) aceita quantos adaptadores existirem. Um segundo
+adaptador entra por ali, sem tocar em `coordination` nem em `apps/hub`.
 
-- O modo prompt chama `setMode("auto")`, que o proprio `--help` descreve como
-  *"fully autonomous, the agent will not ask questions"*. **Nunca bloqueia.**
-- `writeThinkingDelta()` tem corpo vazio: em JSON o pensamento e descartado.
-- Resultado de ferramenta vira string crua, sem contagem de linha nem sinal de erro.
-- Nao existe `--input-format`: stdin nao e canal, entao `answer()` e impossivel.
+Duas regras que existem justamente para isso e nao podem ser afrouxadas so
+porque hoje ha uma CLI so:
 
-Pelo ACP tudo isso existe. Tres detalhes que o codigo depende:
+- **A politica de permissao e uma so** (`packages/agents/src/permission.ts`), com
+  entrada agnostica de CLI. O que o sistema deixa um agente fazer nao pode
+  depender de qual CLI ele e. Cada adaptador traduz o pedido da sua CLI para
+  `PermissionRequest` e recebe a mesma decisao de volta.
+- **`PermissionRequest.kind` continua no contrato** mesmo o Claude Code nao o
+  mandando. Ele e a rede de seguranca para ferramenta fora das listas de
+  `permission.ts`, e e por onde uma CLI que classifica as proprias ferramentas
+  se encaixa sem precisar que a lista conheca o nome dela antes.
 
-- **O bloco de diff chega no update `in_progress`, nunca no `completed`.** Quem
-  olhasse so a frame final nunca veria mudanca de arquivo nenhuma.
-- **`Write` nao manda bloco de diff.** So `rawInput.content`. Criar e sobrescrever
-  sao indistinguiveis pelo stream, entao `AcpTranslator` recebe um `exists`
-  injetado e pergunta ao disco **antes** da escrita -- no `in_progress`, que
-  chega antes de o arquivo mudar.
-- **A resposta JSON-RPC nao pode ser descrita como "`method` ausente".** Uma chave
-  declarada como `z.undefined()` continua obrigatoria no Zod, e toda resposta era
-  descartada em silencio. A uniao tenta pedido e notificacao primeiro; a resposta
-  e o que sobra.
+Pelo mesmo motivo, `AdapterCapabilities` e `RunUsage` admitem **ausencia**: uma
+CLI que nao reporta consumo nao emite `agent.usage`, e a ficha do personagem diz
+"esta ferramenta nao informa o custo" em vez de escrever US$ 0,00. Zero se leria
+como "foi de graca", que e a unica coisa que este numero nao pode dizer.
 
-Os ids de opcao de permissao (`approve_once`, `reject`) sao do Kimi e viajam no
-proprio pedido -- nunca invente um.
-
-A politica de permissao e **uma so** (`packages/agents/src/permission.ts`), com
-entrada agnostica de CLI. O que o sistema deixa um agente fazer nao pode depender
-de qual CLI ele e.
-
-Ajuda que as duas usem os mesmos nomes de ferramenta (`Read`, `Write`, `Edit`,
-`Bash`, `Glob`, `Grep`, `WebSearch`), entao `tool-summary.ts` e as listas de
-`permission.ts` valem para as duas sem traducao. O `kind` do ACP entra como rede
-de seguranca para o que nao estiver nessas listas, nao como caminho principal.
+Ja houve um segundo adaptador aqui (Kimi, por Agent Client Protocol) e ele foi
+removido para o sistema ter uma superficie so. O codigo esta no historico do git
+se alguem precisar de referencia de como um adaptador nao-Claude se encaixa.
 
 ## Como o gerente planeja
 
@@ -250,8 +240,8 @@ Nada se otimiza sem esse numero, entao ele e evento de primeira classe.
   qual passo. Vem de `modelUsage` na linha `result`, que as fixtures gravadas ja
   traziam.
 - **CLI que nao reporta consumo nao emite nada.** Zero se leria como "foi de
-  graca", e essa e a unica coisa que este numero nao pode dizer. O ACP do Kimi
-  nao reporta, entao execucao de Kimi aparece sem custo -- ausente, nao zerada.
+  graca", e essa e a unica coisa que este numero nao pode dizer. Uma CLI que
+  nao reporta aparece sem custo -- ausente, nao zerada.
 - **`cacheCreationTokens` e `cacheReadTokens` vivem separados** porque e a
   diferenca entre eles que explica o preco: naquela fixture, 6.744 tokens
   escritos no cache contra 28.295 lidos, com 6 de input novo. Praticamente todo
@@ -394,8 +384,8 @@ so"), porque e ele que aparece na tela: "sonnet" nao diz nada para essa pessoa.
 
 Quem resolve degrau -> alias e o **papel**, que e quem conhece a CLI
 (`RoleDefinition.models`). Papel sem escada roda no modelo padrao da CLI e a
-postura simplesmente nao o afeta -- e o caso do Kimi, cujos aliases saem do
-`config.toml` de cada usuario: mandar um nome que a CLI nao conhece derruba a
+postura simplesmente nao o afeta. E a saida certa para uma CLI cujos aliases
+saem do config de cada usuario: mandar um nome que a CLI nao conhece derruba a
 execucao inteira, e um padrao honesto vale mais que um alias chutado.
 
 Medido com o mesmo prompt trivial no Claude Code: haiku US$ 0,0165, sonnet
@@ -418,13 +408,13 @@ que ferramenta, em que capricho, e quanto ja me custou.**
   pergunta que a ficha faz. Continua **um item por modelo** -- uma execucao da
   CLI mistura modelos, e um total por agente esconderia de novo o que os
   eventos separados existem para mostrar.
-- **Lista de consumo vazia e ausencia, nunca zero.** O ACP do Kimi nao reporta,
-  e a ficha diz "esta ferramenta nao informa o custo". Escrever "US$ 0,00" seria
+- **Lista de consumo vazia e ausencia, nunca zero.** Nem toda CLI reporta, e a
+  ficha diz "esta ferramenta nao informa o custo". Escrever "US$ 0,00" seria
   dizer que foi de graca, que e a unica coisa que este numero nao pode dizer.
 - **O degrau aparece em palavra de produto, com o motivo do plano.** "sonnet"
   nao diz nada para quem nao le codigo; `modelReason` diz, e ja e escrito para
-  essa pessoa. Papel sem escada (o Kimi) diz que roda no padrao da propria CLI,
-  em vez de inventar um degrau que nao existe. Fora do modo planejado o degrau
+  essa pessoa. Papel sem escada diz que roda no padrao da propria CLI, em vez
+  de inventar um degrau que nao existe. Fora do modo planejado o degrau
   se descobre pelo caminho inverso -- qual entrada de `RoleDefinition.models`
   casa com o alias que foi realmente pedido -- e so ai a ficha credita a escolha
   a pessoa; num plano quem escolheu foi o sistema.
@@ -436,8 +426,8 @@ que ferramenta, em que capricho, e quanto ja me custou.**
   chamar o mesmo degrau de dois nomes faria a pessoa achar que sao coisas
   diferentes.
 
-O roteiro do simulador passou a reportar consumo, com o agente do Kimi
-**sem reportar nada**: e o unico jeito de ver os dois casos da ficha sem gastar
+O roteiro do simulador passou a reportar consumo, com **um dos agentes sem
+reportar nada**: e o unico jeito de ver os dois casos da ficha sem gastar
 chamada de modelo.
 
 ## Isolamento e integracao

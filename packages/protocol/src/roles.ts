@@ -10,7 +10,7 @@ export const roleId = z
   .brand<'RoleId'>();
 export type RoleId = z.infer<typeof roleId>;
 
-/** Identificador do adaptador de CLI (`claude`, `kimi`, `mock`, ...). */
+/** Identificador do adaptador de CLI (`claude`, `mock`, ...). */
 export const adapterId = z
   .string()
   .regex(/^[a-z][a-z0-9-]{1,31}$/, 'adapterId deve ser kebab-case iniciando por letra')

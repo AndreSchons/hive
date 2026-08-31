@@ -11,7 +11,7 @@ Como refazer a medicao esta no fim.
 Tarefa: `trivial` do harness -- *"O botao 'trocar' no topo da barra lateral devia
 dizer 'trocar projeto'."* Uma linha de texto, um arquivo.
 
-Repositorio: `agent-office` em `3337882`. Claude Code 2.1.250, modelo padrao.
+Repositorio: `office` em `3337882`. Claude Code 2.1.250, modelo padrao.
 
 | | custo | tempo | o que entregou |
 | --- | --- | --- | --- |
@@ -76,7 +76,7 @@ instalacao nao tem.
 
 A mesma tarefa, agora com o sistema completo: planejar, aprovar, o agente
 trabalhar na copia, o portao, a integracao e o portao do conjunto. Roster
-todo-Claude, porque o Kimi nao reporta consumo e deixaria o total incompleto.
+todo-Claude -- que hoje e o unico que existe.
 
 | | custo | tempo | entregou |
 | --- | --- | --- | --- |

@@ -27,7 +27,7 @@ const gerente: RoleDefinition = roleDefinitionSchema.parse({
 const roster = rosterSchema.parse([
   { id: 'gerente', title: 'Gerente', adapter: 'claude', canDelegate: true },
   { id: 'backend', title: 'Backend', adapter: 'claude' },
-  { id: 'frontend', title: 'Interface', adapter: 'kimi' },
+  { id: 'frontend', title: 'Interface', adapter: 'claude' },
 ]);
 
 /**

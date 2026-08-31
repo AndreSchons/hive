@@ -125,7 +125,7 @@ export interface AgentRun extends AsyncIterable<AnyEventDraft> {
 export interface AgentAdapter {
   readonly id: AdapterId;
   readonly capabilities: AdapterCapabilities;
-  /** Nome exibido no hub ("Claude Code", "Kimi"). */
+  /** Nome exibido no hub ("Claude Code", "Simulado"). */
   readonly displayName: string;
   probe(): Promise<AdapterProbe>;
   start(request: AgentRunRequest): AgentRun;

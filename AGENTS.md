@@ -1,8 +1,8 @@
 # Agent Office -- instrucoes para agentes
 
-App desktop que orquestra as CLIs de agente ja instaladas no terminal do usuario
-(Claude Code, Kimi) trabalhando juntas no mesmo repositorio, com a execucao
-visualizada como um escritorio 3D isometrico.
+App desktop que orquestra a CLI de agente ja instalada no terminal do usuario
+(Claude Code) trabalhando no mesmo repositorio, com a execucao visualizada como
+um escritorio 3D isometrico. Varios agentes ao mesmo tempo, uma CLI so.
 
 O publico e quem nao le codigo. A pessoa descreve o que quer, o sistema coordena
 os agentes ate a entrega e **para para perguntar em linguagem simples** quando

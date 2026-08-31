@@ -35,7 +35,7 @@ export type PermissionDecision =
     };
 
 /**
- * Classe da ferramenta quando a CLI ja informa (o ACP manda `kind`). Sem ela,
+ * Classe da ferramenta quando a CLI ja informa. Sem ela,
  * quem classifica e o nome da ferramenta.
  */
 export type ToolKind =

@@ -116,7 +116,7 @@ describe('decidePermission', () => {
       root,
       { readOnly: true },
     );
-    // O Kimi manda `kind`; o Claude manda so o nome. A decisao e a mesma.
+    // Uma CLI pode mandar `kind`; o Claude manda so o nome. A decisao e a mesma.
     const porKind = decidePermission(
       { toolName: 'ler arquivo', kind: 'read', input: {}, requiresUserInteraction: false },
       root,

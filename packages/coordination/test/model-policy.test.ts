@@ -95,7 +95,7 @@ describe('do degrau ate o alias da CLI', () => {
       canDelegate: true,
       models: { economico: 'haiku', padrao: 'sonnet', caprichado: 'opus' },
     },
-    { id: 'frontend', title: 'Frontend', adapter: 'kimi', canDelegate: false },
+    { id: 'frontend', title: 'Frontend', adapter: 'mock', canDelegate: false },
   ]) as [RoleDefinition, RoleDefinition];
 
   it('resolve pelo papel, que e quem conhece a CLI', () => {

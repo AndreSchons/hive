@@ -18,7 +18,7 @@ function agent(agentId: string, state: AgentState, present = true): AgentView {
     agentId,
     role: 'papel',
     displayName: `Agente ${agentId}`,
-    adapter: 'kimi',
+    adapter: 'mock',
     state,
     worktreePath: '/copias/x',
     branch: 'office/x',

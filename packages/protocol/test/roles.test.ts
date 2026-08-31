@@ -35,7 +35,7 @@ describe('identificadores de configuracao', () => {
     expect(roleId.safeParse('frontend-3d').success).toBe(true);
     expect(roleId.safeParse('Frontend').success).toBe(false);
     expect(roleId.safeParse('3d').success).toBe(false);
-    expect(adapterId.safeParse('kimi').success).toBe(true);
+    expect(adapterId.safeParse('mock').success).toBe(true);
     expect(adapterId.safeParse('claude_code').success).toBe(false);
   });
 

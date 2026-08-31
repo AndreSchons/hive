@@ -32,7 +32,7 @@ const EFFORT_LABEL: Record<ModelTier, string> = {
  * sendo o caminho previsivel para quem sabe o que quer.
  *
  * A opcao de papel mostra o papel **e** a CLI por tras dele. Escolher
- * "Interface e 3D" sem saber que isso e o Kimi seria escolher no escuro.
+ * "Interface e 3D" sem saber qual CLI roda por tras seria escolher no escuro.
  *
  * No modo manual a pessoa escolhe tambem **quanto capricho**. Sem essa escolha
  * a fila caia no modelo padrao da CLI, que e o mais caro que existe: o caminho

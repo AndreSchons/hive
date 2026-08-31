@@ -84,7 +84,7 @@ describe('applyEvent', () => {
   it('CLI que nao reporta consumo fica com a lista vazia, nunca com zero', () => {
     const world = applyAll(applyAll(emptyWorld, beforeBlock), afterAnswer);
 
-    // O ACP do Kimi nao reporta. Ausente e diferente de gratis, e o unico jeito
+    // Nem toda CLI reporta. Ausente e diferente de gratis, e o unico jeito
     // de a tela saber a diferenca e a lista nao ganhar um item zerado.
     expect(world.agents[script.frontend]?.usage).toEqual([]);
   });
@@ -214,7 +214,7 @@ describe('worktree', () => {
         {
           type: 'agent.spawned',
           payload: {
-            agentId, role: 'frontend', displayName: 'Interface', adapter: 'kimi',
+            agentId, role: 'frontend', displayName: 'Interface', adapter: 'mock',
             worktreePath: '/copias/frontend',
           },
         },
@@ -298,7 +298,7 @@ describe('qual CLI executa o agente', () => {
           type: 'agent.spawned',
           payload: {
             agentId: script.frontend, role: 'frontend', displayName: 'Interface e 3D',
-            adapter: 'kimi', worktreePath: '/copias/frontend',
+            adapter: 'mock', worktreePath: '/copias/frontend',
           },
         },
       ]),
@@ -306,13 +306,13 @@ describe('qual CLI executa o agente', () => {
 
     const agent = world.agents[script.frontend];
     expect(agent?.displayName).toBe('Interface e 3D');
-    expect(agent?.adapter).toBe('kimi');
+    expect(agent?.adapter).toBe('mock');
   });
 });
 
 describe('adapterLabel', () => {
   it('traduz o id da CLI para um nome que a pessoa reconhece', () => {
-    expect(adapterLabel('kimi')).toBe('Kimi');
+    expect(adapterLabel('mock')).toBe('Simulado');
     expect(adapterLabel('claude')).toBe('Claude Code');
   });
 

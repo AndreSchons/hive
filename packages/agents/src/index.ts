@@ -25,17 +25,6 @@ export {
 export { fileChangeFrom, type FileChange } from './claude/patch';
 export { describeToolCall, describeToolResult, type ToolDescription } from './tool-summary';
 export { StreamTranslator, maxCostUsd, totalUsage, type TranslateContext } from './claude/translate';
-export { KimiAdapter, type KimiAdapterOptions } from './kimi/kimi-adapter';
-export { KimiRun, type KimiRunOptions } from './kimi/kimi-run';
-export { AcpClient, type AcpHandlers } from './kimi/acp-client';
-export { AcpTranslator, type KimiTranslateContext } from './kimi/acp-translate';
-export {
-  parseFrame,
-  sessionUpdateSchema,
-  requestPermissionParamsSchema,
-  type SessionUpdate,
-  type StopReason,
-} from './kimi/acp-messages';
 export { MockAdapter, type MockAdapterOptions } from './mock/mock-adapter';
 export { AsyncQueue } from './process/async-queue';
 export { LineSplitter, parseLine, readStreamJson, type StreamLine } from './process/stream-json';

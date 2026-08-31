@@ -21,11 +21,11 @@ function seal(drafts: readonly { type: string; payload: unknown }[], from = 0): 
 
 const CLAUDE_MODELS = { economico: 'haiku', padrao: 'sonnet', caprichado: 'opus' } as const;
 
-/** O mesmo formato do roster real: claude com escada, kimi sem. */
+/** O mesmo formato do roster real: claude com escada, um adaptador sem. */
 const roles = rosterSchema.parse([
   { id: 'gerente', title: 'Gerente', adapter: 'claude', models: CLAUDE_MODELS, canDelegate: true },
   { id: 'backend', title: 'Backend', adapter: 'claude', models: CLAUDE_MODELS, canDelegate: false },
-  { id: 'frontend', title: 'Interface e 3D', adapter: 'kimi', canDelegate: false },
+  { id: 'frontend', title: 'Interface e 3D', adapter: 'mock', canDelegate: false },
 ]);
 
 const script = buildScriptedRun(runId, '/tmp/projeto', 'Adicionar login');
@@ -115,6 +115,6 @@ describe('shortModel', () => {
   });
 
   it('devolve o nome inteiro quando nao ha o que reduzir', () => {
-    expect(shortModel('kimi')).toBe('kimi');
+    expect(shortModel('mock')).toBe('mock');
   });
 });
