@@ -1,0 +1,736 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Hive — uma equipe de IA trabalhando no seu projeto</title>
+<meta name="description" content="Descreva o que você quer. O Hive coordena vários agentes de IA no seu projeto, mostra tudo num escritório 3D e para para perguntar em linguagem simples quando trava.">
+<meta property="og:title" content="Hive — uma equipe de IA trabalhando no seu projeto">
+<meta property="og:description" content="Descreva. Aprove. Assista sua equipe de IA trabalhar.">
+<meta property="og:image" content="/demo-poster.jpg">
+<meta name="theme-color" content="#05070d">
+<link rel="icon" href="/icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;600;800&family=Onest:wght@400;500;600&family=Instrument+Serif:ital@1&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --ink: #05070d;
+  --ink-2: #0a0f1c;
+  --ink-3: #111a2e;
+  --line: rgba(160, 200, 255, .10);
+  --text: #eef2f7;
+  --muted: #a3afc2;
+  --mint: #3ef0b5;
+  --mint-dim: rgba(62, 240, 181, .14);
+  --amber: #ffb547;
+  --rug: #ff5468;
+  --radius: 18px;
+  --display: "Unbounded", "Segoe UI", system-ui, sans-serif;
+  --body: "Onest", "Segoe UI", system-ui, sans-serif;
+  --serif: "Instrument Serif", Georgia, serif;
+  --mono: "JetBrains Mono", ui-monospace, Consolas, monospace;
+  --gutter: clamp(1rem, 4vw, 2.5rem);
+  --wrap: min(100% - 2 * var(--gutter), 76rem);
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0; background: var(--ink); color: var(--text);
+  font: 400 1.0625rem/1.65 var(--body);
+  -webkit-font-smoothing: antialiased; overflow-x: hidden;
+}
+img, video { max-width: 100%; display: block; }
+a { color: inherit; }
+:focus-visible { outline: 2px solid var(--mint); outline-offset: 4px; border-radius: 6px; }
+.wrap { width: var(--wrap); margin-inline: auto; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* grão por cima de tudo: tira o aspecto plástico do escuro */
+body::after {
+  content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 100; opacity: .06;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* ---------- barra de progresso e navegação ---------- */
+.progress { position: fixed; top: 0; left: 0; height: 2px; width: 100%; z-index: 60;
+  background: linear-gradient(90deg, var(--mint), var(--amber)); transform-origin: 0 50%; transform: scaleX(0); }
+.nav {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 50;
+  padding: calc(env(safe-area-inset-top, 0px) + .9rem) var(--gutter) .9rem;
+  display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+  transition: background-color .3s ease, backdrop-filter .3s ease, border-color .3s ease;
+  border-bottom: 1px solid transparent;
+}
+.nav.scrolled { background: rgba(5, 7, 13, .72); backdrop-filter: blur(14px); border-color: var(--line); }
+.brand { display: flex; align-items: center; gap: .6rem; text-decoration: none; font: 600 1.05rem var(--display); letter-spacing: .02em; }
+.brand img { width: 32px; height: 32px; border-radius: 8px; }
+.nav-links { display: flex; gap: 1.75rem; font-size: .95rem; color: var(--muted); }
+.nav-links a { text-decoration: none; transition: color .15s; }
+.nav-links a:hover { color: var(--text); }
+@media (max-width: 760px) { .nav-links { display: none; } }
+
+/* ---------- botões ---------- */
+.btn {
+  --x: 0px; --y: 0px;
+  display: inline-flex; align-items: center; gap: .7rem; justify-content: center;
+  font: 600 1rem var(--body); text-decoration: none; cursor: pointer;
+  border-radius: 999px; padding: 1rem 1.6rem; border: 1px solid transparent;
+  transform: translate(var(--x), var(--y));
+  transition: transform .25s cubic-bezier(.2,.8,.2,1), box-shadow .25s ease, background-color .2s ease;
+}
+.btn-primary { background: var(--mint); color: #03140d; box-shadow: 0 0 0 0 rgba(62,240,181,.5), 0 10px 40px -10px rgba(62,240,181,.6); }
+.btn-primary:hover { box-shadow: 0 0 0 6px rgba(62,240,181,.15), 0 16px 50px -8px rgba(62,240,181,.75); }
+.btn-primary:active { transform: translate(var(--x), var(--y)) scale(.97); }
+.btn-ghost { color: var(--text); border-color: rgba(255,255,255,.2); background: rgba(255,255,255,.02); }
+.btn-ghost:hover { border-color: var(--mint); background: var(--mint-dim); }
+.btn-sm { padding: .6rem 1.1rem; font-size: .9rem; }
+.btn svg { width: 1.15em; height: 1.15em; flex: none; }
+
+/* ---------- herói ---------- */
+.hero { position: relative; min-height: min(100svh, 62rem); display: grid; align-items: center; padding: 8rem 0 4rem; isolation: isolate; overflow: hidden; }
+#office { position: absolute; inset: 0; width: 100%; height: 100%; z-index: -1; }
+.hero::before { /* vinheta para o texto ter chão */
+  content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none;
+  background: radial-gradient(ellipse 70% 60% at 30% 45%, rgba(5,7,13,.9) 0%, rgba(5,7,13,.55) 45%, transparent 75%),
+              linear-gradient(to bottom, transparent 70%, var(--ink));
+}
+.eyebrow { font: 500 .78rem var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--mint); display: inline-flex; align-items: center; gap: .6rem; }
+.eyebrow .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--mint); box-shadow: 0 0 12px var(--mint); animation: blink 2.4s ease-in-out infinite; }
+@keyframes blink { 50% { opacity: .3; } }
+.hero h1 {
+  font: 800 clamp(2.4rem, 1.2rem + 5.2vw, 5.6rem)/1.02 var(--display); letter-spacing: -.02em;
+  margin: 1.25rem 0 1.5rem; max-width: 14ch;
+}
+.hero h1 .word { display: inline-block; }
+em.accent { font: italic 400 1.12em/1 var(--serif); letter-spacing: 0; color: var(--mint); text-shadow: 0 0 40px rgba(62,240,181,.45); padding-right: .08em; }
+.hero .lede { max-width: 36rem; font-size: clamp(1.05rem, 1rem + .35vw, 1.3rem); color: var(--muted); margin: 0 0 2.25rem; }
+.hero .lede strong { color: var(--text); font-weight: 500; }
+.cta-row { display: flex; flex-wrap: wrap; gap: .9rem; align-items: center; }
+.fineprint { margin-top: 1.1rem; font-size: .85rem; color: var(--muted); display: flex; flex-wrap: wrap; gap: .4rem 1.2rem; }
+.fineprint span::before { content: "◆"; color: var(--mint); font-size: .6em; margin-right: .5rem; vertical-align: .2em; }
+.os-note { margin-top: .9rem; font-size: .9rem; color: var(--amber); }
+.scroll-cue { position: absolute; bottom: 1.5rem; left: 50%; transform: translateX(-50%); font: 500 .7rem var(--mono); letter-spacing: .2em; color: var(--muted); text-transform: uppercase; display: grid; justify-items: center; gap: .5rem; }
+.scroll-cue i { width: 1px; height: 40px; background: linear-gradient(var(--mint), transparent); animation: drip 2s ease-in-out infinite; transform-origin: top; }
+@media (max-width: 900px) { .hero { padding-bottom: 72vw; } .scroll-cue { display: none; } }
+@keyframes drip { 0% { transform: scaleY(0); } 50% { transform: scaleY(1); } 100% { transform: scaleY(1); opacity: 0; } }
+
+/* ---------- vídeo (prova do produto) ---------- */
+.showcase { perspective: 1400px; padding: 2rem 0 7rem; }
+.frame {
+  --tilt: 1; width: var(--wrap); margin-inline: auto; border-radius: 20px; overflow: hidden;
+  background: #0d1322; border: 1px solid rgba(160,200,255,.16);
+  transform: rotateX(calc(var(--tilt) * 24deg)) scale(calc(1 - var(--tilt) * .08)) translateY(calc(var(--tilt) * -40px));
+  transform-origin: 50% 0; will-change: transform;
+  box-shadow: 0 60px 140px -40px rgba(62,240,181,.35), 0 0 0 1px rgba(62,240,181,.08);
+}
+.frame-bar { display: flex; align-items: center; gap: .5rem; padding: .7rem 1rem; border-bottom: 1px solid var(--line); font: 500 .75rem var(--mono); color: var(--muted); }
+.frame-bar b { width: 11px; height: 11px; border-radius: 50%; background: #2a3348; }
+.frame-bar b:nth-child(1) { background: var(--rug); } .frame-bar b:nth-child(2) { background: var(--amber); } .frame-bar b:nth-child(3) { background: var(--mint); }
+.frame-bar span { margin-left: auto; }
+.frame video { width: 100%; aspect-ratio: 1000 / 511; object-fit: cover; background: #eee4ce; }
+.caption { width: var(--wrap); margin: 1.2rem auto 0; color: var(--muted); font-size: .9rem; text-align: center; }
+
+/* ---------- faixa corrida ---------- */
+.marquee { border-block: 1px solid var(--line); overflow: hidden; padding: 1.4rem 0; background: var(--ink-2); }
+.marquee-track { display: flex; gap: 3rem; width: max-content; animation: slide 40s linear infinite; font: 600 clamp(1.3rem, 1rem + 1.5vw, 2.2rem) var(--display); white-space: nowrap; }
+.marquee-track span { display: inline-flex; align-items: center; gap: 3rem; }
+.marquee-track span::after { content: ""; width: 14px; height: 14px; transform: rotate(45deg); background: var(--mint); box-shadow: 0 0 16px var(--mint); }
+.marquee-track .hollow { color: transparent; -webkit-text-stroke: 1px rgba(238,242,247,.55); }
+@keyframes slide { to { transform: translateX(-50%); } }
+
+/* ---------- manifesto (palavras acendem com a rolagem) ---------- */
+.manifesto { padding: clamp(6rem, 14vw, 11rem) 0; }
+.manifesto p { font: 600 clamp(1.6rem, 1rem + 2.8vw, 3.4rem)/1.2 var(--display); letter-spacing: -.01em; margin: 0; max-width: 22ch; }
+.manifesto .w { color: rgba(238,242,247,.16); transition: color .35s ease; }
+.manifesto .w.lit { color: var(--text); }
+.manifesto .w.hot.lit { color: var(--mint); text-shadow: 0 0 30px rgba(62,240,181,.4); }
+.manifesto .sign { margin-top: 2rem; font: 500 .85rem var(--mono); color: var(--muted); letter-spacing: .08em; }
+
+/* ---------- seções genéricas ---------- */
+section { position: relative; }
+.section-head { max-width: 44rem; margin-bottom: 3.5rem; }
+.section-head h2 { font: 800 clamp(2rem, 1.2rem + 3vw, 3.6rem)/1.05 var(--display); letter-spacing: -.02em; margin: 1rem 0; }
+.section-head p { color: var(--muted); font-size: 1.15rem; margin: 0; }
+
+/* ---------- como funciona: passos + painel fixo ---------- */
+.how { padding: 6rem 0; }
+.how-grid { display: grid; grid-template-columns: 1fr 1fr; gap: clamp(2rem, 6vw, 6rem); }
+.steps { list-style: none; margin: 0; padding: 0; }
+.step { min-height: min(62vh, 36rem); display: flex; flex-direction: column; justify-content: center; padding-left: 1.75rem; border-left: 1px solid var(--line); position: relative; opacity: .35; transition: opacity .4s ease; }
+.step::before { content: ""; position: absolute; left: -1px; top: 0; bottom: 0; width: 1px; background: var(--mint); transform: scaleY(0); transform-origin: top; transition: transform .6s cubic-bezier(.2,.8,.2,1); box-shadow: 0 0 12px var(--mint); }
+.step.active { opacity: 1; }
+.step.active::before { transform: scaleY(1); }
+.step .n { font: 500 .8rem var(--mono); color: var(--mint); letter-spacing: .12em; }
+.step h3 { font: 600 clamp(1.4rem, 1rem + 1.4vw, 2.1rem)/1.15 var(--display); margin: .6rem 0 .8rem; }
+.step p { color: var(--muted); margin: 0; max-width: 30rem; }
+.stage { position: sticky; top: max(6rem, calc(50vh - 15rem)); height: min(64vh, 30rem); min-height: 420px; }
+.panel {
+  position: absolute; inset: 0; border-radius: var(--radius); padding: clamp(1.25rem, 3vw, 2rem);
+  background: linear-gradient(160deg, #141e34, #0a0f1c); border: 1px solid rgba(160,200,255,.14);
+  display: flex; flex-direction: column; gap: 1rem; justify-content: center;
+  opacity: 0; transform: translateY(24px) scale(.98); filter: blur(6px);
+  transition: opacity .5s ease, transform .6s cubic-bezier(.2,.8,.2,1), filter .5s ease; pointer-events: none;
+  box-shadow: 0 40px 100px -40px rgba(0,0,0,.8);
+}
+.panel.on { opacity: 1; transform: none; filter: none; }
+.panel .tag { position: absolute; top: 1rem; right: 1rem; font: 500 .7rem var(--mono); color: var(--muted); border: 1px solid var(--line); border-radius: 999px; padding: .2rem .6rem; letter-spacing: .08em; }
+.panel .label { font: 500 .75rem var(--mono); color: var(--muted); letter-spacing: .1em; text-transform: uppercase; }
+.field { border: 1px solid rgba(62,240,181,.45); border-radius: 12px; padding: 1rem 1.1rem; font-size: 1.1rem; min-height: 3.6rem; background: rgba(62,240,181,.04); box-shadow: 0 0 0 4px rgba(62,240,181,.06); }
+.field .caret { display: inline-block; width: 2px; height: 1.2em; background: var(--mint); vertical-align: -.2em; margin-left: 2px; animation: blink 1s steps(1) infinite; }
+.mini-btn { align-self: flex-start; background: var(--mint); color: #03140d; font-weight: 600; border-radius: 999px; padding: .55rem 1.1rem; font-size: .9rem; }
+.plan-item { display: flex; gap: .8rem; align-items: center; padding: .8rem 1rem; border-radius: 12px; background: rgba(255,255,255,.03); border: 1px solid var(--line); opacity: 0; transform: translateX(-12px); transition: all .5s cubic-bezier(.2,.8,.2,1); }
+.panel.on .plan-item { opacity: 1; transform: none; }
+.panel.on .plan-item:nth-child(3) { transition-delay: .12s; } .panel.on .plan-item:nth-child(4) { transition-delay: .24s; } .panel.on .plan-item:nth-child(5) { transition-delay: .36s; }
+.plan-item i { font-style: normal; font: 500 .75rem var(--mono); color: var(--mint); }
+.agent-row { display: grid; grid-template-columns: auto 1fr auto; gap: .9rem; align-items: center; padding: .9rem 1rem; border-radius: 12px; background: rgba(255,255,255,.03); border: 1px solid var(--line); }
+.avatar { width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; font: 600 .8rem var(--display); color: #03140d; }
+.bar { height: 6px; border-radius: 99px; background: rgba(255,255,255,.08); overflow: hidden; margin-top: .45rem; }
+.bar b { display: block; height: 100%; width: 0; border-radius: inherit; background: currentColor; transition: width 2.2s cubic-bezier(.3,.7,.2,1); }
+.panel.on .bar b { width: var(--w); }
+.agent-row small { color: var(--muted); font-size: .8rem; display: block; }
+.chip { font: 500 .72rem var(--mono); padding: .25rem .6rem; border-radius: 999px; border: 1px solid currentColor; white-space: nowrap; }
+.check { display: flex; gap: .9rem; align-items: center; padding: .9rem 1rem; border-radius: 12px; border: 1px solid var(--line); background: rgba(255,255,255,.03); font-size: .98rem; }
+.check .ok { width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; background: var(--mint-dim); color: var(--mint); flex: none; }
+.check.pass { border-color: rgba(62,240,181,.4); }
+.question { border: 1px solid rgba(255,181,71,.45); background: rgba(255,181,71,.06); border-radius: 14px; padding: 1.1rem; }
+.question p { margin: .3rem 0 1rem; font-size: 1.1rem; }
+.opts { display: flex; flex-wrap: wrap; gap: .5rem; }
+.opts span { border: 1px solid rgba(255,255,255,.22); border-radius: 999px; padding: .45rem .9rem; font-size: .88rem; }
+.opts span:first-child { background: var(--amber); color: #1d1200; border-color: var(--amber); font-weight: 600; }
+@media (max-width: 860px) {
+  .how-grid { grid-template-columns: 1fr; }
+  .stage { position: sticky; top: 4.5rem; height: 46vh; min-height: 340px; z-index: 2; order: -1; background: var(--ink); box-shadow: 0 -5rem 0 var(--ink), 0 1.5rem 2rem var(--ink); }
+  .step { min-height: 55vh; }
+}
+
+/* ---------- princípios: bento com luz que segue o cursor ---------- */
+.principles { padding: 7rem 0; }
+.bento { display: grid; grid-template-columns: repeat(6, 1fr); gap: 1rem; }
+.card {
+  --mx: 50%; --my: 50%;
+  position: relative; grid-column: span 2; border-radius: var(--radius); padding: 1.75rem; overflow: hidden;
+  background: var(--ink-2); border: 1px solid var(--line); min-height: 15rem; display: flex; flex-direction: column; justify-content: flex-end;
+  transition: border-color .25s ease, transform .35s cubic-bezier(.2,.8,.2,1);
+}
+.card::before { content: ""; position: absolute; inset: 0; pointer-events: none; opacity: 0; transition: opacity .3s ease;
+  background: radial-gradient(420px circle at var(--mx) var(--my), rgba(62,240,181,.16), transparent 45%); }
+.card:hover { border-color: rgba(62,240,181,.35); }
+.card:hover::before { opacity: 1; }
+.card.wide { grid-column: span 3; } .card.full { grid-column: span 6; }
+.card h3 { font: 600 1.3rem/1.2 var(--display); margin: 0 0 .6rem; }
+.card p { color: var(--muted); margin: 0; max-width: 34rem; }
+.card .glyph { position: absolute; top: 1.5rem; left: 1.75rem; width: 44px; height: 44px; border-radius: 12px; display: grid; place-items: center; border: 1px solid var(--line); color: var(--mint); background: rgba(62,240,181,.05); }
+.card .glyph svg { width: 22px; height: 22px; }
+.card .big { position: absolute; top: 1rem; right: 1.5rem; font: 800 clamp(3rem, 2rem + 4vw, 6rem)/1 var(--display); color: rgba(255,255,255,.04); pointer-events: none; }
+@media (max-width: 900px) { .card, .card.wide { grid-column: span 3; } }
+@media (max-width: 620px) { .bento { grid-template-columns: 1fr; } .card, .card.wide, .card.full { grid-column: auto; } }
+
+/* ---------- números medidos ---------- */
+.numbers { padding: 7rem 0; background: radial-gradient(ellipse 60% 50% at 50% 50%, rgba(62,240,181,.08), transparent 70%); }
+.stat-hero { text-align: center; }
+.stat-hero .value { font: 800 clamp(5rem, 3rem + 12vw, 13rem)/.9 var(--display); letter-spacing: -.04em; background: linear-gradient(180deg, #fff 20%, var(--mint)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.stat-hero .unit { font: italic 400 clamp(1.6rem, 1rem + 2vw, 2.8rem) var(--serif); color: var(--mint); }
+.stat-hero p { max-width: 40rem; margin: 1.5rem auto 0; color: var(--muted); font-size: 1.1rem; }
+.compare { max-width: 44rem; margin: 3.5rem auto 0; display: grid; gap: 1rem; }
+.compare-row { display: grid; grid-template-columns: 11rem 1fr 6.5rem; gap: 1rem; align-items: center; font-size: .95rem; }
+.compare-row .track { height: 14px; border-radius: 99px; background: rgba(255,255,255,.06); overflow: hidden; }
+.compare-row .fill { height: 100%; width: 0; border-radius: inherit; transition: width 1.6s cubic-bezier(.2,.8,.2,1); }
+.compare.in .fill { width: var(--w); }
+.compare-row .price { font: 500 .95rem var(--mono); text-align: right; font-variant-numeric: tabular-nums; }
+.source { text-align: center; margin-top: 1.5rem; font-size: .85rem; color: var(--muted); }
+.source a { color: var(--mint); }
+@media (max-width: 560px) { .compare-row { grid-template-columns: 1fr auto; } .compare-row .track { grid-column: 1 / -1; order: 3; } }
+
+/* ---------- instalar ---------- */
+.install { padding: 7rem 0; }
+.needs { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; margin-bottom: 3rem; }
+.need { border: 1px dashed rgba(160,200,255,.22); border-radius: var(--radius); padding: 1.5rem; display: flex; gap: 1rem; }
+.need b { font: 600 1.05rem var(--display); display: block; margin-bottom: .3rem; }
+.need p { margin: 0; color: var(--muted); font-size: .95rem; }
+.need a { color: var(--mint); }
+.need .num { font: 800 1.6rem/1 var(--display); color: var(--mint); }
+.timeline { list-style: none; margin: 0; padding: 0; display: grid; gap: 1rem; counter-reset: s; }
+.tl { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; align-items: center; padding: 2rem; border-radius: var(--radius); background: var(--ink-2); border: 1px solid var(--line); }
+.tl h3 { font: 600 1.35rem/1.2 var(--display); margin: .4rem 0 .6rem; }
+.tl p { margin: 0; color: var(--muted); }
+.tl .n { font: 500 .8rem var(--mono); color: var(--mint); letter-spacing: .12em; }
+.tl kbd { font: 600 .9em var(--body); color: var(--text); background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.18); border-bottom-width: 2px; border-radius: 6px; padding: .05rem .45rem; }
+@media (max-width: 800px) { .needs, .tl { grid-template-columns: 1fr; } }
+/* mocks dos avisos do navegador e do Windows: ilustrações, não imagens oficiais */
+.mock { border-radius: 10px; overflow: hidden; font-family: "Segoe UI", system-ui, sans-serif; box-shadow: 0 30px 60px -30px rgba(0,0,0,.9); }
+.mock-chrome { background: #292a2d; border: 1px solid #3c4043; padding: 1rem 1.1rem; color: #e8eaed; font-size: .88rem; display: grid; grid-template-columns: auto 1fr; gap: .4rem .9rem; }
+.mock-chrome .ic { grid-row: span 2; width: 34px; height: 34px; border-radius: 6px; background: #3c4043; display: grid; place-items: center; font-weight: 700; color: #fdd663; }
+.mock-chrome .acts { grid-column: 2; display: flex; gap: .5rem; margin-top: .4rem; }
+.mock-chrome .acts span { padding: .3rem .8rem; border-radius: 4px; border: 1px solid #5f6368; font-size: .8rem; }
+.mock-chrome .acts .hl, .mock-ss .hl { outline: 2px solid var(--mint); outline-offset: 3px; animation: ring 1.8s ease-in-out infinite; }
+@keyframes ring { 50% { outline-color: rgba(62,240,181,.25); } }
+.mock-ss { background: #1f5fa8; color: #fff; padding: 1.4rem 1.4rem 1rem; font-size: .85rem; }
+.mock-ss strong { display: block; font-size: 1.25rem; font-weight: 300; margin-bottom: .6rem; }
+.mock-ss u { display: inline-block; margin-top: .6rem; }
+.mock-ss .acts { display: flex; justify-content: flex-end; gap: .5rem; margin-top: 1.2rem; }
+.mock-ss .acts span { padding: .35rem 1rem; border: 1px solid rgba(255,255,255,.7); font-size: .8rem; }
+.mock-hive { background: #0b0f17; border: 1px solid #22304a; padding: 1.3rem; color: #e6ebf2; font-size: .9rem; }
+.mock-hive b { display: block; font: 600 1rem var(--display); margin-bottom: .4rem; }
+.mock-hive p { color: #9aa6b8 !important; font-size: .85rem; margin-bottom: .9rem !important; }
+.mock-hive span { display: block; text-align: center; background: #5aa9ff; color: #06101f; border-radius: 8px; padding: .55rem; font-weight: 600; font-size: .85rem; }
+
+/* ---------- chamada final ---------- */
+.final { padding: clamp(7rem, 16vw, 12rem) 0; text-align: center; overflow: hidden; }
+.final h2 { font: 800 clamp(2.4rem, 1.2rem + 6vw, 6.5rem)/1 var(--display); letter-spacing: -.03em; margin: 0 auto 2.5rem; max-width: 16ch; }
+.orbit { position: absolute; left: 50%; top: 50%; width: min(90vw, 900px); aspect-ratio: 1; transform: translate(-50%, -50%); z-index: -1; pointer-events: none; }
+.orbit i { position: absolute; inset: 0; border-radius: 50%; border: 1px solid rgba(62,240,181,.12); animation: spin 30s linear infinite; }
+.orbit i:nth-child(2) { inset: 12%; animation-duration: 22s; animation-direction: reverse; border-color: rgba(255,181,71,.12); }
+.orbit i:nth-child(3) { inset: 26%; animation-duration: 16s; }
+.orbit i::after { content: ""; position: absolute; top: -5px; left: 50%; width: 10px; height: 10px; border-radius: 50%; background: var(--mint); box-shadow: 0 0 20px var(--mint); }
+.orbit i:nth-child(2)::after { background: var(--amber); box-shadow: 0 0 20px var(--amber); }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+footer { border-top: 1px solid var(--line); padding: 2.5rem 0 calc(2.5rem + env(safe-area-inset-bottom, 0px)); color: var(--muted); font-size: .9rem; }
+footer .wrap { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 1rem; align-items: center; }
+footer a { color: var(--text); }
+
+/* ---------- entrada por rolagem: conteúdo visível sem JS ---------- */
+.js .reveal { opacity: 0; transform: translateY(28px); transition: opacity .8s ease, transform .9s cubic-bezier(.2,.8,.2,1); transition-delay: var(--d, 0s); }
+.js .reveal.in { opacity: 1; transform: none; }
+.js .hero .word { opacity: 0; transform: translateY(.6em) rotate(2deg); filter: blur(8px); animation: rise .9s cubic-bezier(.2,.8,.2,1) forwards; animation-delay: var(--d); }
+@keyframes rise { to { opacity: 1; transform: none; filter: none; } }
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+  .js .reveal, .js .hero .word { opacity: 1; transform: none; filter: none; }
+  .frame { transform: none; }
+  .panel.on .bar b, .compare .fill { width: var(--w); }
+  .panel .plan-item { opacity: 1; transform: none; }
+}
+</style>
+</head>
+<body>
+<div class="progress" aria-hidden="true"></div>
+
+<header class="nav" id="nav">
+  <a class="brand" href="#top"><img src="/icon.png" alt="" width="32" height="32">Hive</a>
+  <nav class="nav-links" aria-label="Seções">
+    <a href="#como-funciona">Como funciona</a>
+    <a href="#principios">Por que confiar</a>
+    <a href="#custo">Custo</a>
+    <a href="#instalar">Instalar</a>
+  </nav>
+  <a class="btn btn-primary btn-sm magnetic download" href="https://github.com/AndreSchons/hive/releases/latest/download/Hive-Setup.exe">Baixar</a>
+</header>
+
+<main id="top">
+  <section class="hero" aria-labelledby="titulo">
+    <canvas id="office" aria-hidden="true"></canvas>
+    <div class="wrap">
+      <span class="eyebrow"><span class="dot"></span>Código aberto · feito para quem não programa</span>
+      <h1 id="titulo">Descreva. Aprove. <em class="accent">Assista</em> sua equipe de IA trabalhar.</h1>
+      <p class="lede">O Hive transforma o <strong>Claude Code</strong> que já está no seu computador numa <strong>equipe inteira</strong>: um gerente que planeja, especialistas que trabalham ao mesmo tempo, e um escritório 3D onde você vê quem está fazendo o quê. Quando alguém trava, <strong>ele para e pergunta em linguagem simples</strong>.</p>
+      <div class="cta-row">
+        <a class="btn btn-primary magnetic download" href="https://github.com/AndreSchons/hive/releases/latest/download/Hive-Setup.exe">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3 5.5 10.5 4.4v7.1H3zm0 13 7.5 1.1v-7H3zm8.4 1.2L21 21v-8.5h-9.6zm0-15.4v7.2H21V3z"/></svg>
+          Baixar para Windows
+        </a>
+        <a class="btn btn-ghost" href="#como-funciona">Ver como funciona</a>
+      </div>
+      <div class="fineprint"><span>Grátis</span><span>Windows 10 e 11</span><span>Usa o Claude Code que você já tem</span></div>
+      <p class="os-note" id="os-note" hidden>Por enquanto o instalador é só para Windows. No Mac e no Linux, dá para rodar a partir do <a href="https://github.com/AndreSchons/hive">código no GitHub</a>.</p>
+    </div>
+    <div class="scroll-cue" aria-hidden="true">role<i></i></div>
+  </section>
+
+  <section class="showcase" aria-label="Demonstração">
+    <div class="frame" id="frame">
+      <div class="frame-bar" aria-hidden="true"><b></b><b></b><b></b><span>Hive · execução simulada</span></div>
+      <video autoplay muted loop playsinline preload="metadata" poster="/demo-poster.jpg" aria-label="Gravação do Hive: personagens trabalham em mesas num escritório isométrico enquanto a lateral mostra o que cada um está fazendo">
+        <source src="/demo.mp4" type="video/mp4">
+      </video>
+    </div>
+    <p class="caption">Gravação real do app. Cada personagem é um agente; a lateral conta, em português, o que está acontecendo.</p>
+  </section>
+
+  <div class="marquee" aria-hidden="true">
+    <div class="marquee-track">
+      <span>Você descreve</span><span class="hollow">A equipe executa</span><span>Ninguém aprova o próprio trabalho</span><span class="hollow">Você decide</span>
+      <span>Você descreve</span><span class="hollow">A equipe executa</span><span>Ninguém aprova o próprio trabalho</span><span class="hollow">Você decide</span>
+    </div>
+  </div>
+
+  <section class="manifesto" aria-label="Manifesto">
+    <div class="wrap">
+      <p id="manifesto">Por décadas, construir software exigiu ler código. Agora você só precisa saber o que quer. A equipe planeja, trabalha, confere e, quando tem dúvida, pergunta para você.</p>
+      <div class="sign">— a ideia por trás do Hive</div>
+    </div>
+  </section>
+
+  <section class="how" id="como-funciona" aria-labelledby="como-titulo">
+    <div class="wrap">
+      <div class="section-head reveal">
+        <span class="eyebrow">Como funciona</span>
+        <h2 id="como-titulo">Do pedido à entrega, <em class="accent">sem</em> abrir um terminal.</h2>
+      </div>
+      <div class="how-grid">
+        <ol class="steps">
+          <li class="step" data-step="0"><span class="n">01</span><h3>Você descreve o que quer</h3><p>Em palavras normais, como pediria para uma pessoa. Não precisa saber o nome de nenhuma tecnologia.</p></li>
+          <li class="step" data-step="1"><span class="n">02</span><h3>O gerente monta um plano, e você aprova</h3><p>Ele divide o trabalho em passos e escolhe quem faz o quê. Nada encosta no seu projeto antes do seu “pode começar”.</p></li>
+          <li class="step" data-step="2"><span class="n">03</span><h3>Os especialistas trabalham ao mesmo tempo</h3><p>Cada agente numa cópia separada do projeto, para um não atrapalhar o outro. Você acompanha tudo no escritório.</p></li>
+          <li class="step" data-step="3"><span class="n">04</span><h3>Tudo é conferido antes de entrar</h3><p>“Terminei” não basta: o próprio projeto roda as verificações. Só o que passa entra, e confere de novo depois de juntar.</p></li>
+          <li class="step" data-step="4"><span class="n">05</span><h3>Travou? Ele pergunta</h3><p>Em vez de tentar às cegas e gastar seu dinheiro, a equipe para e faz uma pergunta que qualquer pessoa consegue responder.</p></li>
+        </ol>
+        <div class="stage" aria-hidden="true">
+          <div class="panel" data-panel="0"><span class="tag">exemplo</span>
+            <span class="label">O que você quer que seja feito?</span>
+            <div class="field"><span id="typed"></span><span class="caret"></span></div>
+            <span class="mini-btn">Deixar o gerente dividir</span>
+          </div>
+          <div class="panel" data-panel="1"><span class="tag">exemplo</span>
+            <span class="label">Plano do gerente · 3 passos</span>
+            <div class="plan-item"><i>01</i>Criar a rota de login</div>
+            <div class="plan-item"><i>02</i>Montar o formulário na tela</div>
+            <div class="plan-item"><i>03</i>Escrever os testes</div>
+            <span class="mini-btn">Aprovar e começar</span>
+          </div>
+          <div class="panel" data-panel="2"><span class="tag">exemplo</span>
+            <span class="label">No escritório agora</span>
+            <div class="agent-row" style="color:var(--mint)"><span class="avatar" style="background:var(--mint)">B</span><div><span style="color:var(--text)">Backend</span><small>Criando a rota de login</small><div class="bar"><b style="--w:78%"></b></div></div><span class="chip">trabalhando</span></div>
+            <div class="agent-row" style="color:var(--amber)"><span class="avatar" style="background:var(--amber)">I</span><div><span style="color:var(--text)">Interface</span><small>Montando o formulário</small><div class="bar"><b style="--w:54%"></b></div></div><span class="chip">trabalhando</span></div>
+            <div class="agent-row" style="color:#8fa3c4"><span class="avatar" style="background:#8fa3c4">G</span><div><span style="color:var(--text)">Gerente</span><small>Esperando as duas frentes</small></div><span class="chip">livre</span></div>
+          </div>
+          <div class="panel" data-panel="3"><span class="tag">exemplo</span>
+            <span class="label">O que está acontecendo</span>
+            <div class="check"><span class="ok">✓</span>Rota criada, escrevendo os testes</div>
+            <div class="check"><span class="ok">✓</span>Verificando o trabalho (testes)</div>
+            <div class="check pass"><span class="ok">✓</span><strong>Verificação passou. Entrou no projeto.</strong></div>
+          </div>
+          <div class="panel" data-panel="4"><span class="tag">exemplo</span>
+            <div class="question"><span class="label" style="color:var(--amber)">O gerente precisa de você</span>
+              <p>Quando alguém errar a senha várias vezes, o que devo fazer?</p>
+              <div class="opts"><span>Bloquear por 15 minutos</span><span>Só avisar</span><span>Outra coisa…</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="principles" id="principios" aria-labelledby="principios-titulo">
+    <div class="wrap">
+      <div class="section-head reveal">
+        <span class="eyebrow">Por que confiar</span>
+        <h2 id="principios-titulo">Autonomia com <em class="accent">freio</em>.</h2>
+        <p>Deixar IA mexendo sozinha no seu projeto assusta com razão. O Hive foi construído em volta de regras que não se negociam.</p>
+      </div>
+      <div class="bento">
+        <article class="card wide reveal"><span class="big">01</span><span class="glyph"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M20 6 9 17l-5-5"/></svg></span>
+          <h3>Ninguém aprova o próprio trabalho</h3><p>Toda entrega passa por uma verificação do seu projeto, rodada por fora. “Terminei” sem verificação verde não é aceito.</p></article>
+        <article class="card wide reveal" style="--d:.08s"><span class="big">02</span><span class="glyph"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6V14M12 17h.01"/></svg></span>
+          <h3>Para e pergunta em português claro</h3><p>Sem mensagem de erro técnica na sua cara. O detalhe existe, atrás de um clique, para quem quiser ver.</p></article>
+        <article class="card reveal"><span class="glyph"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="4" width="8" height="16" rx="2"/><rect x="13" y="4" width="8" height="16" rx="2"/></svg></span>
+          <h3>Cada um na sua cópia</h3><p>Dois agentes nunca mexem na mesma pasta. Juntar o trabalho é um passo à parte, com conferência.</p></article>
+        <article class="card reveal" style="--d:.08s"><span class="glyph"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span>
+          <h3>Limite de tempo e de passos</h3><p>Estourou o combinado, ele para e pergunta. Nunca fica rodando às cegas na sua conta.</p></article>
+        <article class="card reveal" style="--d:.16s"><span class="glyph"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 3v18M17 7H9.5a2.5 2.5 0 0 0 0 5h5a2.5 2.5 0 0 1 0 5H7"/></svg></span>
+          <h3>Você vê quanto custou</h3><p>Clique num personagem e veja quem ele é, que modelo usa e quanto já gastou.</p></article>
+        <article class="card full reveal"><span class="glyph"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 21V9l8-6 8 6v12"/><path d="M9 21v-6h6v6"/></svg></span>
+          <h3>Tudo fica no seu computador</h3><p>O Hive não tem servidor próprio nem pede sua senha: ele dirige o Claude Code que você já instalou e já usa, com a sua conta. Cada passo fica gravado, e dá para rever uma execução inteira depois.</p></article>
+      </div>
+    </div>
+  </section>
+
+  <section class="numbers" id="custo" aria-labelledby="custo-titulo">
+    <div class="wrap">
+      <div class="stat-hero reveal">
+        <span class="eyebrow">Custo medido, não prometido</span>
+        <h2 id="custo-titulo" class="sr-only">Quanto custa</h2>
+        <div><span class="value" data-count="3.2" data-decimals="1">3,2</span><span class="unit">× mais barato</span></div>
+        <p>A mesma mudança num projeto real, feita pelo Hive no modo econômico, contra pedir direto para a linha de comando do Claude Code. E a do Hive ainda passou por verificação automática antes de entrar.</p>
+      </div>
+      <div class="compare" id="compare">
+        <div class="compare-row"><span>Claude Code direto</span><div class="track"><div class="fill" style="--w:100%;background:#5d6b85"></div></div><span class="price">US$ 0,1921</span></div>
+        <div class="compare-row"><span><strong>Hive, econômico</strong></span><div class="track"><div class="fill" style="--w:31.2%;background:var(--mint);box-shadow:0 0 16px var(--mint)"></div></div><span class="price" style="color:var(--mint)">US$ 0,0599</span></div>
+      </div>
+      <p class="source">Uma medição, numa tarefa pequena. Método e números crus: <a href="https://github.com/AndreSchons/hive/blob/main/tools/planner-lab/BASELINE.md">BASELINE.md no GitHub</a>. Em tarefas planejadas pelo gerente o resultado muda, e está tudo lá também.</p>
+    </div>
+  </section>
+
+  <section class="install" id="instalar" aria-labelledby="instalar-titulo">
+    <div class="wrap">
+      <div class="section-head reveal">
+        <span class="eyebrow">Instalar</span>
+        <h2 id="instalar-titulo">Pronto em <em class="accent">três</em> cliques.</h2>
+        <p>O Windows vai mostrar dois avisos porque o Hive ainda é novo e não tem assinatura digital. Eles são esperados, e é assim que você passa por eles.</p>
+      </div>
+
+      <div class="needs reveal">
+        <div class="need"><span class="num">1</span><div><b>Claude Code, com login feito</b><p>É a IA que o Hive coordena. <a href="https://docs.claude.com/en/docs/claude-code/setup">Como instalar</a>. Depois abra uma vez e entre com sua conta.</p></div></div>
+        <div class="need"><span class="num">2</span><div><b>Git para Windows</b><p>Para cada agente ter sua própria cópia do projeto. <a href="https://git-scm.com/downloads">Baixar o Git</a>.</p></div></div>
+      </div>
+
+      <ol class="timeline">
+        <li class="tl reveal"><div><span class="n">PASSO 1 · NO NAVEGADOR</span><h3>Baixe e clique em <kbd>Manter</kbd></h3><p>O navegador pode dizer que o arquivo “não costuma ser baixado”. É só porque o Hive é novo. Clique em <kbd>Manter</kbd>.</p></div>
+          <div class="mock mock-chrome" aria-hidden="true"><span class="ic">!</span><span>O arquivo Hive-Setup.exe não costuma ser baixado</span><div class="acts"><span>Excluir</span><span class="hl">Manter</span></div></div></li>
+        <li class="tl reveal"><div><span class="n">PASSO 2 · AO ABRIR</span><h3><kbd>Mais informações</kbd> e depois <kbd>Executar assim mesmo</kbd></h3><p>A tela azul do Windows aparece para programas sem assinatura digital. A instalação dura segundos e não pede senha de administrador.</p></div>
+          <div class="mock mock-ss" aria-hidden="true"><strong>O Windows protegeu o computador</strong>O Microsoft Defender SmartScreen impediu a inicialização de um aplicativo não reconhecido.<br><u class="hl">Mais informações</u><div class="acts"><span class="hl">Executar assim mesmo</span><span>Não executar</span></div></div></li>
+        <li class="tl reveal"><div><span class="n">PASSO 3 · NO HIVE</span><h3>Autorize, escolha a pasta, peça</h3><p>O Hive encontra o Claude Code sozinho e pergunta se pode usá-lo. Você autoriza uma vez, escolhe a pasta do projeto e descreve o que quer.</p></div>
+          <div class="mock mock-hive" aria-hidden="true"><b>Encontrei o Claude Code neste computador.</b><p>O Hive vai usá-lo para trabalhar nos projetos que você escolher, e sempre mostra o plano para você aprovar.</p><span>Permitir que o Hive use o Claude Code</span></div></li>
+      </ol>
+    </div>
+  </section>
+
+  <section class="final" aria-labelledby="final-titulo">
+    <div class="orbit" aria-hidden="true"><i></i><i></i><i></i></div>
+    <div class="wrap">
+      <h2 id="final-titulo" class="reveal">Sua equipe está <em class="accent">esperando</em>.</h2>
+      <div class="cta-row reveal" style="justify-content:center">
+        <a class="btn btn-primary magnetic download" href="https://github.com/AndreSchons/hive/releases/latest/download/Hive-Setup.exe">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3 5.5 10.5 4.4v7.1H3zm0 13 7.5 1.1v-7H3zm8.4 1.2L21 21v-8.5h-9.6zm0-15.4v7.2H21V3z"/></svg>
+          Baixar o Hive para Windows
+        </a>
+        <a class="btn btn-ghost" href="https://github.com/AndreSchons/hive">Ver o código</a>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span>Hive · código aberto, licença MIT</span>
+    <span><a href="https://github.com/AndreSchons/hive">GitHub</a> · <a href="https://github.com/AndreSchons/hive/issues">Relatar um problema</a></span>
+  </div>
+</footer>
+
+<script>
+(() => {
+  document.documentElement.classList.add('js');
+  const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  /* ---- Windows ou não: o botão só serve para Windows ---- */
+  const ua = navigator.userAgent;
+  if (!/Windows/i.test(ua)) document.getElementById('os-note').hidden = false;
+
+  /* ---- título: palavra por palavra ---- */
+  const h1 = document.getElementById('titulo');
+  let i = 0;
+  const split = (node) => {
+    [...node.childNodes].forEach((child) => {
+      if (child.nodeType === 3) {
+        const frag = document.createDocumentFragment();
+        child.textContent.split(/(\s+)/).forEach((part) => {
+          if (!part.trim()) { frag.append(part); return; }
+          const s = document.createElement('span');
+          s.className = 'word'; s.textContent = part; s.style.setProperty('--d', (0.15 + i++ * 0.07) + 's');
+          frag.append(s);
+        });
+        child.replaceWith(frag);
+      } else if (child.nodeType === 1) {
+        child.classList.add('word'); child.style.setProperty('--d', (0.15 + i++ * 0.07) + 's');
+      }
+    });
+  };
+  split(h1);
+
+  /* ---- navegação, progresso, inclinação do vídeo ---- */
+  const nav = document.getElementById('nav');
+  const bar = document.querySelector('.progress');
+  const frame = document.getElementById('frame');
+  const onScroll = () => {
+    const y = scrollY, max = document.documentElement.scrollHeight - innerHeight;
+    nav.classList.toggle('scrolled', y > 20);
+    bar.style.transform = `scaleX(${max > 0 ? y / max : 0})`;
+    if (!reduced) {
+      const r = frame.getBoundingClientRect();
+      const t = Math.min(1, Math.max(0, (r.top - innerHeight * 0.15) / (innerHeight * 0.7)));
+      frame.style.setProperty('--tilt', t.toFixed(3));
+    }
+    lightWords();
+  };
+
+  /* ---- manifesto: palavras acendem conforme a rolagem ---- */
+  const manifesto = document.getElementById('manifesto');
+  const hot = new Set(['saber', 'quer.', 'pergunta', 'você.']);
+  manifesto.innerHTML = manifesto.textContent.split(' ').map((w) => `<span class="w${hot.has(w) ? ' hot' : ''}">${w}</span>`).join(' ');
+  const words = [...manifesto.querySelectorAll('.w')];
+  function lightWords() {
+    const r = manifesto.getBoundingClientRect();
+    const p = Math.min(1, Math.max(0, (innerHeight * 0.85 - r.top) / (r.height + innerHeight * 0.35)));
+    const n = Math.round(p * words.length);
+    words.forEach((w, k) => w.classList.toggle('lit', reduced || k < n));
+  }
+  addEventListener('scroll', onScroll, { passive: true });
+  onScroll();
+
+  /* ---- entrada por rolagem ---- */
+  const io = new IntersectionObserver((entries) => entries.forEach((e) => {
+    if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); }
+  }), { threshold: 0.15 });
+  document.querySelectorAll('.reveal').forEach((el) => io.observe(el));
+
+  /* ---- números: contagem e barras ---- */
+  const countIo = new IntersectionObserver((entries) => entries.forEach((e) => {
+    if (!e.isIntersecting) return;
+    countIo.unobserve(e.target);
+    if (e.target.id === 'compare') { e.target.classList.add('in'); return; }
+    const end = parseFloat(e.target.dataset.count), dec = +e.target.dataset.decimals;
+    if (reduced) return;
+    const t0 = performance.now(), dur = 1600;
+    const tick = (t) => {
+      const k = Math.min(1, (t - t0) / dur), v = end * (1 - Math.pow(1 - k, 3));
+      e.target.textContent = v.toFixed(dec).replace('.', ',');
+      if (k < 1) requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  }), { threshold: 0.5 });
+  document.querySelectorAll('[data-count], #compare').forEach((el) => countIo.observe(el));
+
+  /* ---- como funciona: passo ativo liga o painel ---- */
+  const steps = [...document.querySelectorAll('.step')];
+  const panels = [...document.querySelectorAll('.panel')];
+  const typed = document.getElementById('typed');
+  const phrase = 'Quero uma tela de login com e-mail e senha';
+  let typing = 0;
+  const typeIt = () => {
+    clearInterval(typing); typed.textContent = '';
+    if (reduced) { typed.textContent = phrase; return; }
+    let k = 0; typing = setInterval(() => { typed.textContent = phrase.slice(0, ++k); if (k >= phrase.length) clearInterval(typing); }, 45);
+  };
+  const activate = (n) => {
+    steps.forEach((s, k) => s.classList.toggle('active', k === n));
+    panels.forEach((p, k) => p.classList.toggle('on', k === n));
+    if (n === 0) typeIt();
+  };
+  // o passo ativo e o ultimo cujo topo ja passou de 60% da tela: funciona com
+  // rolagem rapida e com salto por link, onde um observer de faixa estreita perde passos
+  let current = -1;
+  const pickStep = () => {
+    let n = 0;
+    steps.forEach((s, k) => { if (s.getBoundingClientRect().top < innerHeight * 0.6) n = k; });
+    if (n !== current) { current = n; activate(n); }
+  };
+  addEventListener('scroll', pickStep, { passive: true });
+  pickStep();
+
+  /* ---- luz que segue o cursor nos cards ---- */
+  document.querySelectorAll('.card').forEach((c) => c.addEventListener('pointermove', (e) => {
+    const r = c.getBoundingClientRect();
+    c.style.setProperty('--mx', `${e.clientX - r.left}px`); c.style.setProperty('--my', `${e.clientY - r.top}px`);
+  }));
+
+  /* ---- botões magnéticos ---- */
+  if (!reduced && matchMedia('(hover: hover) and (pointer: fine)').matches) {
+    document.querySelectorAll('.magnetic').forEach((b) => {
+      b.addEventListener('pointermove', (e) => {
+        const r = b.getBoundingClientRect();
+        b.style.setProperty('--x', `${(e.clientX - r.left - r.width / 2) * 0.18}px`);
+        b.style.setProperty('--y', `${(e.clientY - r.top - r.height / 2) * 0.3}px`);
+      });
+      b.addEventListener('pointerleave', () => { b.style.setProperty('--x', '0px'); b.style.setProperty('--y', '0px'); });
+    });
+  }
+
+  /* ---- o escritório em planta: agentes andando em L entre as mesas ---- */
+  const cv = document.getElementById('office');
+  const ctx = cv.getContext('2d');
+  const N = 12;
+  let W = 0, H = 0, tile = 0, ox = 0, oy = 0, dpr = 1;
+  let mx = 0, my = 0, px = 0, py = 0;
+  const desks = [[2,2],[2,5],[2,8],[5,3],[5,9],[8,2],[8,6],[9,9],[6,6],[3,10],[10,4]];
+  const colors = ['#3ef0b5', '#ffb547', '#7cc4ff', '#ff5468', '#c9a3ff'];
+  const agents = colors.map((c, k) => ({ c, at: desks[k * 2 % desks.length].slice(), path: [], t: 0, trail: [], state: 'walk', wait: 0, pulse: 0 }));
+
+  const iso = (i, j) => [ox + (i - j) * tile / 2 + px, oy + (i + j) * tile / 4 + py];
+  function resize() {
+    dpr = Math.min(2, devicePixelRatio || 1);
+    W = cv.clientWidth; H = cv.clientHeight;
+    cv.width = W * dpr; cv.height = H * dpr; ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    // a sala ocupa uns 55% da largura no desktop, ao lado do texto; no celular fica embaixo dele
+    const wide = W > 900;
+    ox = wide ? W * 0.74 : W * 0.5;
+    // no desktop a sala cabe entre o centro e a borda direita, sem invadir o titulo
+    tile = wide ? Math.min(900 / N, (W - ox) * 2 / N * 0.92) : W * 1.1 / N;
+    oy = wide ? H * 0.5 - N * tile / 4 + tile * 1.2 : H - N * tile / 2 - 20;
+  }
+  function route(a) {
+    const target = desks[Math.floor(Math.random() * desks.length)];
+    const [i0, j0] = a.at, [i1, j1] = target, p = [];
+    // L de dois trechos, como no app: primeiro num eixo, depois no outro
+    for (let i = i0; i !== i1; i += Math.sign(i1 - i0)) p.push([i + Math.sign(i1 - i0), j0]);
+    for (let j = j0; j !== j1; j += Math.sign(j1 - j0)) p.push([i1, j + Math.sign(j1 - j0)]);
+    a.path = p; a.t = 0; a.state = p.length ? 'walk' : 'work'; a.wait = 60 + Math.random() * 120;
+  }
+  agents.forEach(route);
+
+  function draw() {
+    ctx.clearRect(0, 0, W, H);
+    px += (mx - px) * 0.05; py += (my - py) * 0.05;
+    // grade do chão
+    ctx.lineWidth = 1;
+    for (let k = 0; k <= N; k++) {
+      const a = iso(k, 0), b = iso(k, N), c = iso(0, k), d = iso(N, k);
+      ctx.strokeStyle = 'rgba(120,200,255,0.14)';
+      ctx.beginPath(); ctx.moveTo(...a); ctx.lineTo(...b); ctx.moveTo(...c); ctx.lineTo(...d); ctx.stroke();
+    }
+    // paredes: vidro verde com aresta de luz, a parede do escritorio do app acesa
+    const wall = tile * 1.3;
+    const c0 = iso(0, 0), cN = iso(N, 0), c0N = iso(0, N);
+    const glass = ctx.createLinearGradient(0, c0[1] - wall, 0, c0[1] + tile);
+    glass.addColorStop(0, 'rgba(62,240,181,0.14)'); glass.addColorStop(1, 'rgba(62,240,181,0)');
+    ctx.fillStyle = glass;
+    ctx.beginPath(); ctx.moveTo(...c0N); ctx.lineTo(c0N[0], c0N[1] - wall); ctx.lineTo(c0[0], c0[1] - wall); ctx.lineTo(...c0); ctx.closePath(); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(...c0); ctx.lineTo(c0[0], c0[1] - wall); ctx.lineTo(cN[0], cN[1] - wall); ctx.lineTo(...cN); ctx.closePath(); ctx.fill();
+    // brilho do chao
+    const [fx, fy] = iso(N / 2, N / 2);
+    const floor = ctx.createRadialGradient(fx, fy, 0, fx, fy, N * tile * 0.5);
+    floor.addColorStop(0, 'rgba(62,240,181,0.07)'); floor.addColorStop(1, 'transparent');
+    ctx.fillStyle = floor; ctx.fillRect(0, 0, W, H);
+    ctx.strokeStyle = 'rgba(62,240,181,0.55)'; ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(c0N[0], c0N[1]); ctx.lineTo(c0N[0], c0N[1] - wall); ctx.lineTo(c0[0], c0[1] - wall); ctx.lineTo(cN[0], cN[1] - wall); ctx.lineTo(cN[0], cN[1]);
+    ctx.moveTo(c0[0], c0[1]); ctx.lineTo(c0[0], c0[1] - wall);
+    ctx.stroke();
+    // mesas
+    desks.forEach(([i, j]) => {
+      const [x, y] = iso(i, j), s = tile * 0.28;
+      ctx.fillStyle = 'rgba(62,240,181,0.1)'; ctx.strokeStyle = 'rgba(62,240,181,0.6)'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(x, y - s / 2); ctx.lineTo(x + s, y); ctx.lineTo(x, y + s / 2); ctx.lineTo(x - s, y); ctx.closePath(); ctx.fill(); ctx.stroke();
+    });
+    // agentes
+    agents.forEach((a) => {
+      if (a.state === 'walk') {
+        a.t += reduced ? 1 : 0.035;
+        if (a.t >= 1) { a.at = a.path.shift(); a.t = 0; if (!a.path.length) { a.state = 'work'; a.pulse = 1; a.kind = Math.random() < 0.3 ? 'ask' : 'done'; } }
+      } else if (--a.wait <= 0) route(a);
+      const next = a.path[0] || a.at;
+      const [x0, y0] = iso(...a.at), [x1, y1] = iso(...next);
+      const x = x0 + (x1 - x0) * a.t, y = y0 + (y1 - y0) * a.t - tile * 0.12;
+      a.trail.push([x, y]); if (a.trail.length > 26) a.trail.shift();
+      ctx.lineCap = 'round';
+      for (let k = 1; k < a.trail.length; k++) {
+        ctx.strokeStyle = a.c; ctx.globalAlpha = k / a.trail.length * 0.5; ctx.lineWidth = 3 * k / a.trail.length;
+        ctx.beginPath(); ctx.moveTo(...a.trail[k - 1]); ctx.lineTo(...a.trail[k]); ctx.stroke();
+      }
+      ctx.globalAlpha = 1;
+      const g = ctx.createRadialGradient(x, y, 0, x, y, 22);
+      g.addColorStop(0, a.c); g.addColorStop(1, 'transparent');
+      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, 22, 0, 7); ctx.fill();
+      ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(x, y, 3.2, 0, 7); ctx.fill();
+      if (a.pulse > 0) { // chegou: pergunta (âmbar) ou entregou (verde)
+        const col = a.kind === 'ask' ? '255,181,71' : '62,240,181';
+        ctx.strokeStyle = `rgba(${col},${a.pulse})`; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.ellipse(x, y + tile * 0.12, (1 - a.pulse) * tile * 0.6 + 6, ((1 - a.pulse) * tile * 0.6 + 6) / 2, 0, 0, 7); ctx.stroke();
+        if (a.kind === 'ask') { ctx.fillStyle = `rgba(${col},${Math.min(1, a.pulse * 2)})`; ctx.font = '700 15px Onest, sans-serif'; ctx.fillText('?', x - 4, y - 16); }
+        a.pulse -= 0.008;
+      }
+    });
+    if (running && !reduced) requestAnimationFrame(draw);
+  }
+  let running = true;
+  new IntersectionObserver(([e]) => { const was = running; running = e.isIntersecting; if (running && !was) requestAnimationFrame(draw); }).observe(cv);
+  addEventListener('resize', () => { resize(); if (reduced) draw(); });
+  addEventListener('pointermove', (e) => { mx = (e.clientX / innerWidth - 0.5) * -24; my = (e.clientY / innerHeight - 0.5) * -14; }, { passive: true });
+  resize(); draw();
+})();
+</script>
+</body>
+</html>

@@ -48,7 +48,7 @@
     "nsis": {
       "oneClick": true,
       "perMachine": false,
-      "artifactName": "Hive-Setup-${version}.${ext}"
+      "artifactName": "Hive-Setup.${ext}"
     }
   }
 }
