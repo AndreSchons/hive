@@ -603,5 +603,6 @@ Na primeira abertura o app procura o Claude Code (PATH mais `~/.local/bin` e
 `allowed_adapters`). Achar a CLI nao e permissao para usa-la; `run.start` recusa
 de novo se nao houver autorizacao, para nenhum caminho depender so da tela.
 
-Sem icone proprio (`build/icon.ico`) e sem assinatura de codigo: o Windows mostra
+O icone (`apps/shell/build/icon.png`, 512px) e a sala do `assets/demo.gif`
+recortada. Sem assinatura de codigo o Windows mostra
 o aviso do SmartScreen ate haver um certificado.
