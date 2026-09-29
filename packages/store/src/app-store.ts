@@ -43,4 +43,15 @@ export class AppStore {
     const result = this.db.prepare(`DELETE FROM projects WHERE path = ?`).run(resolve(path));
     return result.changes > 0;
   }
+
+  /** A pessoa deixou o app usar esta CLI. Vale ate ela desinstalar o app. */
+  allowAdapter(adapter: string, at = Date.now()): void {
+    this.db
+      .prepare(`INSERT INTO allowed_adapters (adapter, allowed_at) VALUES (?, ?) ON CONFLICT(adapter) DO NOTHING`)
+      .run(adapter, at);
+  }
+
+  isAdapterAllowed(adapter: string): boolean {
+    return this.db.prepare(`SELECT 1 FROM allowed_adapters WHERE adapter = ?`).get(adapter) !== undefined;
+  }
 }

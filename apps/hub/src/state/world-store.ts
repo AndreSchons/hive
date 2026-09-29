@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { AnyEvent, ModelTier, ProjectRef, RoleDefinition } from '@hive/protocol';
+import type { AnyEvent, ModelTier, ProjectRef, RoleDefinition, SetupStatus } from '@hive/protocol';
 import { invoke, onEvents } from '../ipc/bridge';
 import { applyAll, emptyWorld, type WorldState } from './event-reducer';
 
@@ -18,6 +18,8 @@ interface HubState {
   readonly project: ProjectRef | null;
   readonly recents: readonly ProjectRef[];
   readonly roles: readonly RoleDefinition[];
+  /** O que a primeira abertura achou no computador. `null` ate a primeira busca. */
+  readonly setup: SetupStatus | null;
   readonly queue: readonly QueuedTask[];
   /** Quanto capricho a fila manual pede. So vale para ela. */
   readonly effort: ModelTier;
@@ -34,6 +36,8 @@ interface HubState {
 
   loadRecents(): Promise<void>;
   loadRoles(): Promise<void>;
+  loadSetup(): Promise<void>;
+  allowAdapter(adapter: string): Promise<void>;
   addTask(goal: string, role: string): void;
   setEffort(effort: ModelTier): void;
   removeTask(index: number): void;
@@ -54,6 +58,7 @@ export const useHub = create<HubState>((set, get) => ({
   project: null,
   recents: [],
   roles: [],
+  setup: null,
   queue: [],
   effort: 'economico',
   world: emptyWorld,
@@ -66,6 +71,19 @@ export const useHub = create<HubState>((set, get) => ({
     const response = await invoke('roster.get', {});
     if (response.ok) set({ roles: response.data });
     else set({ failure: response.error });
+  },
+
+  async loadSetup() {
+    set({ busy: true });
+    const response = await invoke('setup.status', {});
+    if (response.ok) set({ setup: response.data, busy: false });
+    else set({ failure: response.error, busy: false });
+  },
+
+  async allowAdapter(adapter) {
+    const response = await invoke('setup.allow', { adapter });
+    if (!response.ok) set({ failure: response.error });
+    else await get().loadSetup();
   },
 
   select(agentId: string | null) {

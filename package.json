@@ -14,7 +14,8 @@
     "app": "turbo run build && pnpm --filter @hive/shell start",
     "simulate": "pnpm --filter @hive/simulator start",
     "plan-lab": "turbo run build && pnpm --filter @hive/planner-lab start",
-    "app:nosandbox": "turbo run build && pnpm --filter @hive/shell start:nosandbox"
+    "app:nosandbox": "turbo run build && pnpm --filter @hive/shell start:nosandbox",
+    "dist": "turbo run build && pnpm --filter @hive/shell dist"
   },
   "devDependencies": {
     "@types/node": "26.3.0",

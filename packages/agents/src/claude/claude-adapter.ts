@@ -11,7 +11,7 @@ import type {
   AgentRunRequest,
 } from '../adapter';
 import { ClaudeRun } from './claude-run';
-import { resolveCommand, type Command } from './executable';
+import { resolveCommand } from './executable';
 
 export interface ClaudeAdapterOptions {
   /** Caminho do executavel. Por padrao o `claude` que estiver no PATH. */
@@ -37,31 +37,30 @@ export class ClaudeAdapter implements AgentAdapter {
   readonly displayName = 'Claude Code';
   readonly capabilities = capabilities;
   private readonly executable: string;
-  private readonly command: Command;
 
   constructor(private readonly options: ClaudeAdapterOptions = {}) {
     this.executable = options.executable ?? 'claude';
-    this.command = resolveCommand(this.executable);
   }
 
   probe(): Promise<AdapterProbe> {
     const timeout = this.options.probeTimeoutMs ?? 5_000;
+    const command = resolveCommand(this.executable);
     return new Promise<AdapterProbe>((resolve) => {
-      execFile(this.command.file, [...this.command.args, '--version'], { timeout }, (error, stdout) => {
+      execFile(command.file, [...command.args, '--version'], { timeout }, (error, stdout) => {
         if (error) {
           // CLI ausente ou sem permissao e estado esperado, nao excecao: o hub
           // precisa mostrar isso como uma frase, nao como uma falha.
           resolve({
             available: false,
             reason:
-              'nodeError' in error && (error as NodeJS.ErrnoException).code === 'ENOENT'
+              error.code === 'ENOENT'
                 ? 'O Claude Code nao esta instalado neste computador.'
                 : `Nao consegui rodar o Claude Code: ${error.message}`,
           });
           return;
         }
         const version = stdout.trim().split(/\s+/)[0] ?? 'desconhecida';
-        resolve({ available: true, version, executable: this.executable });
+        resolve({ available: true, version, executable: command.args[0] ?? command.file });
       });
     });
   }
@@ -78,7 +77,9 @@ export class ClaudeAdapter implements AgentAdapter {
         ...(request.model === undefined ? {} : { model: request.model }),
         title: shorten(request.prompt),
       },
-      { command: this.command },
+      // Resolve de novo a cada execucao: quem instalou a CLI com o app aberto
+      // nao precisa reiniciar para ele achar.
+      { command: resolveCommand(this.executable) },
     );
   }
 }

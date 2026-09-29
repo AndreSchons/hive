@@ -1,8 +1,8 @@
-import { mkdtempSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { resolveCommand } from '../src/claude/executable';
+import { resolveCommand, windowsSearchPath } from '../src/claude/executable';
 
 describe('resolveCommand', () => {
   it('fora do Windows usa o nome como veio', () => {
@@ -20,6 +20,15 @@ describe('resolveCommand', () => {
       file: join(dir, 'node_modules', '@anthropic-ai', 'claude-code', 'bin', 'claude.exe'),
       args: [],
     });
+  });
+
+  it('acha o instalador nativo fora do PATH', () => {
+    const home = mkdtempSync(join(tmpdir(), 'hive-home-'));
+    mkdirSync(join(home, '.local', 'bin'), { recursive: true });
+    const exe = join(home, '.local', 'bin', 'claude.exe');
+    writeFileSync(exe, '');
+    const searchPath = windowsSearchPath({ PATH: '', USERPROFILE: home });
+    expect(resolveCommand('claude', 'win32', searchPath)).toEqual({ file: exe, args: [] });
   });
 
   it('shim que aponta para script roda pelo node', () => {

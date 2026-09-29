@@ -10,7 +10,8 @@
     "start": "electron .",
     "dev": "node scripts/dev.mjs",
     "postinstall": "install-electron",
-    "start:nosandbox": "electron . --no-sandbox"
+    "start:nosandbox": "electron . --no-sandbox",
+    "dist": "node scripts/bundle.mjs && electron-builder"
   },
   "dependencies": {
     "@hive/agents": "workspace:*",
@@ -21,7 +22,33 @@
     "zod": "4.4.3"
   },
   "devDependencies": {
-    "electron": "44.0.0"
+    "electron": "44.0.0",
+    "electron-builder": "26.15.3",
+    "esbuild": "0.28.2"
   },
-  "productName": "Hive"
+  "productName": "Hive",
+  "build": {
+    "appId": "app.hive.desktop",
+    "productName": "Hive",
+    "directories": {
+      "app": "app",
+      "output": "release"
+    },
+    "npmRebuild": false,
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "artifactName": "Hive-Setup-${version}.${ext}"
+    }
+  }
 }

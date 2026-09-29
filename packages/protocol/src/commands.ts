@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { questionId, runId } from './ids';
-import { modelTierSchema, roleId, rosterSchema } from './roles';
+import { adapterId, modelTierSchema, roleId, rosterSchema } from './roles';
 
 /** Uma pasta de projeto ja escolhida pelo usuario. */
 export const projectRefSchema = z.object({
@@ -25,6 +25,31 @@ export const runSummarySchema = z.object({
 export type RunSummary = z.infer<typeof runSummarySchema>;
 
 /**
+ * O que a primeira abertura encontrou no computador. `found` e `allowed` sao
+ * separados de proposito: achar a CLI nao autoriza usa-la -- quem autoriza e a
+ * pessoa, uma vez, na tela de boas-vindas.
+ */
+export const adapterStatusSchema = z.object({
+  adapter: adapterId,
+  displayName: z.string().min(1),
+  found: z.boolean(),
+  version: z.string().optional(),
+  /** Caminho do executavel. Vai para o detalhe, nunca para a frase principal. */
+  executable: z.string().optional(),
+  /** Por que nao achou, ja escrito para quem nao le codigo. */
+  reason: z.string().optional(),
+  allowed: z.boolean(),
+});
+export type AdapterStatus = z.infer<typeof adapterStatusSchema>;
+
+export const setupStatusSchema = z.object({
+  adapters: z.array(adapterStatusSchema),
+  /** Sem git nao ha copia de trabalho, e nenhum agente comeca. */
+  gitFound: z.boolean(),
+});
+export type SetupStatus = z.infer<typeof setupStatusSchema>;
+
+/**
  * Comandos que o renderer envia ao processo principal. Cada entrada declara o
  * schema da entrada e o da saida; a ponte IPC deriva os tipos daqui, entao
  * renderer e main nao podem discordar sobre um canal.
@@ -46,6 +71,15 @@ export const commands = {
   'project.forget': {
     input: z.object({ path: z.string().min(1) }),
     output: z.object({ removed: z.boolean() }),
+  },
+  /** Procura as CLIs e o git de novo a cada chamada: a pessoa pode ter instalado agora. */
+  'setup.status': {
+    input: z.object({}),
+    output: setupStatusSchema,
+  },
+  'setup.allow': {
+    input: z.object({ adapter: adapterId }),
+    output: z.object({ allowed: z.boolean() }),
   },
   'roster.get': {
     input: z.object({}),

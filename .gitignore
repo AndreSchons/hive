@@ -14,3 +14,7 @@ out/
 
 # grafo de conhecimento gerado pelo graphify
 graphify-out/
+
+# instalador (pnpm dist)
+apps/shell/app/
+apps/shell/release/

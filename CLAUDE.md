@@ -586,3 +586,22 @@ o SUID sandbox, em outras com SIGSEGV logo depois da inicializacao do GTK.
 
 `pnpm app:nosandbox` contorna para desenvolver. Desliga o sandbox do Chromium,
 entao serve para rodar na propria maquina e nao para virar o caminho padrao.
+
+## Instalador (Windows)
+
+`pnpm dist` gera `apps/shell/release/Hive-Setup-<versao>.exe` (NSIS, instala por
+usuario, sem admin). `apps/shell/scripts/bundle.mjs` monta `apps/shell/app/`: o
+main vira um arquivo so pelo esbuild, porque os `@hive/*` sao links do pnpm que
+nao existem na maquina de quem instala, e o layout espelha o do repo para
+`paths.ts` achar renderer e preload sem saber se esta empacotado.
+`better-sqlite3` entra copiado com o binario pronto (N-API) e `npmRebuild: false`:
+recompilar para o Electron pediria Python e C++ sem ganho nenhum.
+
+Na primeira abertura o app procura o Claude Code (PATH mais `~/.local/bin` e
+`%APPDATA%\npm`, porque o PATH herdado do Explorer fica velho) e o git, e
+**so segue depois que a pessoa autoriza** (`setup.status`/`setup.allow`, tabela
+`allowed_adapters`). Achar a CLI nao e permissao para usa-la; `run.start` recusa
+de novo se nao houver autorizacao, para nenhum caminho depender so da tela.
+
+Sem icone proprio (`build/icon.ico`) e sem assinatura de codigo: o Windows mostra
+o aviso do SmartScreen ate haver um certificado.

@@ -37,7 +37,7 @@ describe('ClaudeRun', () => {
   it('diz que a CLI nao esta instalada em vez de lancar', async () => {
     const probe = await new ClaudeAdapter({ executable: '/nao/existe/claude' }).probe();
     if (probe.available) throw new Error('esperava a CLI ausente');
-    expect(probe.reason.length).toBeGreaterThan(0);
+    expect(probe.reason).toBe('O Claude Code nao esta instalado neste computador.');
   });
 
   it('fecha a fila e resolve o desfecho uma vez so', async () => {

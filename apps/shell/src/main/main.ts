@@ -41,9 +41,10 @@ function boot(): void {
   bridge = new EventBridge(events, window);
   // As copias de trabalho ficam fora do repositorio: dentro dele apareceriam
   // como pasta nao rastreada no `git status` de quem esta usando o projeto.
+  const adapters = createAdapterRegistry([new ClaudeAdapter()]);
   runs = new RunSupervisor(
     events,
-    createAdapterRegistry([new ClaudeAdapter()]),
+    adapters,
     DEFAULT_ROSTER,
     new GitWorktreeManager(),
     join(app.getPath('userData'), 'worktrees'),
@@ -54,6 +55,7 @@ function boot(): void {
     app: appStore,
     bridge,
     runs,
+    adapters,
     window: () => (window.isDestroyed() ? null : window),
   });
 

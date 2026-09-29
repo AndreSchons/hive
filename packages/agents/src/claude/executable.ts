@@ -17,7 +17,7 @@ export interface Command {
 export function resolveCommand(
   executable: string,
   platform: NodeJS.Platform = process.platform,
-  searchPath: string = process.env['PATH'] ?? '',
+  searchPath: string = windowsSearchPath(process.env),
 ): Command {
   if (platform !== 'win32') return { file: executable, args: [] };
   // Script sem `.exe` nao roda sozinho no Windows: o shebang nao vale ali.
@@ -33,6 +33,22 @@ export function resolveCommand(
   }
   // Nao achou: devolve o nome e deixa o `ENOENT` virar a frase de "nao instalado".
   return { file: executable, args: [] };
+}
+
+/**
+ * PATH mais os lugares onde os instaladores oficiais poem o Claude Code. O app
+ * aberto pelo menu Iniciar herda o PATH do Explorer, que fica velho se a pessoa
+ * instalou a CLI depois de entrar no Windows -- e ai o app diria "nao
+ * instalado" sobre algo que o terminal dela acha.
+ */
+export function windowsSearchPath(env: NodeJS.ProcessEnv): string {
+  const home = env['USERPROFILE'];
+  const appData = env['APPDATA'];
+  return [
+    env['PATH'] ?? '',
+    home === undefined ? '' : join(home, '.local', 'bin'), // instalador nativo
+    appData === undefined ? '' : join(appData, 'npm'), // npm install -g
+  ].join(delimiter);
 }
 
 /** O arquivo que um shim `.cmd` do npm chama, ou null se nao for um. */

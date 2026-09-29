@@ -1,4 +1,6 @@
+import { homedir } from 'node:os';
 import { ipcMain, type BrowserWindow } from 'electron';
+import { git, type AdapterRegistry } from '@hive/agents';
 import { z } from 'zod';
 import {
   IPC_CHANNELS,
@@ -73,6 +75,7 @@ export interface IpcContext {
   readonly app: AppStore;
   readonly bridge: EventBridge;
   readonly runs: RunSupervisor;
+  readonly adapters: AdapterRegistry;
   readonly window: () => BrowserWindow | null;
 }
 
@@ -85,7 +88,7 @@ export interface IpcContext {
 type Handlers = { [N in CommandName]: (raw: unknown) => CommandResult<N> | Promise<CommandResult<N>> };
 
 function buildHandlers(context: IpcContext): Handlers {
-  const { events, app, bridge, runs } = context;
+  const { events, app, bridge, runs, adapters } = context;
 
   return {
     'project.pick': async () => {
@@ -113,10 +116,40 @@ function buildHandlers(context: IpcContext): Handlers {
       return { removed: app.forgetProject(path) };
     },
 
+    'setup.status': async () => ({
+      adapters: await Promise.all(
+        adapters.list().map(async (adapter) => {
+          const probe = await adapter.probe();
+          const allowed = app.isAdapterAllowed(adapter.id);
+          const base = { adapter: adapter.id, displayName: adapter.displayName, allowed };
+          return probe.available
+            ? { ...base, found: true, version: probe.version, executable: probe.executable }
+            : { ...base, found: false, reason: probe.reason };
+        }),
+      ),
+      gitFound: await git(homedir(), ['--version']).then(
+        (result) => result.code === 0,
+        () => false,
+      ),
+    }),
+
+    'setup.allow': (raw) => {
+      const { adapter } = commands['setup.allow'].input.parse(raw);
+      if (adapters.get(adapter) === undefined) return { allowed: false };
+      app.allowAdapter(adapter);
+      return { allowed: true };
+    },
+
     'roster.get': () => DEFAULT_ROSTER,
 
     'run.start': async (raw) => {
       const { projectPath, request } = commands['run.start'].input.parse(raw);
+      // A tela de boas-vindas ja pede isso; aqui e a garantia de que nenhum
+      // caminho roda uma CLI que a pessoa nao autorizou.
+      const blocked = DEFAULT_ROSTER.find((role) => !app.isAdapterAllowed(role.adapter));
+      if (blocked !== undefined) {
+        throw new Error('Antes de comecar, autorize o Hive a usar a inteligencia artificial deste computador.');
+      }
       // A uniao ja estreitou: cada modo tem exatamente os campos que precisa.
       const runId =
         request.mode === 'queue'

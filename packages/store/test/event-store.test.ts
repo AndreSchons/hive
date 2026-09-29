@@ -303,4 +303,13 @@ describe('AppStore', () => {
     expect(app.forgetProject('/tmp/projeto-a')).toBe(false);
     expect(app.recentProjects()).toEqual([]);
   });
+
+  it('lembra qual CLI a pessoa autorizou', () => {
+    const app = new AppStore(db);
+    expect(app.isAdapterAllowed('claude')).toBe(false);
+    app.allowAdapter('claude');
+    app.allowAdapter('claude');
+    expect(app.isAdapterAllowed('claude')).toBe(true);
+    expect(app.isAdapterAllowed('outra')).toBe(false);
+  });
 });

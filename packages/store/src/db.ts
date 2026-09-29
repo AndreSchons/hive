@@ -42,6 +42,13 @@ const MIGRATIONS: readonly string[] = [
     last_opened_at INTEGER NOT NULL
   );
   `,
+  // A pessoa autorizou o app a usar esta CLI. Sem linha aqui, nada roda.
+  `
+  CREATE TABLE allowed_adapters (
+    adapter    TEXT PRIMARY KEY,
+    allowed_at INTEGER NOT NULL
+  );
+  `,
 ];
 
 /** Impede escrita fora do append: SQLite recusa UPDATE e DELETE em `events`. */

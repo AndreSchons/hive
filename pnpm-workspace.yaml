@@ -12,3 +12,5 @@ allowBuilds:
   better-sqlite3: false
   electron: true
   esbuild: true
+  # dependencia do electron-builder para Squirrel; o instalador aqui e NSIS.
+  electron-winstaller: false
