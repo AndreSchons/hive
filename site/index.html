@@ -9,7 +9,7 @@
 <meta property="og:description" content="Descreva. Aprove. Assista sua equipe de IA trabalhar.">
 <meta property="og:image" content="/demo-poster.jpg">
 <meta name="theme-color" content="#05070d">
-<link rel="icon" href="/icon.png">
+<link rel="icon" href="icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;600;800&family=Onest:wght@400;500;600&family=Instrument+Serif:ital@1&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
@@ -311,7 +311,7 @@ footer a { color: var(--text); }
 <div class="progress" aria-hidden="true"></div>
 
 <header class="nav" id="nav">
-  <a class="brand" href="#top"><img src="/icon.png" alt="" width="32" height="32">Hive</a>
+  <a class="brand" href="#top"><img src="icon.png" alt="" width="32" height="32">Hive</a>
   <nav class="nav-links" aria-label="Seções">
     <a href="#como-funciona">Como funciona</a>
     <a href="#principios">Por que confiar</a>
@@ -344,8 +344,8 @@ footer a { color: var(--text); }
   <section class="showcase" aria-label="Demonstração">
     <div class="frame" id="frame">
       <div class="frame-bar" aria-hidden="true"><b></b><b></b><b></b><span>Hive · execução simulada</span></div>
-      <video autoplay muted loop playsinline preload="metadata" poster="/demo-poster.jpg" aria-label="Gravação do Hive: personagens trabalham em mesas num escritório isométrico enquanto a lateral mostra o que cada um está fazendo">
-        <source src="/demo.mp4" type="video/mp4">
+      <video autoplay muted loop playsinline preload="metadata" poster="demo-poster.jpg" aria-label="Gravação do Hive: personagens trabalham em mesas num escritório isométrico enquanto a lateral mostra o que cada um está fazendo">
+        <source src="demo.mp4" type="video/mp4">
       </video>
     </div>
     <p class="caption">Gravação real do app. Cada personagem é um agente; a lateral conta, em português, o que está acontecendo.</p>
@@ -566,6 +566,14 @@ footer a { color: var(--text); }
     if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); }
   }), { threshold: 0.15 });
   document.querySelectorAll('.reveal').forEach((el) => io.observe(el));
+
+  /* ---- vídeo: o autoplay pode ser recusado (iPhone em economia de bateria,
+     economia de dados); tenta de novo quando ele aparece, e pausa fora da tela ---- */
+  const video = document.querySelector('.frame video');
+  new IntersectionObserver(([e]) => {
+    if (e.isIntersecting) video.play().catch(() => { video.controls = true; });
+    else video.pause();
+  }, { threshold: 0.2 }).observe(video);
 
   /* ---- números: contagem e barras ---- */
   const countIo = new IntersectionObserver((entries) => entries.forEach((e) => {
