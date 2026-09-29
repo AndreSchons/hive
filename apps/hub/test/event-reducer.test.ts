@@ -37,7 +37,7 @@ describe('applyEvent', () => {
     expect(world.status).toBe('running');
     expect(world.goal).toBe('Adicionar login');
     expect(Object.keys(world.agents)).toHaveLength(3);
-    expect(world.plan?.subtasks).toHaveLength(3);
+    expect(world.plan?.subtasks).toHaveLength(5);
     expect(world.contracts).toHaveLength(1);
   });
 
@@ -109,7 +109,7 @@ describe('applyEvent', () => {
     const world = applyAll(applyAll(emptyWorld, beforeBlock), afterAnswer);
     const statuses = Object.values(world.tasks).map((task) => task.status);
 
-    expect(statuses).toHaveLength(3);
+    expect(statuses).toHaveLength(5);
     expect(statuses.every((status) => status === 'done')).toBe(true);
   });
 

@@ -39,17 +39,33 @@ const CLAUDE_MODELS = { economico: 'haiku', padrao: 'sonnet', caprichado: 'opus'
  * mandar um nome desconhecido derrubaria a execucao inteira.
  */
 export const DEFAULT_ROSTER: Roster = rosterSchema.parse([
-  { id: 'gerente', title: 'Gerente', adapter: 'claude', model: 'opus', models: CLAUDE_MODELS,
-    canDelegate: true,
-    description: 'Decompoe a task, publica contratos, valida entregas e integra.' },
-  { id: 'executor', title: 'Agente', adapter: 'claude', models: CLAUDE_MODELS, canDelegate: false,
+  { id: 'gerente', title: 'Gerente', area: 'Administração', adapter: 'claude', model: 'opus',
+    models: CLAUDE_MODELS, canDelegate: true,
+    description: 'Decompoe a task, publica contratos, controla orcamento e prazo, valida entregas e integra.' },
+  { id: 'executor', title: 'Agente', area: 'Engenharia de Software', adapter: 'claude',
+    models: CLAUDE_MODELS, canDelegate: false,
     description: 'Executa uma tarefa sozinho, direto na pasta do projeto.' },
-  { id: 'frontend', title: 'Interface e 3D', adapter: 'claude', models: CLAUDE_MODELS, canDelegate: false,
-    description: 'Telas, componentes e o escritorio 3D.' },
-  { id: 'backend', title: 'Backend', adapter: 'claude', models: CLAUDE_MODELS, canDelegate: false,
+  { id: 'frontend', title: 'Interface', area: 'Engenharia de Software', adapter: 'claude',
+    models: CLAUDE_MODELS, canDelegate: false,
+    description: 'Telas e componentes.' },
+  { id: 'backend', title: 'Backend', area: 'Engenharia de Software', adapter: 'claude',
+    models: CLAUDE_MODELS, canDelegate: false,
     description: 'Dados, rotas e regras de negocio.' },
-  { id: 'revisao', title: 'Revisao', adapter: 'claude', models: CLAUDE_MODELS, canDelegate: false,
+  { id: 'revisao', title: 'Revisao', area: 'Engenharia de Software', adapter: 'claude',
+    models: CLAUDE_MODELS, canDelegate: false,
     description: 'Le o que os outros entregaram antes de integrar.' },
+  { id: 'juridico', title: 'Jurídico (LGPD)', area: 'Direito', adapter: 'claude',
+    models: CLAUDE_MODELS, canDelegate: false,
+    description:
+      'Nao mexe em codigo. Escreve o parecer em docs/juridico/lgpd.md: que dados pessoais o pedido ' +
+      'trata, base legal, consentimento, retencao, direitos do titular e riscos. Entra em todo plano ' +
+      'que cria ou muda funcionalidade, como passo proprio.' },
+  { id: 'contabil', title: 'Contábil (custos e ROI)', area: 'Ciências Contábeis', adapter: 'claude',
+    models: CLAUDE_MODELS, canDelegate: false,
+    description:
+      'Nao mexe em codigo. Escreve em docs/contabil/custos.md a estimativa de custo de desenvolvimento ' +
+      'e de operacao, o retorno esperado (ROI) e uma sugestao de preco. Entra em todo plano que cria ' +
+      'ou muda funcionalidade, como passo proprio.' },
 ]);
 
 export interface IpcContext {

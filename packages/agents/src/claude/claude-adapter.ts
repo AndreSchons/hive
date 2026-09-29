@@ -11,6 +11,7 @@ import type {
   AgentRunRequest,
 } from '../adapter';
 import { ClaudeRun } from './claude-run';
+import { resolveCommand, type Command } from './executable';
 
 export interface ClaudeAdapterOptions {
   /** Caminho do executavel. Por padrao o `claude` que estiver no PATH. */
@@ -36,15 +37,17 @@ export class ClaudeAdapter implements AgentAdapter {
   readonly displayName = 'Claude Code';
   readonly capabilities = capabilities;
   private readonly executable: string;
+  private readonly command: Command;
 
   constructor(private readonly options: ClaudeAdapterOptions = {}) {
     this.executable = options.executable ?? 'claude';
+    this.command = resolveCommand(this.executable);
   }
 
   probe(): Promise<AdapterProbe> {
     const timeout = this.options.probeTimeoutMs ?? 5_000;
     return new Promise<AdapterProbe>((resolve) => {
-      execFile(this.executable, ['--version'], { timeout }, (error, stdout) => {
+      execFile(this.command.file, [...this.command.args, '--version'], { timeout }, (error, stdout) => {
         if (error) {
           // CLI ausente ou sem permissao e estado esperado, nao excecao: o hub
           // precisa mostrar isso como uma frase, nao como uma falha.
@@ -75,7 +78,7 @@ export class ClaudeAdapter implements AgentAdapter {
         ...(request.model === undefined ? {} : { model: request.model }),
         title: shorten(request.prompt),
       },
-      { executable: this.executable },
+      { command: this.command },
     );
   }
 }

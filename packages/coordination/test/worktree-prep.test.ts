@@ -84,7 +84,11 @@ function popular(path: string): void {
   symlinkSync('../../../protocol', join(path, 'packages', 'agents', 'node_modules', '@hive', 'protocol'));
 }
 
-describe('a primeira copia', () => {
+// O instalador falso e um script sh e a replica por hardlink nao roda no Windows
+// (`replicate` devolve falso la e cada copia instala do zero).
+const posix = describe.skipIf(process.platform === 'win32');
+
+posix('a primeira copia', () => {
   it('instala de verdade', async () => {
     const { preparer, chamadas } = instalador('mkdir -p node_modules');
     const result = await preparer.prepare(copia('um'));
@@ -134,7 +138,7 @@ describe('a primeira copia', () => {
  * apagada assim que o trabalho dele entra no projeto, entao usar a copia
  * anterior como semente funcionaria uma vez e nunca mais.
  */
-describe('o cache de dependencias da execucao', () => {
+posix('o cache de dependencias da execucao', () => {
   it('a instalacao deixa uma replica nele', async () => {
     const { preparer } = instalador('mkdir -p node_modules/zod && echo ok > node_modules/zod/index.js');
     const cache = join(copias, 'deps');

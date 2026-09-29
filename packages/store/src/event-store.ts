@@ -4,6 +4,7 @@ import {
   eventDraftSchema,
   newEventId,
   newRunId,
+  runId,
   type AnyEvent,
   type AnyEventDraft,
   type RunId,
@@ -80,6 +81,15 @@ export class EventStore {
       )
       .all(projectPath, limit);
     return rows.map(rowToRunSummary);
+  }
+
+  /** Execucoes ainda marcadas como em andamento, de qualquer projeto. */
+  runningRuns(): RunId[] {
+    return this.db
+      .prepare(`SELECT run_id FROM runs WHERE status = 'running'`)
+      .pluck()
+      .all()
+      .map((value) => runId.parse(value));
   }
 
   /** Ultimo seq gravado da execucao. 0 quando ainda nao ha evento. */

@@ -1,6 +1,7 @@
 import { join } from 'node:path';
 import { BrowserWindow, app } from 'electron';
 import { ClaudeAdapter, GitWorktreeManager, createAdapterRegistry } from '@hive/agents';
+import { draft } from '@hive/protocol';
 import { AppStore, EventStore, openDatabase, type Db } from '@hive/store';
 import { EventBridge } from './event-bridge';
 import { DEFAULT_ROSTER, registerIpc, unregisterIpc } from './ipc';
@@ -22,6 +23,19 @@ function boot(): void {
 
   const events = new EventStore(db);
   const appStore = new AppStore(db);
+
+  // O app fechado no meio de uma execucao deixa ela "em andamento" para
+  // sempre: o cancelamento de `runs.stop()` nao termina de gravar antes de o
+  // processo sair. Com uma instancia so, nada que esta aberto agora esta vivo,
+  // e uma pergunta dessa execucao ficaria na tela sem ninguem para recebe-la.
+  // ponytail: tambem fecha uma simulacao do terminal ja rodando quando o app abre.
+  for (const orphan of events.runningRuns()) {
+    events.closeRun(
+      orphan,
+      draft('run.failed', { reason: 'O aplicativo foi fechado no meio desta execucao.' }),
+      'failed',
+    );
+  }
 
   const window = createWindow();
   bridge = new EventBridge(events, window);

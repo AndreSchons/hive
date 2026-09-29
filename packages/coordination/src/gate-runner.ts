@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import type { Gate, GateKind, TaskId } from '@hive/protocol';
 import type { Worktree } from '@hive/agents';
 import { installCommand } from './project-context';
+import { SHELL, killTree } from './shell';
 
 export type GateResult =
   | { readonly status: 'passed'; readonly durationMs: number }
@@ -118,7 +119,7 @@ export class CommandGateRunner implements GateRunner {
     return new Promise((resolve) => {
       const child = spawn(command, {
         cwd,
-        shell: true,
+        shell: SHELL,
         windowsHide: true,
         // Grupo proprio para o timeout conseguir matar a arvore inteira. Um
         // `pnpm build` vira turbo, que vira um `tsc` por pacote: matar so o
@@ -160,20 +161,7 @@ export class CommandGateRunner implements GateRunner {
         resolve({ code, output, timedOut });
       };
 
-      const stop = (signal: NodeJS.Signals): void => {
-        const { pid } = child;
-        if (pid === undefined) return;
-        try {
-          // Negativo e o grupo, nao o processo.
-          process.kill(-pid, signal);
-        } catch {
-          try {
-            child.kill(signal);
-          } catch {
-            // Ja morreu entre uma coisa e outra.
-          }
-        }
-      };
+      const stop = (signal: NodeJS.Signals): void => killTree(child, signal);
 
       const grace = this.options.killGraceMs ?? DEFAULT_KILL_GRACE_MS;
       later(timeoutMs, () => {

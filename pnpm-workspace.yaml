@@ -3,9 +3,12 @@ packages:
   - "packages/*"
   - "tools/*"
 
-# pnpm bloqueia scripts de postinstall por padrao. Estes tres precisam rodar:
-# electron baixa o binario, better-sqlite3 e esbuild compilam nativo.
+# pnpm bloqueia scripts de postinstall por padrao. Estes dois precisam rodar:
+# electron baixa o binario, esbuild compila nativo. better-sqlite3 fica de fora:
+# ele ja traz o binario pronto (N-API) de cada plataforma e o carrega antes de
+# qualquer build; o node-gyp so serviria para exigir Python e compilador C++,
+# que o Windows nao tem por padrao.
 allowBuilds:
-  better-sqlite3: true
+  better-sqlite3: false
   electron: true
   esbuild: true

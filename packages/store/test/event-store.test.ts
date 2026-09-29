@@ -1,4 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
 import {
   draft,
   newAgentId,
@@ -63,6 +65,14 @@ describe('ciclo de vida da execucao', () => {
 
     const runs = store.listRuns('/tmp/outro-projeto');
     expect(runs.map((run) => run.goal)).toEqual(['Recente', 'Antiga']);
+  });
+
+  it('lista so as execucoes ainda em andamento, de qualquer projeto', () => {
+    const fechada = store.createRun({ projectPath: '/tmp/outro-projeto', goal: 'Fechada' });
+    store.finishRun(fechada, 'completed');
+    const aberta = store.createRun({ projectPath: '/tmp/outro-projeto', goal: 'Aberta' });
+
+    expect(store.runningRuns().sort()).toEqual([runId, aberta].sort());
   });
 });
 
@@ -272,14 +282,14 @@ describe('AppStore', () => {
     app.rememberProject('/tmp/projeto-a', 3000);
 
     const recentes = app.recentProjects();
-    expect(recentes.map((p) => p.path)).toEqual(['/tmp/projeto-a', '/tmp/projeto-b']);
+    expect(recentes.map((p) => p.path)).toEqual([resolve('/tmp/projeto-a'), resolve('/tmp/projeto-b')]);
     expect(recentes[0]?.name).toBe('projeto-a');
   });
 
   it('marca pasta que sumiu do disco em vez de esconde-la', () => {
     const app = new AppStore(db);
-    app.rememberProject('/tmp', 1000);
-    app.rememberProject('/tmp/pasta-que-nao-existe-1234', 2000);
+    app.rememberProject(tmpdir(), 1000);
+    app.rememberProject(join(tmpdir(), 'pasta-que-nao-existe-1234'), 2000);
 
     const recentes = app.recentProjects();
     expect(recentes[0]?.exists).toBe(false);

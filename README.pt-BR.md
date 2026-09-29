@@ -12,11 +12,10 @@ custou.
 ![O escritório durante uma execução](./assets/demo.gif)
 
 > [!IMPORTANT]
-> **Hoje isto roda no Linux.** Foi onde o projeto foi desenvolvido e é o único
-> sistema onde ele foi testado. O código não é hostil às outras plataformas — a
-> replicação de dependências já cai para instalação completa quando o hardlink
-> não está disponível — mas ninguém rodou ainda. Se você tem um Mac ou um Windows
-> e vinte minutos, [abra uma issue contando o que aconteceu](../../issues/new).
+> **Isto roda no Linux e no Windows.** O Linux é onde foi desenvolvido; no
+> Windows a suíte inteira passa e o app abre (veja a nota de Windows). No macOS
+> ninguém rodou ainda — se você tem um Mac e vinte minutos,
+> [abra uma issue contando o que aconteceu](../../issues/new).
 > É a contribuição mais útil possível neste momento.
 
 ## O que é, e para quem
@@ -73,7 +72,7 @@ errado. Nenhuma rodada com duas frentes foi registrada na linha de base ainda.
 
 ## Pré-requisitos
 
-- **Linux** (veja o aviso acima)
+- **Linux** ou **Windows** (veja as notas abaixo)
 - **Node.js 20+** e **pnpm**
 - **CLI do [Claude Code](https://claude.com/claude-code) instalada e
   autenticada.** O orquestrador roda ela como processo filho — não há runtime de
@@ -117,6 +116,21 @@ sudo chmod 4755 node_modules/.pnpm/electron@*/node_modules/electron/dist/chrome-
 Sem isso o app aborta na inicialização. `pnpm app:nosandbox` contorna para
 desenvolver — desliga o sandbox do Chromium, então serve para a sua própria
 máquina e não para virar o caminho padrão.
+
+### Nota de Windows
+
+- **O pnpm precisa estar no `PATH`** — o turbo procura o binário sozinho, então
+  só `corepack pnpm` não basta: `npm i -g pnpm` (ou `corepack enable` num
+  terminal de administrador).
+- **Git for Windows** é obrigatório, como já é para o Claude Code. Portão e
+  instalação de dependência rodam no `bash.exe` dele (ou em
+  `CLAUDE_CODE_GIT_BASH_PATH`), então um comando de portão quer dizer a mesma
+  coisa em qualquer sistema.
+- **Cada cópia de agente instala as dependências do zero.** A replicação por
+  hardlink fica desligada no Windows: lá o pnpm liga os pacotes do workspace
+  por junction absoluta, e o portão leria o pacote vizinho *antigo*. Mais
+  lento, nunca errado.
+- O banco fica em `%APPDATA%hivehive.sqlite`.
 
 ## Segurança — leia antes de apontar para trabalho de verdade
 
@@ -183,11 +197,10 @@ afinar o prompt de planejamento custa dez planejamentos em vez de dez execuçõe
 
 Dito na cara, porque é onde está o trabalho:
 
-- **Outras plataformas.** macOS provavelmente está perto — o `cp` do BSD aceita
-  `-a` e `-l`, então a replicação por hardlink talvez já funcione — mas ninguém
-  rodou. Windows precisa de matar grupo de processos de verdade (`taskkill /T` ou
-  um job object) para um portão que estourou o prazo não deixar compilador
-  rodando.
+- **macOS.** Provavelmente está perto — o `cp` do BSD aceita `-a` e `-l`,
+  então a replicação por hardlink talvez já funcione — mas ninguém rodou.
+- **Replicação rápida de dependências no Windows.** Cada cópia paga uma
+  instalação completa.
 - **Pathfinding de verdade no 3D.** O caminho ainda é um L de dois trechos. Móvel
   novo no meio da sala pede rota escrita à mão.
 - **Replanejamento automático** depois de subtarefa que falha. `Planner.revise`

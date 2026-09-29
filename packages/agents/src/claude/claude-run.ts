@@ -12,9 +12,10 @@ import { parseCliLine, type CliLine } from './cli-messages';
 import { decidePermission, type PermissionDecision } from '../permission';
 import { StreamTranslator, maxCostUsd, totalUsage, type TranslateContext } from './translate';
 import type { RunUsage } from '../adapter';
+import type { Command } from './executable';
 
 export interface ClaudeRunOptions {
-  readonly executable: string;
+  readonly command: Command;
   /** Espera antes de escalar de interrupt para SIGTERM, e de SIGTERM para SIGKILL. */
   readonly killGraceMs?: number;
 }
@@ -81,7 +82,7 @@ export class ClaudeRun implements AgentRun {
       this.settle = resolve;
     });
 
-    this.child = spawn(options.executable, this.args(), {
+    this.child = spawn(options.command.file, [...options.command.args, ...this.args()], {
       cwd: request.cwd,
       stdio: ['pipe', 'pipe', 'pipe'],
       env: { ...process.env, ...request.env },

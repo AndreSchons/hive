@@ -4,6 +4,7 @@ import { mkdir } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import type { Worktree } from '@hive/agents';
 import { installCommand } from './project-context';
+import { SHELL, killTree } from './shell';
 
 export type PrepareResult =
   | {
@@ -192,7 +193,7 @@ function run(
   return new Promise((resolve) => {
     const child = spawn(command, {
       cwd,
-      shell: true,
+      shell: SHELL,
       windowsHide: true,
       detached: process.platform !== 'win32',
       env: { ...process.env, CI: '1', NO_COLOR: '1', FORCE_COLOR: '0', ...env },
@@ -214,14 +215,7 @@ function run(
     };
 
     const timer = setTimeout(() => {
-      const { pid } = child;
-      if (pid !== undefined) {
-        try {
-          process.kill(-pid, 'SIGKILL');
-        } catch {
-          child.kill('SIGKILL');
-        }
-      }
+      killTree(child, 'SIGKILL');
       settle(-1);
     }, timeoutMs);
     timer.unref?.();

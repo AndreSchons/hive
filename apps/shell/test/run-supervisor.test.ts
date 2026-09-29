@@ -409,14 +409,33 @@ describe('execucao planejada', () => {
     expect(tipos.indexOf('contract.published')).toBeLessThan(tipos.indexOf('task.assigned'));
   });
 
-  it('gerente que nao consegue dividir encerra perguntando, sem criar copia', async () => {
+  it('gerente que nao consegue dividir espera a resposta e planeja de novo com ela', async () => {
     const { supervisor } = buildPlanning('nao entendi o que voce quer', {});
     const runId = await supervisor.startPlanned({ projectPath: repo, goal: 'faz ai' });
-    const todos = await drain(supervisor, runId, null);
+    const todos = await drainAnswering(supervisor, runId, ['a tela de login', 'so a tela']);
 
+    // Cada resposta vira uma rodada nova de planejamento, ate o teto.
+    const perguntas = payloadsOf(todos, 'human.question_raised');
+    expect(perguntas).toHaveLength(2);
+    // A pergunta so sai da tela porque alguem respondeu, nao porque a execucao fechou.
+    expect(payloadsOf(todos, 'human.answered').map((a) => a.answer)).toEqual([
+      'a tela de login',
+      'so a tela',
+    ]);
+    expect(perguntas[0]?.options.map((o) => o.id)).toContain('parar');
     expect(typesOf(todos).at(-1)).toBe('run.failed');
     expect(typesOf(todos)).not.toContain('worktree.created');
     expect(g('status', '--porcelain').trim()).toBe('');
+  });
+
+  it('cancelar a pergunta do gerente encerra sem mexer em nada', async () => {
+    const { supervisor } = buildPlanning('nao entendi o que voce quer', {});
+    const runId = await supervisor.startPlanned({ projectPath: repo, goal: 'faz ai' });
+    const todos = await drain(supervisor, runId, 'parar');
+
+    expect(payloadsOf(todos, 'human.question_raised')).toHaveLength(1);
+    expect(typesOf(todos).at(-1)).toBe('run.failed');
+    expect(typesOf(todos)).not.toContain('worktree.created');
   });
 });
 
@@ -992,7 +1011,8 @@ describe('preparar a copia uma vez por execucao', () => {
     contracts: [],
   });
 
-  it('instala na primeira copia e replica nas seguintes', async () => {
+  // A replica por hardlink nao roda no Windows: la cada copia instala do zero.
+  it.skipIf(process.platform === 'win32')('instala na primeira copia e replica nas seguintes', async () => {
     writeFileSync(join(repo, 'package.json'), JSON.stringify({ name: 'p', scripts: { t: 'x' } }));
     writeFileSync(join(repo, 'pnpm-lock.yaml'), 'lockfileVersion: 9\n');
     g('add', '-A');
@@ -1404,11 +1424,11 @@ const planoParalelo = (paths: { alfa: string[]; beta: string[] }): string =>
     ],
   });
 
-function buildParalelo(plano: string, arquivos: Record<string, string>): {
+function buildParalelo(plano: string, arquivos: Record<string, string>, seguraMs?: number): {
   supervisor: RunSupervisor;
   adapter: ParaleloAdapter;
 } {
-  const adapter = new ParaleloAdapter(plano, arquivos);
+  const adapter = new ParaleloAdapter(plano, arquivos, seguraMs);
   return {
     adapter,
     supervisor: new RunSupervisor(
@@ -1475,7 +1495,10 @@ describe('dois especialistas ao mesmo tempo', () => {
   });
 
   it('mede o que correr junto economizou, e diz se compensou', async () => {
-    const { supervisor } = buildParalelo(areasSeparadas, arquivos);
+    // O merge aqui e `git` de verdade, e no Windows cada processo custa dezenas
+    // de ms: com os 120ms padrao a juncao sozinha ja passa do que correr junto
+    // economizou. Segurar mais deixa o trabalho dominar, como na vida real.
+    const { supervisor } = buildParalelo(areasSeparadas, arquivos, 1_500);
     const runId = await supervisor.startPlanned({ projectPath: repo, goal: 'os dois lados' });
     const todos = await drain(supervisor, runId, 'comecar');
 

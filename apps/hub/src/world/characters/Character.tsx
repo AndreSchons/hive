@@ -141,6 +141,11 @@ interface CharacterProps {
    * assunto de quem montou a janela, nao de quem desenha o escritorio.
    */
   readonly card?: ReactNode;
+  /**
+   * A etiqueta que fica sempre sobre a cabeca. Some enquanto a ficha esta
+   * aberta: a ficha ja diz o mesmo, e as duas se sobreporiam.
+   */
+  readonly tag?: ReactNode;
   readonly onSelect?: () => void;
 }
 
@@ -200,7 +205,7 @@ function Hair({ style, color }: { readonly style: number; readonly color: string
  * re-renderiza quando o placement muda (evento novo), e mesmo assim apenas
  * ajusta o alvo: quem anda e o frame.
  */
-export function Character({ placement, card, onSelect }: CharacterProps) {
+export function Character({ placement, card, tag, onSelect }: CharacterProps) {
   const root = useRef<Group>(null!);
   const squash = useRef<Group>(null!);
   const body = useRef<Group>(null!);
@@ -354,6 +359,17 @@ export function Character({ placement, card, onSelect }: CharacterProps) {
         <cylinderGeometry args={[0.45, 0.45, HIT_HEIGHT, 10]} />
         <meshBasicMaterial transparent opacity={0} depthWrite={false} />
       </mesh>
+
+      {card === undefined && tag !== undefined && (
+        <Html
+          position={[0, HIT_HEIGHT + 0.35, 0]}
+          // Abaixo da ficha e do modal: e so identificacao.
+          zIndexRange={[10, 0]}
+          style={{ transform: 'translate(-50%, -100%)', pointerEvents: 'none' }}
+        >
+          {tag}
+        </Html>
+      )}
 
       {card !== undefined && (
         <Html

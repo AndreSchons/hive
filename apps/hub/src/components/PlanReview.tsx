@@ -1,5 +1,6 @@
 import type { Plan, RoleDefinition } from '@hive/protocol';
 import { TIER_LABEL } from '../state/describe';
+import { AreaBadge } from './AreaBadge';
 
 export interface PlanReviewProps {
   readonly plan: Plan;
@@ -17,6 +18,7 @@ export interface PlanReviewProps {
 export function PlanReview({ plan, roles }: PlanReviewProps) {
   const byId = new Map(roles.map((role) => [String(role.id), role]));
   const title = (id: string): string => byId.get(id)?.title ?? id;
+  const area = (id: string): string | undefined => byId.get(id)?.area;
   const position = new Map(plan.subtasks.map((subtask, index) => [subtask.id, index + 1]));
 
   /** Papel sem escada roda no padrao da CLI, e dizer isso e mais honesto que omitir. */
@@ -49,6 +51,11 @@ export function PlanReview({ plan, roles }: PlanReviewProps) {
                   {title(subtask.role)}
                 </span>
               </div>
+              {area(subtask.role) !== undefined && (
+                <div className="mt-1 pl-5">
+                  <AreaBadge area={area(subtask.role) ?? ''} />
+                </div>
+              )}
 
               <p className="mt-1 pl-5 text-xs leading-snug text-muted">
                 Pronto quando: {subtask.doneWhen}

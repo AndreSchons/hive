@@ -1,4 +1,5 @@
-import type { AgentState } from '@hive/protocol';
+import type { AgentState, RoleDefinition } from '@hive/protocol';
+import { AreaBadge } from './AreaBadge';
 import { STATE_LABEL, adapterLabel } from '../state/describe';
 import type { AgentView, TaskView } from '../state/event-reducer';
 
@@ -14,12 +15,14 @@ const STATE_DOT: Record<AgentState, string> = {
 export interface AgentListProps {
   readonly agents: readonly AgentView[];
   readonly tasks: Readonly<Record<string, TaskView>>;
+  /** Para mostrar a area de cada um: o agente so sabe o id do proprio papel. */
+  readonly roles?: readonly RoleDefinition[];
   /** Quem esta com a ficha aberta. A lista e o escritorio abrem a mesma. */
   readonly selected?: string | null;
   readonly onSelect?: (agentId: string) => void;
 }
 
-export function AgentList({ agents, tasks, selected, onSelect }: AgentListProps) {
+export function AgentList({ agents, tasks, roles = [], selected, onSelect }: AgentListProps) {
   if (agents.length === 0) {
     return <p className="px-4 py-4 text-sm text-muted">O escritorio esta vazio.</p>;
   }
@@ -28,6 +31,7 @@ export function AgentList({ agents, tasks, selected, onSelect }: AgentListProps)
     <ul className="flex flex-col gap-2 px-3 py-3">
       {agents.map((agent) => {
         const task = agent.currentTaskId === null ? null : tasks[agent.currentTaskId];
+        const area = roles.find((role) => String(role.id) === agent.role)?.area;
         return (
           <li key={agent.agentId}>
             <button
@@ -48,6 +52,12 @@ export function AgentList({ agents, tasks, selected, onSelect }: AgentListProps)
                 )}
                 <span className="ml-auto shrink-0 text-[11px] text-muted">{STATE_LABEL[agent.state]}</span>
               </div>
+
+              {area !== undefined && (
+                <div className="mt-1.5">
+                  <AreaBadge area={area} />
+                </div>
+              )}
 
               <p className="mt-1 truncate text-xs text-muted">
                 {task ? task.title : agent.lastSaid ?? 'sem tarefa no momento'}

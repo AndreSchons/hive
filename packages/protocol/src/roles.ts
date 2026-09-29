@@ -45,6 +45,12 @@ export const roleDefinitionSchema = z.object({
   /** Rotulo exibido ao usuario que nao le codigo. */
   title: z.string().min(1),
   description: z.string().default(''),
+  /**
+   * Area de conhecimento de quem faz o papel ("Direito", "Engenharia de
+   * Software"). E o que a tela mostra sobre a cabeca de cada personagem, para
+   * dar para ver de relance que profissao esta fazendo o que.
+   */
+  area: z.string().min(1).optional(),
   /** Qual CLI executa este papel. */
   adapter: adapterId,
   /** Alias de modelo repassado a CLI. Ausente = default da propria CLI. */

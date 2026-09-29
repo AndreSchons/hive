@@ -242,6 +242,9 @@ const ATTEMPT_CEILING = 8;
  */
 const MAX_PARALLEL = 2;
 
+/** Quantas vezes o gerente pode perguntar antes de dividir. Ver `planAndRun`. */
+const MAX_PLAN_QUESTIONS = 2;
+
 /**
  * O adaptador nunca encerra bloqueado sem pergunta -- se acontecer e bug nosso,
  * e some numa frase generica em vez de virar uma execucao pendurada.
@@ -579,38 +582,43 @@ export class RunSupervisor {
         emit: (event) => this.track(runId, event),
       });
 
-      const result = await planner.plan({
-        runId,
-        goal: input.goal,
-        roster: this.roster,
-        project: {
-          path: input.projectPath,
-          baseBranch: live.base,
-          availableGates: discoverGates(input.projectPath),
-        },
-      });
+      const project = {
+        path: input.projectPath,
+        baseBranch: live.base,
+        availableGates: discoverGates(input.projectPath),
+      };
+      let goal = input.goal;
+      let result = await planner.plan({ runId, goal, roster: this.roster, project });
 
-      if (live.cancelled) {
-        this.close(runId, live, 'Voce pediu para parar.', 0);
-        return;
+      // O gerente que nao sabe o suficiente pergunta em vez de chutar. A
+      // execucao **espera** a resposta e planeja de novo com ela: fechar logo
+      // depois de perguntar tirava a pergunta da tela antes de alguem ler.
+      // Duas rodadas e para -- a terceira pergunta seria o mesmo mal-entendido.
+      for (let round = 0; result.status === 'needs_input' && !live.cancelled; round += 1) {
+        if (round === MAX_PLAN_QUESTIONS) {
+          this.close(runId, live, `Preciso saber mais antes de dividir: ${result.question}`, 0);
+          return;
+        }
+        const answer = await this.askHuman(runId, live, {
+          question: result.question,
+          context: result.context,
+          cause: 'agent_asked',
+          options: [
+            ...(result.options ?? []),
+            { id: OPTION_STOP, label: 'Cancelar, quero reescrever o pedido' },
+          ],
+          allowFreeText: true,
+        });
+        if (answer === OPTION_STOP) {
+          this.close(runId, live, 'Voce cancelou antes de comecar, e eu nao mexi em nada.', 0);
+          return;
+        }
+        goal = `${goal}\n\nPergunta do gerente: ${result.question}\nResposta: ${answer}`;
+        result = await planner.plan({ runId, goal, roster: this.roster, project });
       }
 
-      if (result.status === 'needs_input') {
-        // O gerente que nao sabe o suficiente pergunta em vez de chutar. Sem
-        // plano nao ha execucao: a duvida sobe e a pessoa recomeca com mais
-        // detalhe, em vez de o sistema adivinhar e entregar a coisa errada.
-        this.emit(
-          runId,
-          draft('human.question_raised', {
-            questionId: newQuestionId(),
-            question: result.question,
-            context: result.context,
-            cause: 'agent_asked',
-            options: [],
-            allowFreeText: true,
-          }),
-        );
-        this.close(runId, live, `Preciso saber mais antes de dividir: ${result.question}`, 0);
+      if (live.cancelled || result.status === 'needs_input') {
+        this.close(runId, live, 'Voce pediu para parar.', 0);
         return;
       }
 

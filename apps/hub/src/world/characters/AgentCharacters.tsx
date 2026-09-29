@@ -9,6 +9,8 @@ export interface AgentCharactersProps {
    * e devolve o que desenhar -- este modulo nunca olha dentro.
    */
   readonly cardFor?: (agentId: string) => ReactNode;
+  /** A etiqueta sempre visivel sobre a cabeca. Mesma regra: montada de fora. */
+  readonly tagFor?: (agentId: string) => ReactNode;
 }
 
 /**
@@ -25,7 +27,7 @@ export interface AgentCharactersProps {
  * mostrar qual IA e qual modelo estao por tras do boneco sem que esta camada
  * saiba o que e uma CLI.
  */
-export function AgentCharacters({ cardFor }: AgentCharactersProps) {
+export function AgentCharacters({ cardFor, tagFor }: AgentCharactersProps) {
   const agents = useHub((state) => state.world.agents);
   const selected = useHub((state) => state.selected);
   const select = useHub((state) => state.select);
@@ -35,11 +37,13 @@ export function AgentCharacters({ cardFor }: AgentCharactersProps) {
     <group>
       {placements.map((placement) => {
         const card = placement.agentId === selected ? cardFor?.(placement.agentId) : undefined;
+        const tag = tagFor?.(placement.agentId);
         return (
           <Character
             key={placement.agentId}
             placement={placement}
             {...(card === undefined || card === null ? {} : { card })}
+            {...(tag === undefined || tag === null ? {} : { tag })}
             onSelect={() => select(placement.agentId)}
           />
         );

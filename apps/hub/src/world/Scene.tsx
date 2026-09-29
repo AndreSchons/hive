@@ -48,6 +48,8 @@ export interface SceneProps {
    * aqui sobre a cabeca certa. O escritorio ancora e nao le.
    */
   readonly cardFor?: (agentId: string) => ReactNode;
+  /** A etiqueta fixa sobre cada personagem, montada de fora como a ficha. */
+  readonly tagFor?: (agentId: string) => ReactNode;
   /** Clique no vazio: quem cuida de fechar o que estava aberto e quem abriu. */
   readonly onClearSelection?: () => void;
 }
@@ -56,7 +58,7 @@ export interface SceneProps {
  * O escritorio. Este modulo nao conhece agente, CLI nem modelo: desenha o
  * estado do mundo derivado dos eventos, e so isso.
  */
-export function Scene({ cardFor, onClearSelection }: SceneProps) {
+export function Scene({ cardFor, tagFor, onClearSelection }: SceneProps) {
   const controls = useRef<ComponentRef<typeof OrbitControls> | null>(null);
 
   return (
@@ -81,7 +83,10 @@ export function Scene({ cardFor, onClearSelection }: SceneProps) {
       <Plants />
       <Lamps />
       <Lounge />
-      <AgentCharacters {...(cardFor === undefined ? {} : { cardFor })} />
+      <AgentCharacters
+        {...(cardFor === undefined ? {} : { cardFor })}
+        {...(tagFor === undefined ? {} : { tagFor })}
+      />
       <OverlayLayer />
 
       {/* Sombra de contato em vez de shadow map: mais barata e combina com o visual. */}

@@ -17,6 +17,8 @@ export interface CardRow {
 export interface AgentCard {
   readonly agentId: string;
   readonly displayName: string;
+  /** Area de conhecimento do papel, quando o roster declara uma. */
+  readonly area: string | null;
   /** Papel e ferramenta, na mesma linha: "Frontend - Claude Code". */
   readonly subtitle: string;
   readonly stateLabel: string;
@@ -49,6 +51,7 @@ export function buildAgentCard(
   return {
     agentId,
     displayName: agent.displayName,
+    area: role?.area ?? null,
     subtitle: `${role?.title ?? agent.role} · ${adapterLabel(agent.adapter)}`,
     stateLabel: STATE_LABEL[agent.state],
     rows: [

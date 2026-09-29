@@ -26,6 +26,8 @@ export interface ScriptedRun {
   readonly manager: AgentId;
   readonly frontend: AgentId;
   readonly backend: AgentId;
+  readonly juridico: AgentId;
+  readonly contabil: AgentId;
   readonly questionId: QuestionId;
   /** Ate o bloqueio. */
   readonly beforeBlock: readonly AnyEventDraft[];
@@ -37,11 +39,15 @@ export function buildScriptedRun(runId: RunId, projectPath: string, goal: string
   const manager = newAgentId('gerente');
   const frontend = newAgentId('frontend');
   const backend = newAgentId('backend');
+  const juridico = newAgentId('juridico');
+  const contabil = newAgentId('contabil');
 
   const contractId = newContractId();
   const apiTask = newTaskId();
   const uiTask = newTaskId();
   const joinTask = newTaskId();
+  const lgpdTask = newTaskId();
+  const custoTask = newTaskId();
   const questionId = newQuestionId();
 
   const gate = (kind: 'typecheck' | 'test' | 'build', command: string) => ({
@@ -55,6 +61,8 @@ export function buildScriptedRun(runId: RunId, projectPath: string, goal: string
   const apiGate = gate('test', 'pnpm test --filter api');
   const uiGate = gate('typecheck', 'pnpm typecheck');
   const joinGate = gate('build', 'pnpm build');
+  const lgpdGate = gate('typecheck', 'pnpm typecheck');
+  const custoGate = gate('typecheck', 'pnpm typecheck');
 
   const contract = {
     id: contractId,
@@ -116,6 +124,36 @@ export function buildScriptedRun(runId: RunId, projectPath: string, goal: string
         gate: joinGate,
         budget: { maxTurns: 30, maxDurationMs: 900_000, maxRepeats: 2 },
       },
+      // As duas areas que nao escrevem codigo: cada uma olha o login pronto e
+      // escreve o proprio parecer, em pastas separadas -- por isso correm juntas.
+      {
+        id: lgpdTask,
+        title: 'Parecer de LGPD do login',
+        description: 'Avaliar os dados pessoais que o login guarda e escrever o parecer.',
+        role: 'juridico',
+        dependsOn: [joinTask],
+        allowedPaths: ['docs/juridico'],
+        inputContracts: [],
+        doneWhen: 'O parecer diz que dados sao tratados, com que base legal e o que falta ajustar.',
+        modelTier: 'padrao',
+        modelReason: 'so escreve um documento, mas o texto precisa ser cuidadoso',
+        gate: lgpdGate,
+        budget: { maxTurns: 30, maxDurationMs: 900_000, maxRepeats: 2 },
+      },
+      {
+        id: custoTask,
+        title: 'Custo e preco do login',
+        description: 'Estimar o custo de fazer e manter o login, o retorno e um preco sugerido.',
+        role: 'contabil',
+        dependsOn: [joinTask],
+        allowedPaths: ['docs/contabil'],
+        inputContracts: [],
+        doneWhen: 'O documento mostra custo, retorno esperado e o preco sugerido.',
+        modelTier: 'economico',
+        modelReason: 'so escreve um documento e ninguem depende dele',
+        gate: custoGate,
+        budget: { maxTurns: 30, maxDurationMs: 900_000, maxRepeats: 2 },
+      },
     ],
   });
 
@@ -175,7 +213,7 @@ export function buildScriptedRun(runId: RunId, projectPath: string, goal: string
 
     spawn(backend, 'backend', 'Backend', 'claude', 'sonnet'),
     // Sem alias: este papel nao declara escada, entao roda no padrao da CLI.
-    spawn(frontend, 'frontend', 'Interface e 3D', 'mock'),
+    spawn(frontend, 'frontend', 'Interface', 'mock'),
 
     draft('task.assigned', {
       taskId: apiTask, title: 'Rota de login', role: 'backend',
@@ -263,13 +301,59 @@ export function buildScriptedRun(runId: RunId, projectPath: string, goal: string
     draft('gate.passed', { gateId: joinGate.id, taskId: joinTask, agentId: manager, kind: 'build', durationMs: 9800 }),
     usage(manager, 'claude-opus-4-6', 0.0912, { input: 8, output: 1_204, cacheWrite: 2_010, cacheRead: 33_770 }, joinTask),
     draft('task.completed', { taskId: joinTask, agentId: manager, summary: 'Entrar e sair funcionando', filesChanged: 1 }),
-    state(manager, 'working', 'done'),
+    state(manager, 'working', 'idle', 'Chamando o juridico e o contabil'),
+
+    spawn(juridico, 'juridico', 'Jurídico (LGPD)', 'claude', 'sonnet'),
+    spawn(contabil, 'contabil', 'Contábil (custos e ROI)', 'claude', 'haiku'),
+    draft('task.assigned', {
+      taskId: lgpdTask, title: 'Parecer de LGPD do login', role: 'juridico',
+      assignedBy: manager, assignedTo: juridico, dependsOn: [joinTask],
+    }),
+    draft('task.assigned', {
+      taskId: custoTask, title: 'Custo e preco do login', role: 'contabil',
+      assignedBy: manager, assignedTo: contabil, dependsOn: [joinTask],
+    }),
+    draft('task.started', { taskId: lgpdTask, agentId: juridico, title: 'Parecer de LGPD do login' }),
+    state(juridico, 'idle', 'working'),
+    draft('task.started', { taskId: custoTask, agentId: contabil, title: 'Custo e preco do login' }),
+    state(contabil, 'idle', 'working'),
+
+    draft('tool.call', { agentId: juridico, taskId: lgpdTask, callId: 'call_lgpd_1', tool: 'Read', target: 'src/api/sessao.ts', summary: 'Vendo que dados pessoais o login guarda' }),
+    draft('tool.result', { agentId: juridico, taskId: lgpdTask, callId: 'call_lgpd_1', tool: 'Read', ok: true, summary: 'Guarda e-mail e senha criptografada' }),
+    draft('agent.message', { from: juridico, to: manager, intent: 'inform', summary: 'E-mail e dado pessoal: o cadastro precisa de aviso de privacidade e de um jeito de excluir a conta.' }),
+    draft('tool.call', { agentId: contabil, taskId: custoTask, callId: 'call_custo_1', tool: 'Read', target: 'docs/contabil', summary: 'Somando o que a IA ja gastou nesta execucao' }),
+    draft('tool.result', { agentId: contabil, taskId: custoTask, callId: 'call_custo_1', tool: 'Read', ok: true, summary: 'US$ 0,42 ate aqui' }),
+    draft('agent.message', { from: contabil, to: manager, intent: 'inform', summary: 'Custo de IA de US$ 0,42 contra cerca de 6 horas de desenvolvedor: o retorno compensa com folga.' }),
+
+    draft('tool.call', { agentId: juridico, taskId: lgpdTask, callId: 'call_lgpd_2', tool: 'Write', target: 'docs/juridico/lgpd.md', summary: 'Escrevendo o parecer de LGPD' }),
+    draft('tool.result', { agentId: juridico, taskId: lgpdTask, callId: 'call_lgpd_2', tool: 'Write', ok: true, summary: 'Parecer escrito' }),
+    draft('file.changed', { agentId: juridico, taskId: lgpdTask, path: 'docs/juridico/lgpd.md', change: 'created', linesAdded: 48, linesRemoved: 0 }),
+    draft('tool.call', { agentId: contabil, taskId: custoTask, callId: 'call_custo_2', tool: 'Write', target: 'docs/contabil/custos.md', summary: 'Escrevendo custo, ROI e preco sugerido' }),
+    draft('tool.result', { agentId: contabil, taskId: custoTask, callId: 'call_custo_2', tool: 'Write', ok: true, summary: 'Custos escritos' }),
+    draft('file.changed', { agentId: contabil, taskId: custoTask, path: 'docs/contabil/custos.md', change: 'created', linesAdded: 36, linesRemoved: 0 }),
+
+    draft('gate.started', { gateId: lgpdGate.id, taskId: lgpdTask, agentId: juridico, kind: 'typecheck', command: lgpdGate.command }),
+    draft('gate.passed', { gateId: lgpdGate.id, taskId: lgpdTask, agentId: juridico, kind: 'typecheck', durationMs: 2900 }),
+    usage(juridico, 'claude-sonnet-4-5', 0.0512, { input: 5, output: 2_380, cacheWrite: 4_110, cacheRead: 19_402 }, lgpdTask),
+    draft('task.completed', { taskId: lgpdTask, agentId: juridico, summary: 'Parecer de LGPD pronto', filesChanged: 1 }),
+    state(juridico, 'working', 'done'),
+    draft('worktree.merged', { agentId: manager, taskId: lgpdTask, branch: 'hive/juridico', into: 'main', filesChanged: 1 }),
+
+    draft('gate.started', { gateId: custoGate.id, taskId: custoTask, agentId: contabil, kind: 'typecheck', command: custoGate.command }),
+    draft('gate.passed', { gateId: custoGate.id, taskId: custoTask, agentId: contabil, kind: 'typecheck', durationMs: 2700 }),
+    usage(contabil, 'claude-haiku-4-5', 0.0138, { input: 4, output: 1_920, cacheWrite: 3_050, cacheRead: 14_870 }, custoTask),
+    draft('task.completed', { taskId: custoTask, agentId: contabil, summary: 'Custo, ROI e preco prontos', filesChanged: 1 }),
+    state(contabil, 'working', 'done'),
+    draft('worktree.merged', { agentId: manager, taskId: custoTask, branch: 'hive/contabil', into: 'main', filesChanged: 1 }),
+    state(manager, 'idle', 'done'),
 
     draft('agent.despawned', { agentId: backend, reason: 'finished' }),
     draft('agent.despawned', { agentId: frontend, reason: 'finished' }),
+    draft('agent.despawned', { agentId: juridico, reason: 'finished' }),
+    draft('agent.despawned', { agentId: contabil, reason: 'finished' }),
     draft('agent.despawned', { agentId: manager, reason: 'finished' }),
-    draft('run.completed', { summary: 'Login pronto: tela, rota e sessao guardada.', durationMs: 187_000, tasksCompleted: 3 }),
+    draft('run.completed', { summary: 'Login pronto: tela, rota, parecer de LGPD e custo com preco sugerido.', durationMs: 241_000, tasksCompleted: 5 }),
   ];
 
-  return { plan, manager, frontend, backend, questionId, beforeBlock, afterAnswer };
+  return { plan, manager, frontend, backend, juridico, contabil, questionId, beforeBlock, afterAnswer };
 }

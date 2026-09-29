@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import type { AgentCard as Card } from '../state/agent-card';
+import { AreaBadge } from './AreaBadge';
 
 export interface AgentCardProps {
   readonly card: Card;
@@ -37,6 +38,11 @@ export function AgentCard({ card, color, onClose }: AgentCardProps) {
         </button>
       </div>
       <p className="truncate text-xs text-muted">{card.subtitle}</p>
+      {card.area !== null && (
+        <div className="mt-2">
+          <AreaBadge area={card.area} size="md" />
+        </div>
+      )}
 
       <dl className="mt-3 flex flex-col gap-2">
         {card.rows.map((row) => (

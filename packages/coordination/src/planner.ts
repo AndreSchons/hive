@@ -20,7 +20,13 @@ export interface PlanRequest {
 export type PlanResult =
   | { readonly status: 'planned'; readonly plan: Plan }
   /** O gerente nao conseguiu decompor sem saber mais. Vira pergunta ao humano. */
-  | { readonly status: 'needs_input'; readonly question: string; readonly context: string };
+  | {
+      readonly status: 'needs_input';
+      readonly question: string;
+      readonly context: string;
+      /** As opcoes que o proprio gerente ofereceu, quando ofereceu. */
+      readonly options?: readonly { readonly id: string; readonly label: string }[];
+    };
 
 /**
  * Decompoe a task numa arvore de subtasks com dependencias, portoes e

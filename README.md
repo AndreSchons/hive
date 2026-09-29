@@ -11,11 +11,10 @@ who got stuck, and what each one has cost you.
 ![The office during a run](./assets/demo.gif)
 
 > [!IMPORTANT]
-> **This runs on Linux today.** That is where it was built and the only place it
-> has been tested. The code is not hostile to other platforms — dependency
-> replication already falls back to a full install when hardlinking is
-> unavailable — but nobody has run it elsewhere. If you have a Mac or a Windows
-> box and twenty minutes, [open an issue telling us what happened](../../issues/new).
+> **This runs on Linux and Windows.** Linux is where it was built; Windows
+> passes the full test suite and opens the app (see the Windows note). macOS
+> has not been run yet — if you have a Mac and twenty minutes,
+> [open an issue telling us what happened](../../issues/new).
 > It is the single most useful contribution right now.
 
 ## What it is, and who it is for
@@ -73,7 +72,7 @@ yet. [That's an open issue](../../issues), and a good one.
 
 ## Requirements
 
-- **Linux** (see the note above)
+- **Linux** or **Windows** (see the notes below)
 - **Node.js 20+** and **pnpm**
 - **[Claude Code](https://claude.com/claude-code) CLI, installed and
   authenticated.** The orchestrator runs it as a child process — there is no
@@ -117,6 +116,20 @@ sudo chmod 4755 node_modules/.pnpm/electron@*/node_modules/electron/dist/chrome-
 Without it the app aborts at startup. `pnpm app:nosandbox` works around it for
 development — it disables the Chromium sandbox, so it is for your own machine,
 not the default path.
+
+### Windows note
+
+- **pnpm has to be on `PATH`** — turbo looks for the binary itself, so
+  `corepack pnpm` alone is not enough: `npm i -g pnpm` (or `corepack enable`
+  from an admin shell).
+- **Git for Windows** is required, as it already is for Claude Code. Gates and
+  dependency installs run in its `bash.exe` (or `CLAUDE_CODE_GIT_BASH_PATH`),
+  so a gate command means the same thing on every platform.
+- **Each agent copy installs its dependencies from scratch.** The hardlink
+  replication is off on Windows: pnpm links workspace packages with absolute
+  junctions there, which would make the gate read the *old* neighbor package.
+  Slower, never wrong.
+- The database lives in `%APPDATA%hivehive.sqlite`.
 
 ## Security — read this before pointing it at real work
 
@@ -180,10 +193,9 @@ the planning prompt costs ten plans instead of ten real executions.
 
 Stated plainly, because it is where the work is:
 
-- **Other platforms.** macOS is probably close — BSD `cp` accepts `-a` and `-l`,
-  so hardlink replication may already work — but nobody has run it. Windows
-  needs a real process-group kill (`taskkill /T` or a job object) so a timed-out
-  gate does not leave compilers running.
+- **macOS.** Probably close — BSD `cp` accepts `-a` and `-l`, so hardlink
+  replication may already work — but nobody has run it.
+- **Fast dependency replication on Windows.** Every copy pays a full install.
 - **Real pathfinding in the 3D world.** Paths are still a two-leg L. New
   furniture in the middle of the room needs a hand-written route.
 - **Automatic replanning** after a failed subtask. `Planner.revise` exists and

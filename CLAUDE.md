@@ -203,6 +203,13 @@ recusar -- ja aconteceu uma vez: "melhorar a tela inicial" virou uma reforma
 inteira inventada. Por isso as tasks de desfecho binario declaram
 `expectStatus`, e o harness sai com codigo diferente de zero quando uma regride.
 
+Quando ele pergunta, a execucao **espera a resposta** e planeja de novo com ela
+colada no pedido (`planAndRun`). Fechar logo depois de perguntar tirava a
+pergunta da tela antes de alguem ler. A sessao do gerente e cancelada ao
+perguntar, entao a pergunta dele nao vai para o hub: quem pergunta e o
+supervisor, com o mesmo texto e as mesmas opcoes, mais "cancelar". Duas rodadas
+e para (`MAX_PLAN_QUESTIONS`).
+
 ### O harness
 
 `tools/planner-lab` roda **so** o gerente sobre dez tasks de exemplo, sem
@@ -553,6 +560,15 @@ que vale, esta medido em `tools/planner-lab/BASELINE.md`:
 `dev.simulate` deixou de ser o unico jeito de ver gerente e contrato -- agora o
 modo planejado faz isso com CLI de verdade. O roteiro do simulador continua util
 para ver o fluxo inteiro sem gastar chamada de modelo.
+
+## Nota de ambiente (Windows)
+
+Portao e instalacao rodam no `bash.exe` do Git for Windows (`coordination/src/shell.ts`),
+nao no `cmd.exe`: o gerente escreve portao em sintaxe sh, e o Claude Code no Windows
+ja exige o Git Bash. O timeout mata a arvore com `taskkill /T`. A CLI instalada por
+npm e um shim `.cmd` que `spawn` sem shell nao abre; `claude/executable.ts` segue o
+shim ate o `.exe`. A replica por hardlink fica desligada (junction absoluta do pnpm
+apontaria para o vizinho antigo), entao cada copia instala do zero.
 
 ## Nota de ambiente (Linux)
 

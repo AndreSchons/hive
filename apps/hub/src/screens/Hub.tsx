@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useMemo } from 'react';
 import { AgentCard } from '../components/AgentCard';
 import { AgentList } from '../components/AgentList';
+import { areaStyle } from '../components/AreaBadge';
 import { EventFeed } from '../components/EventFeed';
 import { HumanQuestion } from '../components/HumanQuestion';
 import { PlanReview } from '../components/PlanReview';
 import { TaskInput } from '../components/TaskInput';
 import { TaskQueue } from '../components/TaskQueue';
+import { TeamPanel } from '../components/TeamPanel';
 import { buildAgentCard } from '../state/agent-card';
 import { adapterLabel } from '../state/describe';
 import { agentColor } from '../world/office/palette';
@@ -56,6 +58,31 @@ export function Hub() {
     },
     [world, roles, select],
   );
+
+  /**
+   * A area sobre a cabeca de cada personagem, sempre visivel: e o que deixa ver
+   * de relance que profissao esta fazendo o que. Montada aqui pelo mesmo motivo
+   * da ficha -- o escritorio nao sabe o que e um papel.
+   */
+  const tagFor = useCallback(
+    (agentId: string) => {
+      const agent = world.agents[agentId];
+      const area = roles.find((role) => String(role.id) === agent?.role)?.area;
+      if (agent === undefined || area === undefined) return null;
+      const { icon, color } = areaStyle(area);
+      return (
+        <div
+          className="rounded-full border px-2 py-0.5 text-[11px] font-medium whitespace-nowrap shadow-md shadow-black/30"
+          style={{ color, borderColor: color, backgroundColor: '#121926e6' }}
+        >
+          {icon} {area}
+        </div>
+      );
+    },
+    [world.agents, roles],
+  );
+
+  const activeRoles = useMemo(() => new Set(agents.map((agent) => agent.role)), [agents]);
 
   // Esc fecha a ficha, como fecha qualquer coisa aberta.
   useEffect(() => {
@@ -120,11 +147,19 @@ export function Hub() {
 
         <div className="border-b border-edge">
           <h2 className="px-4 pt-3 text-xs font-medium tracking-wide text-muted uppercase">
+            Equipe por area
+          </h2>
+          <TeamPanel roles={roles} activeRoles={activeRoles} />
+        </div>
+
+        <div className="border-b border-edge">
+          <h2 className="px-4 pt-3 text-xs font-medium tracking-wide text-muted uppercase">
             No escritorio
           </h2>
           <AgentList
             agents={agents}
             tasks={world.tasks}
+            roles={roles}
             selected={selected}
             onSelect={(agentId) => select(agentId === selected ? null : agentId)}
           />
@@ -150,7 +185,7 @@ export function Hub() {
           )}
         </div>
 
-        <Scene cardFor={cardFor} onClearSelection={() => select(null)} />
+        <Scene cardFor={cardFor} tagFor={tagFor} onClearSelection={() => select(null)} />
 
         {failure && (
           <div className="absolute inset-x-5 bottom-5 z-10 rounded-lg border border-bad/40 bg-panel px-4 py-3">

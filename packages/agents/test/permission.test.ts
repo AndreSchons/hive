@@ -35,7 +35,8 @@ describe('isInside', () => {
 
   it('segue o link simbolico ate onde ele aponta de verdade', () => {
     const link = join(root, 'atalho');
-    symlinkSync(fora, link);
+    // `junction` porque symlink de verdade pede admin no Windows; fora dele e ignorado.
+    symlinkSync(fora, link, 'junction');
     // O caminho parece estar dentro, mas o arquivo esta fora.
     expect(isInside(root, join(link, 'segredo.txt'))).toBe(false);
   });

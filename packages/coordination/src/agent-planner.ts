@@ -162,14 +162,28 @@ export class AgentPlanner implements Planner {
      * Tratar as duas igual jogava o texto cru da ferramenta ("Rodando: which
      * codex ...") na tela como se fosse duvida de produto.
      */
-    let asked: { question: string; context: string } | null = null;
+    let asked: {
+      question: string;
+      context: string;
+      options: readonly { id: string; label: string }[];
+    } | null = null;
 
     for await (const event of run) {
-      emit?.(event);
+      const managerAsked =
+        event.type === 'human.question_raised' && event.payload.cause === 'agent_asked';
+      // A pergunta do gerente nao vai para a tela daqui: ela morre junto com
+      // esta sessao, que e cancelada logo abaixo, e ficaria na fila do hub sem
+      // ninguem para responder. Quem pergunta de verdade e o supervisor, com o
+      // mesmo texto e as mesmas opcoes.
+      if (!managerAsked) emit?.(event);
       if (event.type !== 'human.question_raised' || asked !== null) continue;
 
-      if (event.payload.cause === 'agent_asked') {
-        asked = { question: event.payload.question, context: event.payload.context };
+      if (managerAsked) {
+        asked = {
+          question: event.payload.question,
+          context: event.payload.context,
+          options: event.payload.options.map(({ id, label }) => ({ id, label })),
+        };
         run.cancel('O gerente perguntou antes de dividir o trabalho.');
       } else {
         run.answer('Para planejar, leia os arquivos em vez de rodar comandos.', 'deny');
