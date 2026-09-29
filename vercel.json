@@ -2,6 +2,6 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": null,
   "installCommand": "echo 'site estatico: nada para instalar'",
-  "buildCommand": "echo 'site estatico: nada para compilar'",
-  "outputDirectory": "site"
+  "buildCommand": "D=$([ -d site ] && echo site || echo .); rm -rf public && mkdir public && find \"$D\" -maxdepth 1 -type f -exec cp {} public/ \\; && ls public",
+  "outputDirectory": "public"
 }

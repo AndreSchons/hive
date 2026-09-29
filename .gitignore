@@ -18,3 +18,6 @@ graphify-out/
 # instalador (pnpm dist)
 apps/shell/app/
 apps/shell/release/
+
+# saida do build da vercel
+public/
