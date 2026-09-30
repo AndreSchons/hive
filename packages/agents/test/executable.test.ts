@@ -1,12 +1,30 @@
-import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { chmodSync, mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { resolveCommand, windowsSearchPath } from '../src/claude/executable';
+import { resolveCommand, unixSearchPath, windowsSearchPath } from '../src/claude/executable';
 
 describe('resolveCommand', () => {
-  it('fora do Windows usa o nome como veio', () => {
-    expect(resolveCommand('claude', 'linux')).toEqual({ file: 'claude', args: [] });
+  it('fora do Windows, sem achar, usa o nome como veio', () => {
+    const empty = mkdtempSync(join(tmpdir(), 'hive-empty-'));
+    expect(resolveCommand('claude', 'linux', empty)).toEqual({ file: 'claude', args: [] });
+  });
+
+  it('no Linux acha o instalador nativo fora do PATH', () => {
+    const home = mkdtempSync(join(tmpdir(), 'hive-home-'));
+    mkdirSync(join(home, '.local', 'bin'), { recursive: true });
+    const exe = join(home, '.local', 'bin', 'claude');
+    writeFileSync(exe, '');
+    chmodSync(exe, 0o755);
+    const searchPath = unixSearchPath({ PATH: '', HOME: home });
+    expect(resolveCommand('claude', 'linux', searchPath)).toEqual({ file: exe, args: [] });
+  });
+
+  it('no Linux ignora arquivo sem permissao de execucao', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'hive-noexec-'));
+    writeFileSync(join(dir, 'claude'), '');
+    chmodSync(join(dir, 'claude'), 0o644);
+    expect(resolveCommand('claude', 'linux', dir)).toEqual({ file: 'claude', args: [] });
   });
 
   it('segue o shim .cmd do npm ate o executavel de verdade', () => {

@@ -54,7 +54,10 @@ writeFileSync(
       productName: own.productName,
       version: own.version,
       description: 'Escritorio de agentes de IA que trabalham no seu projeto.',
-      author: 'Andre Schons',
+      author: { name: 'Andre Schons', email: 'andreferens86@gmail.com' },
+      homepage: 'https://github.com/AndreSchons/hive',
+      // No Linux, e isso que liga a janela aberta ao atalho do menu (WM_CLASS).
+      desktopName: 'hive.desktop',
       main: 'shell/dist/main/main.js',
       dependencies: { 'better-sqlite3': sqliteVersion },
     },

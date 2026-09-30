@@ -606,3 +606,31 @@ de novo se nao houver autorizacao, para nenhum caminho depender so da tela.
 O icone (`apps/shell/build/icon.png`, 512px) e a sala do `assets/demo.gif`
 recortada. Sem assinatura de codigo o Windows mostra
 o aviso do SmartScreen ate haver um certificado.
+
+## Instalador (Linux)
+
+`pnpm dist` rodado no Linux gera `apps/shell/release/Hive.AppImage` e
+`Hive.deb` (x64), sem versao no nome pelo mesmo motivo do `.exe`: o link
+`releases/latest/download/...` da pagina nunca muda. O `.deb` e o botao
+principal para quem visita do Linux (Ubuntu, Debian, Mint); o AppImage fica para
+as outras distros.
+
+- **`hive` e um lancador, o Electron e `hive-bin`** (`scripts/after-pack.cjs`).
+  O Electron 44 abre nativo no Wayland e cai com SIGSEGV logo depois do GTK
+  (Ubuntu 24.04, GPU Intel, mesmo com `--disable-gpu`); com
+  `--ozone-platform=x11` abre normal e **com o sandbox ligado**. A plataforma e
+  escolhida antes de o main rodar -- `app.commandLine.appendSwitch` chega tarde,
+  foi testado --, entao a flag precisa estar na linha de comando.
+- **O perfil do AppArmor do `.deb` aponta para `hive-bin`**
+  (`build/apparmor-profile`), nao para o lancador: e o binario que cria o
+  namespace do sandbox. O padrao do electron-builder apontaria para o script e o
+  sandbox cairia no Ubuntu 24+.
+- **AppImage com runtime estatico** (`toolsets.appimage`): o runtime antigo
+  pede `libfuse2`, que o Ubuntu 22.04+ nao traz. O `AppRun` do electron-builder
+  so desliga o sandbox quando `unshare -Ur` falha.
+- `resolveCommand` procura o `claude` tambem fora do PATH no Linux
+  (`~/.local/bin` e afins): aberto pelo menu de aplicativos, o app herda o PATH
+  da sessao grafica, que nao passa pelo `.bashrc`.
+
+O `pnpm dev`/`pnpm app` nao passam pelo lancador; numa sessao Wayland onde o
+Electron cai, rode com `--ozone-platform=x11`.

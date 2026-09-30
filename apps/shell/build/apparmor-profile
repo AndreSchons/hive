@@ -1,0 +1,10 @@
+abi <abi/4.0>,
+include <tunables/global>
+
+# O mesmo perfil que o electron-builder gera, apontando para o binario do
+# Electron e nao para o lancador (ver scripts/after-pack.cjs).
+profile "hive" "/opt/Hive/hive-bin" flags=(unconfined) {
+  userns,
+
+  include if exists <local/hive>
+}
