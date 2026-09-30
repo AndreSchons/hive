@@ -111,6 +111,10 @@ em.accent { font: italic 400 1.12em/1 var(--serif); letter-spacing: 0; color: va
 .fineprint { margin-top: 1.1rem; font-size: .85rem; color: var(--muted); display: flex; flex-wrap: wrap; gap: .4rem 1.2rem; }
 .fineprint span::before { content: "◆"; color: var(--mint); font-size: .6em; margin-right: .5rem; vertical-align: .2em; }
 .os-note { margin-top: .9rem; font-size: .9rem; color: var(--amber); }
+.alt-dl { margin: .9rem 0 0; font-size: .88rem; color: var(--muted); }
+.alt-dl a { color: var(--text); text-decoration-color: var(--mint); text-underline-offset: 3px; }
+.alt-dl a:hover { color: var(--mint); }
+.alt-dl small { font-size: .8rem; opacity: .75; }
 .scroll-cue { position: absolute; bottom: 1.5rem; left: 50%; transform: translateX(-50%); font: 500 .7rem var(--mono); letter-spacing: .2em; color: var(--muted); text-transform: uppercase; display: grid; justify-items: center; gap: .5rem; }
 .scroll-cue i { width: 1px; height: 40px; background: linear-gradient(var(--mint), transparent); animation: drip 2s ease-in-out infinite; transform-origin: top; }
 @media (max-width: 900px) { .hero { padding-bottom: 72vw; } .scroll-cue { display: none; } }
@@ -256,9 +260,23 @@ section { position: relative; }
 .tl h3 { font: 600 1.35rem/1.2 var(--display); margin: .4rem 0 .6rem; }
 .tl p { margin: 0; color: var(--muted); }
 .tl .n { font: 500 .8rem var(--mono); color: var(--mint); letter-spacing: .12em; }
-.tl kbd { font: 600 .9em var(--body); color: var(--text); background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.18); border-bottom-width: 2px; border-radius: 6px; padding: .05rem .45rem; }
+.tl kbd, .aside-note kbd { font: 600 .9em var(--body); color: var(--text); background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.18); border-bottom-width: 2px; border-radius: 6px; padding: .05rem .45rem; }
 @media (max-width: 800px) { .needs, .tl { grid-template-columns: 1fr; } }
-/* mocks dos avisos do navegador e do Windows: ilustrações, não imagens oficiais */
+.install code { font: 500 .85em var(--mono); color: var(--text); background: rgba(255,255,255,.07); border-radius: 5px; padding: .1rem .4rem; white-space: nowrap; }
+/* abas Windows | Linux: sem JS as duas instruções aparecem, uma depois da outra */
+.os-tabs { display: none; gap: .4rem; margin: 0 0 2rem; padding: .3rem; border: 1px solid var(--line); border-radius: 999px; width: fit-content; }
+.js .os-tabs { display: flex; }
+.os-tabs button { font: 600 .95rem var(--body); color: var(--muted); background: none; border: 0; border-radius: 999px; padding: .55rem 1.3rem; cursor: pointer; }
+.os-tabs button[aria-selected="true"] { background: var(--mint); color: #03140d; }
+.os-tabs button:focus-visible { outline: 2px solid var(--mint); outline-offset: 2px; }
+.os-panel + .os-panel { margin-top: 4rem; }
+.js .os-panel + .os-panel { margin-top: 0; }
+.os-title { font: 600 1.2rem var(--display); margin: 0 0 1.2rem; }
+.js .os-title { display: none; }
+.aside-note { margin: 1rem 0 0; padding: 1.3rem 1.5rem; border: 1px dashed rgba(160,200,255,.22); border-radius: var(--radius); color: var(--muted); font-size: .95rem; }
+.aside-note b { color: var(--text); }
+.aside-note a { color: var(--mint); }
+/* mocks dos avisos do navegador, do Windows e do Linux: ilustrações, não imagens oficiais */
 .mock { border-radius: 10px; overflow: hidden; font-family: "Segoe UI", system-ui, sans-serif; box-shadow: 0 30px 60px -30px rgba(0,0,0,.9); }
 .mock-chrome { background: #292a2d; border: 1px solid #3c4043; padding: 1rem 1.1rem; color: #e8eaed; font-size: .88rem; display: grid; grid-template-columns: auto 1fr; gap: .4rem .9rem; }
 .mock-chrome .ic { grid-row: span 2; width: 34px; height: 34px; border-radius: 6px; background: #3c4043; display: grid; place-items: center; font-weight: 700; color: #fdd663; }
@@ -271,6 +289,16 @@ section { position: relative; }
 .mock-ss u { display: inline-block; margin-top: .6rem; }
 .mock-ss .acts { display: flex; justify-content: flex-end; gap: .5rem; margin-top: 1.2rem; }
 .mock-ss .acts span { padding: .35rem 1rem; border: 1px solid rgba(255,255,255,.7); font-size: .8rem; }
+.mock-dl { background: #292a2d; border: 1px solid #3c4043; padding: 1rem 1.1rem; color: #e8eaed; font-size: .88rem; display: flex; align-items: center; gap: .9rem; }
+.mock-dl .ic { width: 34px; height: 40px; border-radius: 4px; background: #3c4043; display: grid; place-items: center; font: 700 .6rem var(--mono); color: #9aa0a6; }
+.mock-dl small { display: block; color: #9aa0a6; font-size: .78rem; }
+.mock-dl .hl { margin-left: auto; padding: .3rem .8rem; border-radius: 4px; border: 1px solid #5f6368; font-size: .8rem; outline: 2px solid var(--mint); outline-offset: 3px; animation: ring 1.8s ease-in-out infinite; }
+.mock-store { background: #242424; border: 1px solid #3a3a3a; padding: 1.3rem; color: #f2f2f2; font-family: Ubuntu, Cantarell, system-ui, sans-serif; font-size: .88rem; display: grid; grid-template-columns: auto 1fr; gap: .3rem 1rem; align-items: center; }
+.mock-store img { grid-row: span 2; border-radius: 12px; }
+.mock-store b { font-size: 1.1rem; font-weight: 500; }
+.mock-store small { color: #aaa; }
+.mock-store .acts { grid-column: 1 / -1; display: flex; justify-content: flex-end; margin-top: .9rem; }
+.mock-store .hl { padding: .4rem 1.2rem; border-radius: 6px; background: #3584e4; color: #fff; font-weight: 600; outline: 2px solid var(--mint); outline-offset: 3px; animation: ring 1.8s ease-in-out infinite; }
 .mock-hive { background: #0b0f17; border: 1px solid #22304a; padding: 1.3rem; color: #e6ebf2; font-size: .9rem; }
 .mock-hive b { display: block; font: 600 1rem var(--display); margin-bottom: .4rem; }
 .mock-hive p { color: #9aa6b8 !important; font-size: .85rem; margin-bottom: .9rem !important; }
@@ -329,14 +357,19 @@ footer a { color: var(--text); }
       <h1 id="titulo">Descreva. Aprove. <em class="accent">Assista</em> sua equipe de IA trabalhar.</h1>
       <p class="lede">O Hive transforma o <strong>Claude Code</strong> que já está no seu computador numa <strong>equipe inteira</strong>: um gerente que planeja, especialistas que trabalham ao mesmo tempo, e um escritório 3D onde você vê quem está fazendo o quê. Quando alguém trava, <strong>ele para e pergunta em linguagem simples</strong>.</p>
       <div class="cta-row">
-        <a class="btn btn-primary magnetic download" href="https://github.com/AndreSchons/hive/releases/latest/download/Hive-Setup.exe">
+        <a class="btn btn-primary magnetic" href="https://github.com/AndreSchons/hive/releases/latest/download/Hive-Setup.exe">
           <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3 5.5 10.5 4.4v7.1H3zm0 13 7.5 1.1v-7H3zm8.4 1.2L21 21v-8.5h-9.6zm0-15.4v7.2H21V3z"/></svg>
           Baixar para Windows
         </a>
+        <a class="btn btn-primary magnetic" href="https://github.com/AndreSchons/hive/releases/latest/download/Hive.deb">
+          <svg viewBox="0 0 24 24" fill="currentColor" fill-rule="evenodd" aria-hidden="true"><path d="M12 2c-2.2 0-3.6 1.8-3.6 4.2 0 1.3.3 2.2-.5 3.6C6.6 12 5 14.3 5 17c0 1.2.4 2.3 1 3.1l-1.5 1.4c-.3.4 0 1 .5 1h4c.9 0 1.6-.4 2-1h2c.4.6 1.1 1 2 1h4c.5 0 .8-.6.5-1L18 20.1c.6-.8 1-1.9 1-3.1 0-2.7-1.6-5-2.9-7.2-.8-1.4-.5-2.3-.5-3.6C15.6 3.8 14.2 2 12 2zm0 9c-1.9 0-3.3 2.4-3.3 5.2s1.4 4.3 3.3 4.3 3.3-1.5 3.3-4.3S13.9 11 12 11zM10.6 5.2a.8.8 0 1 0 0 1.6.8.8 0 0 0 0-1.6zm2.8 0a.8.8 0 1 0 0 1.6.8.8 0 0 0 0-1.6z"/></svg>
+          Baixar para Linux
+        </a>
         <a class="btn btn-ghost" href="#como-funciona">Ver como funciona</a>
       </div>
-      <div class="fineprint"><span>Grátis</span><span>Windows 10 e 11</span><span>Usa o Claude Code que você já tem</span></div>
-      <p class="os-note" id="os-note" hidden>Por enquanto o instalador é só para Windows. No Mac e no Linux, dá para rodar a partir do <a href="https://github.com/AndreSchons/hive">código no GitHub</a>.</p>
+      <p class="alt-dl">No Linux, o instalador serve para Ubuntu, Debian e Mint. Outra distribuição? Baixe o <a href="https://github.com/AndreSchons/hive/releases/latest/download/Hive.AppImage">AppImage</a>.</p>
+      <div class="fineprint"><span>Grátis</span><span>Windows 10 e 11 · Linux</span><span>Usa o Claude Code que você já tem</span></div>
+      <p class="os-note" id="os-note" hidden>Por enquanto há instalador para Windows e Linux. No Mac, dá para rodar a partir do <a href="https://github.com/AndreSchons/hive">código no GitHub</a>.</p>
     </div>
     <div class="scroll-cue" aria-hidden="true">role<i></i></div>
   </section>
@@ -460,9 +493,16 @@ footer a { color: var(--text); }
       <div class="section-head reveal">
         <span class="eyebrow">Instalar</span>
         <h2 id="instalar-titulo">Pronto em <em class="accent">três</em> cliques.</h2>
-        <p>O Windows vai mostrar dois avisos porque o Hive ainda é novo e não tem assinatura digital. Eles são esperados, e é assim que você passa por eles.</p>
+        <p>O Hive ainda é novo e não tem assinatura digital, então o sistema pode mostrar avisos no caminho. Eles são esperados, e é assim que você passa por eles.</p>
       </div>
 
+      <div class="os-tabs reveal" role="tablist" aria-label="Sistema operacional">
+        <button type="button" role="tab" id="tab-win" aria-controls="inst-win" aria-selected="true">Windows</button>
+        <button type="button" role="tab" id="tab-linux" aria-controls="inst-linux" aria-selected="false" tabindex="-1">Linux</button>
+      </div>
+
+      <div class="os-panel" id="inst-win" role="tabpanel" aria-labelledby="tab-win">
+      <h3 class="os-title">No Windows</h3>
       <div class="needs reveal">
         <div class="need"><span class="num">1</span><div><b>Claude Code, com login feito</b><p>É a IA que o Hive coordena. <a href="https://docs.claude.com/en/docs/claude-code/setup">Como instalar</a>. Depois abra uma vez e entre com sua conta.</p></div></div>
         <div class="need"><span class="num">2</span><div><b>Git para Windows</b><p>Para cada agente ter sua própria cópia do projeto. <a href="https://git-scm.com/downloads">Baixar o Git</a>.</p></div></div>
@@ -476,6 +516,25 @@ footer a { color: var(--text); }
         <li class="tl reveal"><div><span class="n">PASSO 3 · NO HIVE</span><h3>Autorize, escolha a pasta, peça</h3><p>O Hive encontra o Claude Code sozinho e pergunta se pode usá-lo. Você autoriza uma vez, escolhe a pasta do projeto e descreve o que quer.</p></div>
           <div class="mock mock-hive" aria-hidden="true"><b>Encontrei o Claude Code neste computador.</b><p>O Hive vai usá-lo para trabalhar nos projetos que você escolher, e sempre mostra o plano para você aprovar.</p><span>Permitir que o Hive use o Claude Code</span></div></li>
       </ol>
+      </div>
+
+      <div class="os-panel" id="inst-linux" role="tabpanel" aria-labelledby="tab-linux">
+      <h3 class="os-title">No Linux</h3>
+      <div class="needs reveal">
+        <div class="need"><span class="num">1</span><div><b>Claude Code, com login feito</b><p>É a IA que o Hive coordena. <a href="https://docs.claude.com/en/docs/claude-code/setup">Como instalar</a>. Depois abra uma vez e entre com sua conta.</p></div></div>
+        <div class="need"><span class="num">2</span><div><b>Git</b><p>Quase sempre já vem instalado. Se o Hive disser que falta, abra o Terminal e digite <code>sudo apt install git</code>.</p></div></div>
+      </div>
+
+      <ol class="timeline">
+        <li class="tl reveal"><div><span class="n">PASSO 1 · NO NAVEGADOR</span><h3>Baixe o <kbd>Hive.deb</kbd></h3><p>Serve para Ubuntu, Debian, Linux Mint e Pop!_OS. Usa outra distribuição? Veja o AppImage logo abaixo.</p></div>
+          <div class="mock mock-dl" aria-hidden="true"><span class="ic">DEB</span><span>Hive.deb<small>Download concluído</small></span><span class="hl">Abrir</span></div></li>
+        <li class="tl reveal"><div><span class="n">PASSO 2 · AO ABRIR</span><h3>Dois cliques e <kbd>Instalar</kbd></h3><p>A loja de aplicativos do sistema abre e pede a sua senha, porque o Hive é instalado para o computador todo. Se o arquivo abrir em outro programa, instale pelo Terminal: <code>sudo apt install ./Hive.deb</code> (na pasta Downloads).</p></div>
+          <div class="mock mock-store" aria-hidden="true"><img src="icon.png" alt="" width="52" height="52"><b>Hive</b><small>Escritório de agentes de IA que trabalham no seu projeto.</small><div class="acts"><span class="hl">Instalar</span></div></div></li>
+        <li class="tl reveal"><div><span class="n">PASSO 3 · NO HIVE</span><h3>Abra, autorize, peça</h3><p>Procure “Hive” nos seus aplicativos. Ele encontra o Claude Code sozinho e pergunta se pode usá-lo. Você autoriza uma vez, escolhe a pasta do projeto e descreve o que quer.</p></div>
+          <div class="mock mock-hive" aria-hidden="true"><b>Encontrei o Claude Code neste computador.</b><p>O Hive vai usá-lo para trabalhar nos projetos que você escolher, e sempre mostra o plano para você aprovar.</p><span>Permitir que o Hive use o Claude Code</span></div></li>
+      </ol>
+      <p class="aside-note reveal"><b>Outra distribuição (Fedora, Arch, openSUSE…)?</b> Baixe o <a href="https://github.com/AndreSchons/hive/releases/latest/download/Hive.AppImage">Hive.AppImage</a>, que roda sem instalar. Clique nele com o botão direito, abra <kbd>Propriedades</kbd>, ligue <kbd>Executável como programa</kbd> e abra com dois cliques.</p>
+      </div>
     </div>
   </section>
 
@@ -484,9 +543,13 @@ footer a { color: var(--text); }
     <div class="wrap">
       <h2 id="final-titulo" class="reveal">Sua equipe está <em class="accent">esperando</em>.</h2>
       <div class="cta-row reveal" style="justify-content:center">
-        <a class="btn btn-primary magnetic download" href="https://github.com/AndreSchons/hive/releases/latest/download/Hive-Setup.exe">
+        <a class="btn btn-primary magnetic" href="https://github.com/AndreSchons/hive/releases/latest/download/Hive-Setup.exe">
           <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3 5.5 10.5 4.4v7.1H3zm0 13 7.5 1.1v-7H3zm8.4 1.2L21 21v-8.5h-9.6zm0-15.4v7.2H21V3z"/></svg>
-          Baixar o Hive para Windows
+          Baixar para Windows
+        </a>
+        <a class="btn btn-primary magnetic" href="https://github.com/AndreSchons/hive/releases/latest/download/Hive.deb">
+          <svg viewBox="0 0 24 24" fill="currentColor" fill-rule="evenodd" aria-hidden="true"><path d="M12 2c-2.2 0-3.6 1.8-3.6 4.2 0 1.3.3 2.2-.5 3.6C6.6 12 5 14.3 5 17c0 1.2.4 2.3 1 3.1l-1.5 1.4c-.3.4 0 1 .5 1h4c.9 0 1.6-.4 2-1h2c.4.6 1.1 1 2 1h4c.5 0 .8-.6.5-1L18 20.1c.6-.8 1-1.9 1-3.1 0-2.7-1.6-5-2.9-7.2-.8-1.4-.5-2.3-.5-3.6C15.6 3.8 14.2 2 12 2zm0 9c-1.9 0-3.3 2.4-3.3 5.2s1.4 4.3 3.3 4.3 3.3-1.5 3.3-4.3S13.9 11 12 11zM10.6 5.2a.8.8 0 1 0 0 1.6.8.8 0 0 0 0-1.6zm2.8 0a.8.8 0 1 0 0 1.6.8.8 0 0 0 0-1.6z"/></svg>
+          Baixar para Linux
         </a>
         <a class="btn btn-ghost" href="https://github.com/AndreSchons/hive">Ver o código</a>
       </div>
@@ -506,9 +569,29 @@ footer a { color: var(--text); }
   document.documentElement.classList.add('js');
   const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-  /* ---- Windows ou não: o botão só serve para Windows ---- */
+  /* ---- o "Baixar" do topo leva ao instalador do sistema de quem visita ---- */
   const ua = navigator.userAgent;
-  if (!/Windows/i.test(ua)) document.getElementById('os-note').hidden = false;
+  const linux = /Linux|X11; CrOS/i.test(ua) && !/Android/i.test(ua);
+  if (linux) document.querySelector('a.download').href = 'https://github.com/AndreSchons/hive/releases/latest/download/Hive.deb';
+  else if (!/Windows/i.test(ua)) document.getElementById('os-note').hidden = false;
+
+  /* ---- abas de instalação: começam no sistema de quem visita ---- */
+  const tabs = [...document.querySelectorAll('.os-tabs [role="tab"]')];
+  const pick = (tab) => tabs.forEach((t) => {
+    const on = t === tab;
+    t.setAttribute('aria-selected', String(on));
+    t.tabIndex = on ? 0 : -1;
+    document.getElementById(t.getAttribute('aria-controls')).hidden = !on;
+  });
+  tabs.forEach((t, i) => {
+    t.addEventListener('click', () => pick(t));
+    t.addEventListener('keydown', (e) => {
+      if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
+      const next = tabs[(i + (e.key === 'ArrowRight' ? 1 : tabs.length - 1)) % tabs.length];
+      pick(next); next.focus();
+    });
+  });
+  pick(document.getElementById(linux ? 'tab-linux' : 'tab-win'));
 
   /* ---- título: palavra por palavra ---- */
   const h1 = document.getElementById('titulo');
