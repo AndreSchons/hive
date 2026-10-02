@@ -1,12 +1,13 @@
 /**
  * Paleta da direcao visual: ilustracao de escritorio em tres dimensoes.
- * Paredes roxas, madeira quente, acentos chapados. Tudo que a cena
+ * Paredes off-white, madeira quente, acentos chapados. Tudo que a cena
  * pinta sai daqui.
  */
 
 // Paredes do diorama: a oeste um tom mais claro para dar profundidade.
-export const WALL_NORTH = '#5B3AC4';
-export const WALL_WEST = '#7C4DFF';
+// Off-white frio/acinzentado para nao se confundir com o fundo creme.
+export const WALL_NORTH = '#D8DADD';
+export const WALL_WEST = '#EEF0F2';
 
 // Madeira dos moveis e o rodape escuro.
 export const WOOD = '#B5743C';
@@ -15,8 +16,11 @@ export const WOOD_DARK = '#8B5A2B';
 // Piso de madeira clara em duas faixas de tom (tabuas), tapete do lounge.
 export const FLOOR_A = '#D9A968';
 export const FLOOR_B = '#CF9E5F';
-export const RUG = '#9E4A42';
-export const RUG_DARK = '#8A3F38';
+
+// Tapete do lounge nas cores da bandeira do Brasil.
+export const RUG_GREEN = '#009C3B';
+export const RUG_YELLOW = '#FFDF00';
+export const RUG_BLUE = '#002776';
 export const LAMP_DARK = '#3E3633';
 
 // Acentos chapados.
@@ -44,7 +48,7 @@ export const DARK = '#241F1C';
  * Cor de cada agente. O indice vem do hash do agentId: a mesma execucao
  * sempre pinta os mesmos personagens iguais, em qualquer maquina.
  *
- * Todas contrastam com o verde-azulado das paredes de proposito: identificar
+ * Todas contrastam com as paredes off-white de proposito: identificar
  * quem e quem a distancia e funcao do produto.
  */
 export const AGENT_COLORS = [

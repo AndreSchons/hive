@@ -1,5 +1,5 @@
 import { LOUNGE } from './layout';
-import { CREAM, MUSTARD, RUG, RUG_DARK, UPHOLSTERY_BLUE, UPHOLSTERY_GREEN, WOOD, WOOD_DARK } from './palette';
+import { CREAM, MUSTARD, RUG_BLUE, RUG_GREEN, RUG_YELLOW, UPHOLSTERY_BLUE, UPHOLSTERY_GREEN, WOOD, WOOD_DARK } from './palette';
 import { ToonMaterial } from './toon';
 
 const ARMCHAIR_COLORS = [UPHOLSTERY_GREEN, UPHOLSTERY_BLUE] as const;
@@ -33,20 +33,24 @@ function Armchair({
   );
 }
 
-/** O lounge do canto sudeste: tapete com borda, duas poltronas e a mesinha. */
+/** O lounge do canto sudeste: tapete da bandeira, duas poltronas e a mesinha. */
 export function Lounge() {
   const { rug, armchairs, coffeeTable } = LOUNGE;
 
   return (
     <group>
-      {/* Tapete retangular com borda mais escura. */}
+      {/* Tapete na bandeira do Brasil: base verde, losango amarelo, circulo azul. */}
       <mesh position={[rug.center.x, 0.015, rug.center.z]}>
         <boxGeometry args={[rug.size + 0.3, 0.03, rug.size + 0.3]} />
-        <ToonMaterial color={RUG_DARK} />
+        <ToonMaterial color={RUG_GREEN} />
       </mesh>
-      <mesh position={[rug.center.x, 0.03, rug.center.z]}>
-        <boxGeometry args={[rug.size, 0.04, rug.size]} />
-        <ToonMaterial color={RUG} />
+      <mesh position={[rug.center.x, 0.035, rug.center.z]} rotation={[0, Math.PI / 4, 0]}>
+        <boxGeometry args={[rug.size * 0.72, 0.04, rug.size * 0.72]} />
+        <ToonMaterial color={RUG_YELLOW} />
+      </mesh>
+      <mesh position={[rug.center.x, 0.04, rug.center.z]}>
+        <cylinderGeometry args={[rug.size * 0.22, rug.size * 0.22, 0.04, 32]} />
+        <ToonMaterial color={RUG_BLUE} />
       </mesh>
 
       {armchairs.map((armchair, index) => (
