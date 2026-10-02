@@ -109,7 +109,7 @@ class MockRun implements AgentRun {
   }
 
   private async script(): Promise<void> {
-    const { agentId, taskId, role, cwd, prompt } = this.request;
+    const { agentId, taskId, role, cwd, prompt, title } = this.request;
     const state = (from: string, to: string, reason?: string): AnyEventDraft =>
       draft('agent.state_changed', {
         agentId,
@@ -132,7 +132,7 @@ class MockRun implements AgentRun {
       if (this.stopIfCancelled()) return;
 
       await this.emit(state('idle', 'thinking', 'Lendo a instrucao'));
-      if (taskId) await this.emit(draft('task.started', { taskId, agentId, title: shorten(prompt) }));
+      if (taskId) await this.emit(draft('task.started', { taskId, agentId, title: title ?? shorten(prompt) }));
 
       await this.emit(state('thinking', 'working'));
       const callId = `call_${agentId}_1`;

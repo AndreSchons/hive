@@ -141,6 +141,36 @@ describe('isolamento', () => {
     expect(run(worktree.path, 'show', '--name-only', '--format=', 'HEAD').trim()).toBe(ARQUIVO);
   });
 
+  /**
+   * O que aconteceu de verdade: a pessoa autorizou o `git commit` do agente, a
+   * arvore ficou limpa, e a entrega era lida como "nao fez nada" -- descartada
+   * em silencio, e ainda contada como entregue.
+   */
+  it('o trabalho que o proprio agente commitou continua sendo trabalho', async () => {
+    const { worktree } = await criar('commitou');
+    editarSegundaLinha(worktree, 'o agente commitou isto');
+    run(worktree.path, 'add', '-A');
+    run(worktree.path, '-c', 'user.name=Agente', '-c', 'user.email=a@a', 'commit', '-m', 'mensagem do agente');
+
+    expect(await manager.commitAll(worktree, 'Titulo do passo')).toBe(true);
+    // Um commit so, com a mensagem de quem conduz, como quando ele nao commita.
+    expect(run(worktree.path, 'rev-list', '--count', `${worktree.base}..HEAD`).trim()).toBe('1');
+    expect(run(worktree.path, 'log', '-1', '--format=%s').trim()).toBe('Titulo do passo');
+    expect(run(worktree.path, 'log', '--format=%s').split('\n')).not.toContain('mensagem do agente');
+  });
+
+  it('junta o que o agente commitou com o que ele deixou sem commitar', async () => {
+    const { worktree } = await criar('metade');
+    editarSegundaLinha(worktree, 'parte commitada');
+    run(worktree.path, 'add', '-A');
+    run(worktree.path, '-c', 'user.name=Agente', '-c', 'user.email=a@a', 'commit', '-m', 'metade');
+    writeFileSync(join(worktree.path, 'novo.txt'), 'parte solta\n');
+
+    expect(await manager.commitAll(worktree, 'Titulo do passo')).toBe(true);
+    const arquivos = run(worktree.path, 'show', '--name-only', '--format=', 'HEAD').trim().split('\n').sort();
+    expect(arquivos).toEqual([ARQUIVO, 'novo.txt'].sort());
+  });
+
   it('conta o que mudou na copia', async () => {
     const { worktree } = await criar('conta');
     editarSegundaLinha(worktree, 'mudou');

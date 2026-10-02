@@ -75,7 +75,7 @@ export class ClaudeAdapter implements AgentAdapter {
         adapter: this.id,
         ...(request.taskId === undefined ? {} : { taskId: request.taskId }),
         ...(request.model === undefined ? {} : { model: request.model }),
-        title: shorten(request.prompt),
+        title: request.title ?? shorten(request.prompt),
       },
       // Resolve de novo a cada execucao: quem instalou a CLI com o app aberto
       // nao precisa reiniciar para ele achar.

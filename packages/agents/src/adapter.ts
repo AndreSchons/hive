@@ -44,6 +44,12 @@ export interface AgentRunRequest {
   readonly displayName?: string;
   /** Subtask sendo executada. Vai nos eventos que o adaptador emite. */
   readonly taskId?: TaskId;
+  /**
+   * Como a subtask se chama na tela. Sem ele o adaptador recorta o comeco do
+   * prompt, que no modo planejado e a descricao inteira -- instrucao para o
+   * agente, nao nome de tarefa.
+   */
+  readonly title?: string;
   /** Alias de modelo repassado a CLI. Ausente = default da propria CLI. */
   readonly model?: string;
   /** Worktree do agente. Dois agentes nunca recebem o mesmo caminho. */

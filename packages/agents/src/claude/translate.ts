@@ -273,6 +273,20 @@ export class StreamTranslator {
     return this.turns > this.context.budget.maxTurns;
   }
 
+  /**
+   * O aviso de que estourou, para quem cancela dizer por que cancelou. Sem ele
+   * o corte chegava ao supervisor como queda, e queda ganha nova tentativa
+   * sozinha -- numa sessao nova, sem a pessoa saber que o teto foi atingido.
+   */
+  turnsExceededEvent(): AnyEventDraft {
+    return draft('budget.exceeded', {
+      agentId: this.context.agentId,
+      kind: 'turns',
+      used: this.turns,
+      limit: this.context.budget.maxTurns,
+    });
+  }
+
   private checkLoop(signature: string): AnyEventDraft[] {
     if (signature === this.lastSignature) {
       this.repeats += 1;

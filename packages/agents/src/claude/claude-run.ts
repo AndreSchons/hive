@@ -238,7 +238,8 @@ export class ClaudeRun implements AgentRun {
     // e aqui que paramos de falar com ela.
     if (isResult) this.endInput();
 
-    if (this.translator.turnsExceeded()) {
+    if (this.translator.turnsExceeded() && this.cancelReason === null && !this.finished) {
+      this.emit(this.translator.turnsExceededEvent());
       this.cancel('O agente passou do numero de tentativas combinado.');
     }
   }

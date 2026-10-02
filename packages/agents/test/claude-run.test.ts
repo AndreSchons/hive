@@ -6,7 +6,7 @@ import { ClaudeAdapter } from '../src/index';
 const fakeCli = join(__dirname, 'fake-cli.mjs');
 const fixture = (name: string): string => join(__dirname, 'fixtures', name);
 
-function startRun(fixtureName: string, extraEnv: Record<string, string> = {}) {
+function startRun(fixtureName: string, extraEnv: Record<string, string> = {}, maxTurns?: number) {
   const adapter = new ClaudeAdapter({ executable: fakeCli });
   return adapter.start({
     agentId: newAgentId('executor'),
@@ -16,7 +16,7 @@ function startRun(fixtureName: string, extraEnv: Record<string, string> = {}) {
     prompt: 'faca alguma coisa',
     allowedPaths: [],
     contracts: [],
-    budget: budgetSchema.parse({}),
+    budget: budgetSchema.parse(maxTurns === undefined ? {} : { maxTurns }),
     env: { OFFICE_FIXTURE: fixture(fixtureName), ...extraEnv },
   });
 }
@@ -92,5 +92,20 @@ describe('ClaudeRun', () => {
     await collect(run);
     const outcome = await run.outcome;
     expect(outcome.status).toBe('cancelled');
+  }, 15_000);
+
+  /**
+   * Cortar por turnos sem avisar fazia o supervisor ler o corte como queda, e
+   * queda ganha nova tentativa sozinha: a pessoa nunca ficava sabendo que o
+   * teto tinha sido atingido.
+   */
+  it('estourar os turnos avisa por que cortou', async () => {
+    const run = startRun('edita-arquivo.jsonl', { OFFICE_HANG: '1' }, 2);
+    const events = await collect(run);
+    const outcome = await run.outcome;
+
+    expect(outcome.status).toBe('cancelled');
+    const estouros = events.filter((event) => event.type === 'budget.exceeded');
+    expect(estouros).toHaveLength(1);
   }, 15_000);
 });

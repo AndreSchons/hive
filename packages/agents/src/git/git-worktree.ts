@@ -154,8 +154,22 @@ export class GitWorktreeManager implements WorktreeManager {
    * Salva o que o agente deixou na copia. A CLI nao commita sozinha e a politica
    * de permissao escala `Bash`, entao sem isto nao existe nada para mergear.
    * Devolve falso quando o agente nao mudou nada.
+   *
+   * "Nada" e comparado com o ponto de partida da copia, e nao com o ultimo
+   * commit: quando a pessoa autoriza o `git commit` que o agente pediu, o
+   * trabalho ja esta commitado e a arvore fica limpa. Olhar so a arvore lia
+   * isso como "nao fez nada", descartava a copia e ainda contava a entrega.
+   * Os commits do proprio agente voltam para o indice e saem num commit so,
+   * com a mensagem de quem conduz a execucao -- o mesmo de quando ele nao
+   * commita.
    */
   async commitAll(worktree: Worktree, message: string): Promise<boolean> {
+    // `merge-base`, e nao `base` direto: com dois agentes no ar o branch de
+    // partida anda enquanto esta copia trabalha, e voltar para a ponta nova
+    // poria no commit o desfazer do trabalho do outro.
+    const forkPoint = (await gitOrThrow(worktree.path, ['merge-base', 'HEAD', worktree.base])).trim();
+    await gitOrThrow(worktree.path, ['reset', '-q', '--soft', forkPoint]);
+
     // `node_modules` e `.hive` ficam de fora sempre, mesmo que o projeto nao
     // os ignore: a preparacao instala dependencia dentro da copia e o gerente
     // materializa os contratos ali, e um projeto sem `.gitignore` veria os dois

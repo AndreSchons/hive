@@ -224,6 +224,9 @@ export function decidePermission(
   const { summary } = describeToolCall(toolName, input, projectPath);
   return askPermission(
     `${QUESTION_BY_TOOL[toolName] ?? 'O agente quer usar uma ferramenta que mexe fora do projeto.'} Pode?`,
-    `${summary}. Isso sai da pasta do projeto, entao a decisao e sua.`,
+    // "Sai da pasta" nao e verdade para todo comando -- a maioria roda dentro
+    // da copia. O que e verdade e que o app nao consegue garantir onde ele
+    // para, e e por isso que a pergunta existe.
+    `${summary}. Eu nao consigo garantir que isso fique so dentro do projeto, entao a decisao e sua.`,
   );
 }

@@ -445,8 +445,11 @@ describe('execucao planejada', () => {
  * sem inventar comportamento no meio.
  */
 type Passo =
-  /** Termina dizendo que fez, deixando este texto no arquivo. */
-  | { readonly entrega: string; readonly arquivo?: string }
+  /**
+   * Termina dizendo que fez, deixando este texto no arquivo. `commita` e o
+   * agente que commitou por conta propria, com a pessoa autorizando o comando.
+   */
+  | { readonly entrega: string; readonly arquivo?: string; readonly commita?: boolean }
   /** Para e pergunta. So volta a andar quando alguem responder. */
   | { readonly pergunta: string }
   /** Cai antes de terminar. */
@@ -521,6 +524,14 @@ class RoteiroRun implements AgentRun {
         join(request.cwd, passo.arquivo ?? ARQUIVO),
         `titulo\n${passo.entrega}\nrodape\n`,
       );
+      if (passo.commita === true) {
+        execFileSync('git', ['add', '-A'], { cwd: request.cwd });
+        execFileSync(
+          'git',
+          ['-c', 'user.name=Agente', '-c', 'user.email=a@a', 'commit', '-q', '-m', 'mensagem do agente'],
+          { cwd: request.cwd },
+        );
+      }
       this.outcome = Promise.resolve({
         status: 'completed', summary: 'terminei', turns: 1, sessionId: sessao,
       });
@@ -708,6 +719,34 @@ describe('agente que entrega codigo quebrado', () => {
     expect(payloadsOf(todos, 'task.assigned')[0]?.title).toBe('O passo');
     expect(g('log', '--format=%s').split('\n')).toContain('O passo');
     expect(g('log', '--format=%B')).not.toContain('Mexe no arquivo.');
+  });
+
+  /**
+   * O que aconteceu de verdade: a pessoa autorizou o `git commit` que o agente
+   * pediu, a copia ficou limpa, e o trabalho era descartado em silencio com a
+   * execucao dizendo que entregou.
+   */
+  it('o agente que commitou sozinho ainda tem o trabalho verificado e integrado', async () => {
+    const { supervisor } = buildRoteiro(planoComPortao(PORTAO), [{ entrega: 'PRONTO', commita: true }]);
+    const runId = await supervisor.startPlanned({ projectPath: repo, goal: 'arrumar o login' });
+    const todos = await drainAnswering(supervisor, runId, ['comecar']);
+
+    expect(payloadsOf(todos, 'worktree.merged')).toHaveLength(1);
+    expect(readFileSync(join(repo, ARQUIVO), 'utf8')).toContain('PRONTO');
+    expect(g('log', '--format=%s').split('\n')).toContain('O passo');
+    expect(g('log', '--format=%s').split('\n')).not.toContain('mensagem do agente');
+  });
+
+  it('nao diz que integrou quando o agente nao mudou nada', async () => {
+    // Portao que sempre passa: o que esta em teste e a frase, nao a verificacao.
+    const { supervisor } = buildRoteiro(planoComPortao('true'), [{ insiste: { alvo: 'ls', vezes: 1 } }]);
+    const runId = await supervisor.startPlanned({ projectPath: repo, goal: 'arrumar o login' });
+    const todos = await drainAnswering(supervisor, runId, ['comecar']);
+
+    expect(payloadsOf(todos, 'worktree.merged')).toHaveLength(0);
+    const fim = payloadsOf(todos, 'run.completed')[0];
+    expect(fim?.summary).not.toMatch(/integrad/);
+    expect(fim?.summary).toContain('nao mudou nada');
   });
 
   it('a pessoa pode mandar tentar de novo, e o que ela escreve vira instrucao', async () => {

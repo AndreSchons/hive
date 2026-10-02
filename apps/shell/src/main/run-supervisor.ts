@@ -213,6 +213,12 @@ interface LiveRun {
   conflictMs: number;
   conflicts: number;
   conflictCostUsd: number;
+  /**
+   * Passos que de fato entraram no projeto. Separado de "terminou": um agente
+   * que nao mudou nada termina sem integrar, e a frase final dizia "entregue e
+   * integrada" sobre um projeto que ficou igual.
+   */
+  integrated: number;
   /** Quem atribuiu. Ausente na fila manual: quem atribuiu foi a propria pessoa. */
   plannedBy?: AgentId;
 }
@@ -366,6 +372,19 @@ function contractsOf(plan: Plan, subtask: Subtask): Contract[] {
     .filter((contract): contract is Contract => contract !== undefined);
 }
 
+/** A frase final de uma execucao que deu certo, sem prometer o que nao entrou. */
+function deliveredSummary(done: number, integrated: number): string {
+  if (integrated === 0) {
+    return done === 1
+      ? 'A tarefa terminou, mas nao mudou nada no projeto.'
+      : 'As tarefas terminaram, mas nenhuma mudou nada no projeto.';
+  }
+  const entrou = integrated === 1 ? '1 tarefa entregue e integrada' : `${integrated} tarefas entregues e integradas`;
+  return integrated === done
+    ? `${entrou} ao projeto.`
+    : `${entrou} ao projeto. As outras terminaram sem mudar nada.`;
+}
+
 /**
  * A unidade de atividade que da para medir nas duas CLIs, e o que conta como
  * repetir. Com o resumo da entrada, so a mesma chamada de novo
@@ -472,6 +491,7 @@ export class RunSupervisor {
       conflictMs: 0,
       conflicts: 0,
       conflictCostUsd: 0,
+      integrated: 0,
     };
     this.live.set(runId, live);
     return { runId, live };
@@ -918,7 +938,7 @@ export class RunSupervisor {
       this.events.closeRun(
         runId,
         draft('run.completed', {
-          summary: `${done} ${done === 1 ? 'tarefa entregue' : 'tarefas entregues'} e integradas ao projeto.`,
+          summary: deliveredSummary(done, live.integrated),
           durationMs: Date.now() - live.startedAt,
           tasksCompleted: done,
           costUsd: live.costUsd,
@@ -1067,6 +1087,7 @@ export class RunSupervisor {
         role: role.id,
         displayName: role.title,
         taskId,
+        title: unit.title,
         cwd: worktree.path,
         prompt,
         allowedPaths: [...unit.allowedPaths],
@@ -1445,7 +1466,8 @@ export class RunSupervisor {
           filesChanged: result.filesChanged,
         }),
       );
-      await this.remove(runId, live, agentId, worktree, 'merged');
+      live.integrated += 1;
+    await this.remove(runId, live, agentId, worktree, 'merged');
       return { status: 'ok' };
     }
 
@@ -1570,6 +1592,7 @@ export class RunSupervisor {
         filesChanged: closed.filesChanged, resolvedBy: resolverId,
       }),
     );
+    live.integrated += 1;
     await this.remove(runId, live, agentId, worktree, 'merged');
     chargeConflict();
     return { status: 'ok' };
