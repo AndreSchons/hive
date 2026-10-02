@@ -11,6 +11,13 @@ export const workEventPayloads = {
     tool: z.string().min(1),
     target: z.string().optional(),
     summary: z.string().min(1).max(280),
+    /**
+     * Resumo da entrada inteira da chamada. E o que separa repetir a mesma
+     * coisa de mexer de novo no mesmo lugar: tres edicoes diferentes no mesmo
+     * arquivo tem o mesmo `target` e nao sao laco nenhum. CLI que nao manda
+     * fica com ferramenta e alvo, que e mais grosso mas nunca mais fino.
+     */
+    fingerprint: z.string().min(1).optional(),
   }),
   /**
    * Fecha o que `tool.call` abriu. Sem isto uma chamada e anunciada e nunca

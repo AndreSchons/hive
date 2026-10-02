@@ -269,6 +269,10 @@ export class ClaudeRun implements AgentRun {
       this.respond(request_id, { behavior: 'allow' });
       return;
     }
+    if (decision.kind === 'deny') {
+      this.respond(request_id, { behavior: 'deny', message: decision.message });
+      return;
+    }
 
     const questionId = newQuestionId();
     this.pending = { requestId: request_id, questionId, decision };

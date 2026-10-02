@@ -457,6 +457,10 @@ type Passo =
         readonly alvo: string;
         readonly vezes: number;
         readonly escreve?: string;
+        /** Cada chamada com uma entrada diferente, como editar trechos distintos. */
+        readonly variando?: boolean;
+        /** O adaptador tambem acusa o laco, como o tradutor do Claude faz. */
+        readonly ecoa?: boolean;
       };
     };
 
@@ -496,6 +500,16 @@ class RoteiroRun implements AgentRun {
             tool: 'Bash',
             target: passo.insiste.alvo,
             summary: `Rodando ${passo.insiste.alvo}`,
+            fingerprint: passo.insiste.variando === true ? `entrada-${vez}` : 'entrada',
+          }),
+        );
+      }
+      if (passo.insiste.ecoa === true) {
+        this.queue.push(
+          draft('loop.detected', {
+            agentId: request.agentId,
+            signature: `Bash:${passo.insiste.alvo}#entrada`,
+            occurrences: passo.insiste.vezes,
           }),
         );
       }
@@ -689,6 +703,11 @@ describe('agente que entrega codigo quebrado', () => {
     expect(readFileSync(join(repo, ARQUIVO), 'utf8')).toContain('PRONTO');
     // Uma correcao automatica nao vira pergunta: a pessoa so aprovou o plano.
     expect(payloadsOf(todos, 'human.question_raised')).toHaveLength(1);
+    // O passo se chama pelo titulo do plano, na tela e no commit -- nao pela
+    // descricao, que e instrucao para o agente.
+    expect(payloadsOf(todos, 'task.assigned')[0]?.title).toBe('O passo');
+    expect(g('log', '--format=%s').split('\n')).toContain('O passo');
+    expect(g('log', '--format=%B')).not.toContain('Mexe no arquivo.');
   });
 
   it('a pessoa pode mandar tentar de novo, e o que ela escreve vira instrucao', async () => {
@@ -803,16 +822,38 @@ describe('agente que nao sai do lugar', () => {
 
     const laco = payloadsOf(todos, 'loop.detected')[0];
     expect(laco?.occurrences).toBe(3);
-    expect(laco?.signature).toBe('Bash:pnpm test');
+    expect(laco?.signature).toBe('Bash:pnpm test#entrada');
 
     const pergunta = payloadsOf(todos, 'human.question_raised').at(-1);
     expect(pergunta?.cause).toBe('budget');
     // A assinatura da ferramenta fica no log, nao na frase que a pessoa le.
     expect(pergunta?.context).not.toContain('Bash:');
+    expect(pergunta?.context).not.toContain('#entrada');
     expect(pergunta?.question).not.toMatch(/loop|budget|signature/i);
 
     expect(typesOf(todos).at(-1)).toBe('run.failed');
     expect(typesOf(todos)).not.toContain('worktree.merged');
+  });
+
+  it('o laco aparece uma vez so, mesmo quando o adaptador tambem acusa', async () => {
+    const { supervisor } = buildRoteiro(planoComPortao(PORTAO), [
+      { insiste: { alvo: 'pnpm test', vezes: 3, ecoa: true } },
+    ]);
+    const runId = await supervisor.startPlanned({ projectPath: repo, goal: 'arrumar o login' });
+    const todos = await drainAnswering(supervisor, runId, ['comecar', 'parar']);
+
+    expect(payloadsOf(todos, 'loop.detected')).toHaveLength(1);
+  });
+
+  it('a mesma ferramenta no mesmo alvo com entradas diferentes nao e laco', async () => {
+    const { supervisor } = buildRoteiro(planoComPortao(PORTAO), [
+      { insiste: { alvo: 'src/paleta.ts', vezes: 4, variando: true, escreve: 'PRONTO' } },
+    ]);
+    const runId = await supervisor.startPlanned({ projectPath: repo, goal: 'arrumar o login' });
+    const todos = await drainAnswering(supervisor, runId, ['comecar']);
+
+    expect(typesOf(todos)).not.toContain('loop.detected');
+    expect(typesOf(todos).at(-1)).toBe('run.completed');
   });
 
   it('parou por repeticao nao vira entrega: o portao nem chegou a rodar', async () => {

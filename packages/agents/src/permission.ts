@@ -19,6 +19,11 @@ import { describeToolCall } from './tool-summary';
  */
 export type PermissionDecision =
   | { readonly kind: 'allow' }
+  /**
+   * Recusa sem perguntar a ninguem. `message` vai para o **agente**, nao para a
+   * pessoa: e a instrucao do que fazer no lugar.
+   */
+  | { readonly kind: 'deny'; readonly message: string }
   | {
       readonly kind: 'escalate';
       readonly cause: BlockCause;
@@ -43,8 +48,8 @@ export type ToolKind =
 
 /**
  * Como a politica trata este pedido. `read-only` e para o agente que so precisa
- * olhar -- o gerente planejando, por exemplo: qualquer escrita vira pergunta,
- * mesmo dentro da pasta do projeto.
+ * olhar -- o gerente planejando, por exemplo: qualquer escrita ou comando e
+ * recusado, mesmo dentro da pasta do projeto.
  */
 export interface PermissionOptions {
   readonly readOnly?: boolean;
@@ -121,6 +126,13 @@ function targetPaths(request: PermissionRequest): string[] {
   return [file ?? notebook ?? path].filter((value): value is string => value !== undefined);
 }
 
+/** A frase principal da pergunta, por ferramenta: o que ela faz, sem o comando. */
+const QUESTION_BY_TOOL: Readonly<Partial<Record<string, string>>> = {
+  Bash: 'O agente quer rodar um comando no seu computador.',
+  WebFetch: 'O agente quer abrir uma pagina da internet.',
+  WebSearch: 'O agente quer pesquisar na internet.',
+};
+
 const ALLOW_DENY = [
   { id: 'allow', label: 'Pode fazer' },
   { id: 'deny', label: 'Nao, deixa quieto' },
@@ -175,13 +187,18 @@ export function decidePermission(
   }
 
   // Somente-leitura: ler ja passou acima, e daqui pra baixo tudo escreve, roda
-  // ou sai da maquina. Nada disso e trabalho de quem so deveria estar olhando.
+  // ou sai da maquina. Nada disso e trabalho de quem so deveria estar olhando,
+  // e por isso nao vira pergunta: perguntar "pode rodar este grep?" a quem nao
+  // le codigo e pedir uma decisao que ela nao tem como tomar. A recusa volta
+  // para o agente com o caminho certo -- sem ele, o gerente barrado saia
+  // abrindo caminho no chute e planejava no escuro.
   if (options.readOnly === true) {
-    const { summary } = describeToolCall(toolName, input, projectPath);
-    return askPermission(
-      `${summary}. Mas esse agente era so para olhar o projeto, nao para mexer. Pode?`,
-      'Ele foi aberto em modo de leitura, entao qualquer mudanca depende de voce.',
-    );
+    return {
+      kind: 'deny',
+      message:
+        'Voce esta so olhando o projeto: nao rode comandos nem altere arquivos. ' +
+        'Para procurar use Glob (arquivos por nome) e Grep (texto dentro dos arquivos), e Read para ler.',
+    };
   }
 
   if (FILE_WRITERS.has(toolName) || (request.kind !== undefined && FILE_WRITER_KINDS.has(request.kind))) {
@@ -201,6 +218,12 @@ export function decidePermission(
     );
   }
 
+  // O comando cru nao entra na frase principal: "Rodando: cd x && grep -rniE"
+  // nao e uma pergunta que quem nao le codigo consiga responder. Ele fica no
+  // contexto, para quem quiser conferir.
   const { summary } = describeToolCall(toolName, input, projectPath);
-  return askPermission(`${summary}. Pode?`, 'Isso sai da pasta do projeto, entao a decisao e sua.');
+  return askPermission(
+    `${QUESTION_BY_TOOL[toolName] ?? 'O agente quer usar uma ferramenta que mexe fora do projeto.'} Pode?`,
+    `${summary}. Isso sai da pasta do projeto, entao a decisao e sua.`,
+  );
 }

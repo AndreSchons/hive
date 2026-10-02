@@ -8,6 +8,7 @@ import {
   type RoleId,
   type TaskId,
 } from '@hive/protocol';
+import { createHash } from 'node:crypto';
 import type { CliLine } from './cli-messages';
 import { fileChangeFrom } from './patch';
 import { capSummary, describeToolCall, describeToolResult } from '../tool-summary';
@@ -149,6 +150,7 @@ export class StreamTranslator {
       } else if (block.type === 'tool_use') {
         events.push(...this.transition('working'));
         const described = describeToolCall(block.name, block.input, cwd);
+        const fingerprint = fingerprintOf(block.input);
         this.calls.set(block.id, {
           tool: block.name,
           ...(described.target === undefined ? {} : { target: described.target }),
@@ -161,9 +163,10 @@ export class StreamTranslator {
             tool: block.name,
             ...(described.target === undefined ? {} : { target: described.target }),
             summary: capSummary(described.summary),
+            fingerprint,
           }),
         );
-        events.push(...this.checkLoop(`${block.name}:${described.target ?? ''}`));
+        events.push(...this.checkLoop(`${block.name}:${described.target ?? ''}#${fingerprint}`));
       }
     }
     return events;
@@ -294,6 +297,14 @@ export class StreamTranslator {
     const { cwd } = this.context;
     return path.startsWith(`${cwd}/`) ? path.slice(cwd.length + 1) : path;
   }
+}
+
+/**
+ * A entrada inteira da chamada, reduzida. Repetir e mandar a **mesma** entrada
+ * de novo; a mesma ferramenta no mesmo arquivo com outro trecho e so trabalho.
+ */
+function fingerprintOf(input: unknown): string {
+  return createHash('sha1').update(JSON.stringify(input) ?? '').digest('hex').slice(0, 12);
 }
 
 /**

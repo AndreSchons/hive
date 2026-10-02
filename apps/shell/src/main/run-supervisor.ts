@@ -64,6 +64,22 @@ import {
 import type { EventStore } from '@hive/store';
 
 /**
+ * Apagar uma pasta inteira sem o desvio de `.asar` do Electron.
+ *
+ * No processo principal o `fs` le arquivo `.asar` como pasta, e o `rm`
+ * recursivo tenta descer nele em vez de apagar o arquivo: a pasta de cima fica
+ * com o `.asar` dentro e o `rmdir` dela falha com `ENOTEMPTY`. Acontece com
+ * qualquer projeto que tenha o proprio Electron no `node_modules` -- este
+ * repositorio incluido. `original-fs` e o `fs` sem esse desvio; fora do
+ * Electron (os testes) ele nao existe, e o `fs` comum ja faz a coisa certa.
+ */
+function plainRm(): typeof rm {
+  if (process.versions.electron === undefined) return rm;
+  const original: typeof import('node:fs') = require('original-fs');
+  return original.promises.rm;
+}
+
+/**
  * Conduz o trabalho de uma execucao, um agente por vez, cada um na propria
  * worktree.
  *
@@ -97,7 +113,14 @@ export interface StartPlannedInput {
  * portao, commit e integracao sao identicos nos dois casos.
  */
 interface Unit {
+  /** O que o agente recebe: na subtask, descricao e criterio de pronto juntos. */
   readonly goal: string;
+  /**
+   * Como o passo se chama na tela e no commit. Na subtask e o `title` do plano;
+   * usar o `goal` ali punha um paragrafo inteiro na mensagem de commit do
+   * projeto da pessoa.
+   */
+  readonly title: string;
   readonly role: RoleId;
   readonly taskId: TaskId;
   readonly allowedPaths: readonly string[];
@@ -343,8 +366,13 @@ function contractsOf(plan: Plan, subtask: Subtask): Contract[] {
     .filter((contract): contract is Contract => contract !== undefined);
 }
 
-/** A unidade de atividade que da para medir nas duas CLIs. */
-const signatureOf = (tool: string, target: string | undefined): string => `${tool}:${target ?? ''}`;
+/**
+ * A unidade de atividade que da para medir nas duas CLIs, e o que conta como
+ * repetir. Com o resumo da entrada, so a mesma chamada de novo
+ * repete; sem ele (CLI que nao manda) fica ferramenta e alvo.
+ */
+const signatureOf = (tool: string, target: string | undefined, fingerprint: string | undefined): string =>
+  `${tool}:${target ?? ''}${fingerprint === undefined ? '' : `#${fingerprint}`}`;
 
 export class RunSupervisor {
   private readonly live = new Map<RunId, LiveRun>();
@@ -525,6 +553,7 @@ export class RunSupervisor {
         }
         const outcome = await this.runOne(runId, live, {
           goal: item.goal,
+          title: item.goal,
           role: item.role,
           taskId: newTaskId(),
           allowedPaths: [],
@@ -804,6 +833,7 @@ export class RunSupervisor {
     try {
       const outcome = await this.runOne(runId, live, {
         goal: subtaskPrompt(subtask),
+        title: subtask.title,
         role: subtask.role,
         taskId: subtask.id,
         allowedPaths: subtask.allowedPaths,
@@ -931,7 +961,7 @@ export class RunSupervisor {
         agentId, taskId, path: worktree.path, branch: worktree.branch, base: worktree.base,
       }),
       draft('task.assigned', {
-        taskId, title: unit.goal, role: role.id,
+        taskId, title: unit.title, role: role.id,
         assignedBy: live.plannedBy ?? 'human', assignedTo: agentId,
         dependsOn: [...unit.dependsOn],
       }),
@@ -998,7 +1028,7 @@ export class RunSupervisor {
       const mergeStartedAt = Date.now();
       try {
         return await live.mergeLock.run(() =>
-          this.integrate(runId, live, { agentId, taskId, worktree, title: unit.goal }),
+          this.integrate(runId, live, { agentId, taskId, worktree, title: unit.title }),
         );
       } finally {
         live.mergeMs += Date.now() - mergeStartedAt;
@@ -1059,7 +1089,7 @@ export class RunSupervisor {
       let next: Escalated;
 
       if (cause === null) {
-        produced = (await this.worktrees.commitAll(worktree, unit.goal)) || produced;
+        produced = (await this.worktrees.commitAll(worktree, unit.title)) || produced;
         // Agente que nao mexeu em nada nao tem o que verificar nem o que
         // integrar -- e um portao verde aqui nao provaria coisa nenhuma.
         if (!produced) return { status: 'nothing' };
@@ -1317,6 +1347,10 @@ export class RunSupervisor {
 
     try {
       for await (const event of run) {
+        // O adaptador e o supervisor contam repeticao cada um do seu lado, e a
+        // mesma chamada chega aos dois. Quem cortou primeiro ja escreveu o
+        // aviso; o segundo seria o mesmo laco duas vezes no feed.
+        if (event.type === 'loop.detected' && tripped !== null) continue;
         this.track(runId, event);
         // A CLI suspendeu o agente para perguntar. Guardar de quem e a pergunta
         // e o que permite entregar a resposta ao agente certo quando ha dois no
@@ -1350,7 +1384,7 @@ export class RunSupervisor {
 
         const verdict = this.budget.record(
           agentId,
-          signatureOf(event.payload.tool, event.payload.target),
+          signatureOf(event.payload.tool, event.payload.target, event.payload.fingerprint),
         );
         if (verdict.status === 'warning') {
           this.emit(
@@ -1614,7 +1648,14 @@ export class RunSupervisor {
     }
     // O cache de dependencias sai junto: ele so vale para esta execucao, e sao
     // links, entao apagar nao mexe em nada que outra execucao esteja usando.
-    await rm(join(this.worktreeRoot, runId), { recursive: true, force: true });
+    // Sobrar lixo no disco nao e motivo para a execucao nao fechar: quem chama
+    // `cleanup` fecha logo em seguida, e uma excecao aqui deixava a tela em
+    // "em andamento" para sempre com o trabalho ja entregue.
+    try {
+      await plainRm()(join(this.worktreeRoot, runId), { recursive: true, force: true });
+    } catch (error) {
+      console.error('[run-supervisor] nao consegui apagar a pasta da execucao:', error);
+    }
   }
 
   /** Verdadeiro quando havia mesmo alguem esperando a resposta. */

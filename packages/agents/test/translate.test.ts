@@ -194,3 +194,64 @@ describe('consumo', () => {
     expect(usages('plano-em-json.jsonl')).toEqual([]);
   });
 });
+
+/**
+ * Repetir e mandar a mesma chamada de novo. Mexer varias vezes no mesmo arquivo
+ * e trabalho normal -- e foi exatamente o que derrubou um agente pintando as
+ * paredes: tres edicoes diferentes na mesma paleta viraram "nao sai do lugar".
+ */
+describe('repeticao', () => {
+  function translator(): StreamTranslator {
+    return new StreamTranslator({
+      agentId: newAgentId('frontend'),
+      role: roleId.parse('frontend'),
+      displayName: 'Claude Code',
+      adapter: adapterId.parse('claude'),
+      taskId: newTaskId(),
+      cwd: '/projeto',
+      budget: budgetSchema.parse({}),
+      title: 'Tarefa de teste',
+    });
+  }
+
+  const edit = (index: number, novo: string): unknown => ({
+    type: 'assistant',
+    session_id: 'sessao',
+    parent_tool_use_id: null,
+    message: {
+      role: 'assistant',
+      content: [{
+        type: 'tool_use',
+        id: `toolu_${index}`,
+        name: 'Edit',
+        input: { file_path: '/projeto/src/paleta.ts', old_string: `antes ${index}`, new_string: novo },
+      }],
+    },
+  });
+
+  function run(inputs: readonly unknown[]): AnyEventDraft[] {
+    const t = translator();
+    return inputs.flatMap((raw) => {
+      const line = parseCliLine(raw);
+      return line === null ? [] : t.line(line);
+    });
+  }
+
+  it('editar o mesmo arquivo com trechos diferentes nao e laco', () => {
+    const events = run([edit(1, 'a'), edit(2, 'b'), edit(3, 'c'), edit(4, 'd')]);
+    expect(typesOf(events).filter((type) => type === 'tool.call')).toHaveLength(4);
+    expect(typesOf(events)).not.toContain('loop.detected');
+  });
+
+  it('a mesma edicao, igualzinha, tres vezes, e laco', () => {
+    const events = run([edit(1, 'a'), edit(1, 'a'), edit(1, 'a')]);
+    expect(findEvent(events, 'loop.detected').payload.occurrences).toBe(3);
+  });
+
+  it('cada chamada leva o resumo da entrada, para o supervisor contar igual', () => {
+    const events = run([edit(1, 'a'), edit(2, 'b')]);
+    const prints = events.flatMap((event) => (event.type === 'tool.call' ? [event.payload.fingerprint] : []));
+    expect(prints).toHaveLength(2);
+    expect(prints[0]).not.toBe(prints[1]);
+  });
+});

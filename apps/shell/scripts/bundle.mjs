@@ -24,7 +24,8 @@ await build({
   format: 'cjs',
   target: 'node22',
   // Nativo nao entra no bundle: vai inteiro em node_modules, logo abaixo.
-  external: ['electron', 'better-sqlite3'],
+  // `original-fs` e modulo embutido do Electron, nao pacote.
+  external: ['electron', 'better-sqlite3', 'original-fs'],
 });
 
 // O preload so importa tipos, entao o `tsc` ja o deixa pronto.

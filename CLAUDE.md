@@ -157,7 +157,11 @@ se alguem precisar de referencia de como um adaptador nao-Claude se encaixa.
 - **Modo somente-leitura** (`AgentRunRequest.readOnly`). Planejar e olhar, e sem
   isso o gerente teria permissao de escrita sobre a pasta inteira do usuario so
   para decidir o que fazer. A politica continua **uma so**: o modo e parametro
-  de `decidePermission`, nunca uma segunda politica.
+  de `decidePermission`, nunca uma segunda politica. Nesse modo, comando e
+  escrita sao **recusados sem perguntar** (`kind: 'deny'`), com a instrucao de
+  usar Glob/Grep/Read voltando para o agente: perguntar "pode rodar este grep?"
+  a quem nao le codigo e pedir uma decisao que ela nao tem como tomar, e o
+  gerente barrado sem instrucao saia abrindo caminho no chute.
 - **A resposta e parseada como JSON**, nao aceita como texto. Isso so funciona
   porque o desfecho carrega o texto final da CLI inteiro -- `AgentOutcome`
   `completed.summary` e cru; quem corta em 280 para caber no evento e o
@@ -447,6 +451,10 @@ arvore suja e pasta sem repositorio sao **respostas**, nunca excecoes.
   o projeto, e um agente poderia commitar a copia do outro.
 - **Quem commita e o supervisor**, nao a CLI: o agente nao commita sozinho e a
   politica escala `Bash`. Sem isso nao existe o que mergear.
+- **Apagar pasta de execucao usa `original-fs`.** No processo do Electron o
+  `fs` le `.asar` como pasta, e o `rm` recursivo falha com `ENOTEMPTY` em
+  qualquer projeto que tenha o proprio Electron no `node_modules` -- este
+  incluido. Falha de limpeza nunca impede a execucao de fechar.
 - `merge` conflitado deixa o merge **em curso** de proposito. E o que permite
   resolver depois sem refazer nada -- e e literalmente "detectar e parar".
 - Antes de fechar um merge resolvido, `commitMerge` estagia e so entao procura

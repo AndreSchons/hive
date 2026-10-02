@@ -19,7 +19,7 @@ export const limitEventPayloads = {
   'loop.detected': z.object({
     agentId,
     taskId: taskId.optional(),
-    /** Assinatura da acao repetida (ferramenta + alvo normalizados). */
+    /** Assinatura da acao repetida (ferramenta + alvo, mais o resumo da entrada quando houver). */
     signature: z.string().min(1),
     occurrences: z.number().int().min(2),
   }),

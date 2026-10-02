@@ -99,16 +99,14 @@ describe('decidePermission', () => {
     expect(decision.ask?.input).toMatchObject({ questions: [{ question: 'O botao fica no topo ou no rodape?' }] });
   });
 
-  it('em modo leitura, escrever dentro da pasta deixa de passar sozinho', () => {
+  it('em modo leitura, escrever dentro da pasta e recusado sem perguntar', () => {
     const dentro = join(root, 'src', 'app.ts');
     const pedido = { toolName: 'Write', input: { file_path: dentro }, requiresUserInteraction: false };
 
     // A mesma escrita, no mesmo lugar: o que muda e so o modo.
     expect(decidePermission(pedido, root).kind).toBe('allow');
 
-    const decision = decidePermission(pedido, root, { readOnly: true });
-    if (decision.kind !== 'escalate') throw new Error('esperava escalonamento');
-    expect(decision.cause).toBe('permission');
+    expect(decidePermission(pedido, root, { readOnly: true }).kind).toBe('deny');
   });
 
   it('em modo leitura, ler continua passando pelas duas CLIs', () => {
@@ -127,13 +125,25 @@ describe('decidePermission', () => {
     expect(porKind.kind).toBe('allow');
   });
 
-  it('em modo leitura, rodar comando tambem para', () => {
+  it('em modo leitura, rodar comando e recusado e o agente aprende o caminho certo', () => {
     const decision = decidePermission(
-      { toolName: 'Bash', input: { command: 'pnpm test' }, requiresUserInteraction: false },
+      { toolName: 'Bash', input: { command: 'grep -rn parede src' }, requiresUserInteraction: false },
       root,
       { readOnly: true },
     );
+    // Ninguem e perguntado: quem nao le codigo nao tem como julgar um grep.
+    if (decision.kind !== 'deny') throw new Error('esperava recusa');
+    expect(decision.message).toContain('Grep');
+    expect(decision.message).toContain('Glob');
+  });
+
+  it('a pergunta sobre comando nao traz o comando na frase principal', () => {
+    const decision = decidePermission(
+      { toolName: 'Bash', input: { command: 'cd src && grep -rniE "wall" .' }, requiresUserInteraction: false },
+      root,
+    );
     if (decision.kind !== 'escalate') throw new Error('esperava escalonamento');
-    expect(decision.question).toContain('so para olhar');
+    expect(decision.question).toBe('O agente quer rodar um comando no seu computador. Pode?');
+    expect(decision.context).toContain('grep');
   });
 });
