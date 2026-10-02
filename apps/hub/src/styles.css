@@ -25,3 +25,9 @@ body {
   font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
   overflow: hidden;
 }
+
+/* Barra de rolagem no tom do painel: a clara do sistema rasgava a coluna. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-edge) transparent;
+}
