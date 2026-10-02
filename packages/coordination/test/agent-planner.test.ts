@@ -199,6 +199,15 @@ describe('AgentPlanner', () => {
     expect(result.plan.subtasks[0]?.budget.maxTurns).toBe(30);
   });
 
+  it('o autor do plano e o gerente que de fato rodou', async () => {
+    const adapter = new FakeAdapter([completed('nao e json'), completed(rascunho())]);
+    const result = await new AgentPlanner({ adapter, role: gerente }).plan(request());
+
+    if (result.status !== 'planned') throw new Error(`esperava plano: ${result.status}`);
+    // Saiu da segunda sessao, entao o autor e o gerente da segunda.
+    expect(result.plan.createdBy).toBe(adapter.requests[1]?.agentId);
+  });
+
   it('roda o gerente em modo somente-leitura', async () => {
     const adapter = new FakeAdapter([completed(rascunho())]);
     await new AgentPlanner({ adapter, role: gerente }).plan(request());

@@ -737,6 +737,22 @@ describe('agente que entrega codigo quebrado', () => {
     expect(g('log', '--format=%s').split('\n')).not.toContain('mensagem do agente');
   });
 
+  /**
+   * Sem isto o agente fazia o que faria sozinho num terminal: abria o app,
+   * tirava print da tela, commitava e "parava o app" com `pkill` -- o que matou
+   * o proprio Hive no meio de uma execucao.
+   */
+  it('o agente sabe quem commita, como conferir, e o que nao fazer', async () => {
+    const { supervisor, adapter } = buildRoteiro(planoComPortao(PORTAO), [{ entrega: 'PRONTO' }]);
+    const runId = await supervisor.startPlanned({ projectPath: repo, goal: 'arrumar o login' });
+    await drainAnswering(supervisor, runId, ['comecar']);
+
+    const prompt = adapter.recebidos[0]?.prompt ?? '';
+    expect(prompt).toContain(PORTAO);
+    expect(prompt).toContain('Nao rode git commit');
+    expect(prompt).toContain('nao pare processos');
+  });
+
   it('nao diz que integrou quando o agente nao mudou nada', async () => {
     // Portao que sempre passa: o que esta em teste e a frase, nao a verificacao.
     const { supervisor } = buildRoteiro(planoComPortao('true'), [{ insiste: { alvo: 'ls', vezes: 1 } }]);

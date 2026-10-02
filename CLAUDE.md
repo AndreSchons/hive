@@ -121,6 +121,15 @@ A politica de permissao (`claude/permission.ts`) libera leitura e escrita dentro
 da pasta do projeto e escala o resto. As fixtures em `packages/agents/test/`
 sao NDJSON gravado da CLI de verdade: e contra elas que o parser e testado.
 
+Tres tipos de comando sao **recusados sem perguntar**, em qualquer modo, com a
+instrucao do que fazer voltando para o agente: parar processo (`kill`, `pkill`,
+`killall`), mexer no historico do git (`commit`, `push`, `reset`...) e capturar
+a tela. Todos aconteceram, e em todos o "Pode fazer" so podia dar errado: um
+`pkill -f electron` autorizado matou o proprio Hive no meio da execucao. O
+prompt da subtask (`deliveryRules`) diz a mesma coisa antes, junto com o
+comando do portao -- e o que o agente deve rodar para se conferir, porque o
+compilador rodado direto numa pasta da copia nao acha os vizinhos compilados.
+
 ## Uma CLI hoje, a interface para mais de uma
 
 O sistema roda **so o Claude Code**. Isso e uma decisao de escopo, nao um limite

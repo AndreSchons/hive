@@ -313,19 +313,52 @@ const START: Readonly<Record<string, Posture>> = {
  * chuta quando fica em duvida, e a parada para perguntar -- que e a experiencia
  * principal do produto -- nunca acontece.
  */
-function buildPrompt(goal: string): string {
+function buildPrompt(goal: string, gate: Gate | undefined): string {
   return [
     goal,
     '',
     'Trabalhe direto nesta pasta. Se ficar em duvida sobre o que a pessoa quer,',
     'pergunte em vez de escolher por conta propria -- quem vai responder nao le',
     'codigo, entao pergunte em linguagem simples.',
+    '',
+    ...deliveryRules(gate),
   ].join('\n');
 }
 
+/**
+ * O que o agente precisa saber sobre como a entrega e aceita aqui.
+ *
+ * Sem isto ele faz o que faria sozinho num terminal: abre o app para ver, tira
+ * print da tela, commita, e "para o app" com `pkill electron` -- que mata o
+ * proprio programa que esta conduzindo o trabalho. Cada uma dessas coisas virava
+ * uma pergunta para a pessoa, e nenhuma e necessaria: o portao verifica, quem
+ * commita e o supervisor, e a pessoa ve o resultado na tela dela.
+ *
+ * O comando de verificacao vai junto porque o compilador rodado direto numa
+ * pasta falha na copia de um monorepo -- os pacotes vizinhos nao estao
+ * compilados --, e o agente concluia que nao dava para conferir nada.
+ */
+function deliveryRules(gate: Gate | undefined): string[] {
+  return [
+    'Como a entrega funciona aqui:',
+    '- Quando voce terminar, eu confiro o trabalho e eu mesmo commito e integro.',
+    '  Nao rode git commit nem outro comando git que mude o historico.',
+    ...(gate === undefined
+      ? []
+      : [
+          `- A conferencia e o comando \`${gate.command}\`. Para checar antes de terminar,`,
+          '  rode esse mesmo comando: rodar o compilador direto numa pasta pode falhar',
+          '  so porque os pacotes vizinhos nao estao compilados nesta copia.',
+        ]),
+    '- Nao abra o aplicativo, nao tire print da tela e nao pare processos (kill,',
+    '  pkill, killall). A pessoa ve o resultado na tela dela, e parar processo pode',
+    '  derrubar o programa que esta conduzindo este trabalho.',
+  ];
+}
+
 /** Nova tentativa da mesma subtask: o objetivo de novo, com o que deu errado junto. */
-function retryPrompt(goal: string, guidance: string): string {
-  return [buildPrompt(goal), '', guidance].join('\n');
+function retryPrompt(goal: string, gate: Gate | undefined, guidance: string): string {
+  return [buildPrompt(goal, gate), '', guidance].join('\n');
 }
 
 /** Retomada de conversa: o agente ja sabe o objetivo, o que faltava era a resposta. */
@@ -1071,7 +1104,7 @@ export class RunSupervisor {
     const { taskId } = unit;
 
     let attempt = 1;
-    let prompt = buildPrompt(unit.goal);
+    let prompt = buildPrompt(unit.goal, unit.gate);
     let session: string | undefined;
     /**
      * Se ja existe trabalho commitado nesta copia. E o que separa "o agente
@@ -1136,7 +1169,7 @@ export class RunSupervisor {
       prompt =
         next.use === 'session'
           ? resumePrompt(next.answer, next.guidance)
-          : retryPrompt(unit.goal, next.guidance);
+          : retryPrompt(unit.goal, unit.gate, next.guidance);
       if (next.renewBudget) this.budget.start(agentId, unit.budget, taskId);
     }
 

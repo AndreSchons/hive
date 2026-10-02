@@ -147,3 +147,50 @@ describe('decidePermission', () => {
     expect(decision.context).toContain('grep');
   });
 });
+
+/**
+ * Comandos que nao rodam nem com "pode". O `pkill -f electron` autorizado pela
+ * pessoa matou o proprio Hive no meio de uma execucao.
+ */
+describe('comandos que nenhum agente roda', () => {
+  const root = '/projeto';
+  const decide = (command: string) =>
+    decidePermission({ toolName: 'Bash', input: { command }, requiresUserInteraction: false }, root);
+
+  it.each([
+    'pkill -f "electron" || true',
+    'kill -9 1234',
+    'sleep 2 && killall node',
+    'sudo /usr/bin/pkill electron',
+    'git add -A && git commit -m "pronto"',
+    'git -c user.name=x commit -m y',
+    'git push origin main',
+    'sleep 5 && import -window root /tmp/tela.png',
+    'xwd -root | convert xwd:- /tmp/tela.png',
+    'timeout 30 scrot /tmp/tela.png',
+  ])('recusa sem perguntar: %s', (command) => {
+    const decision = decide(command);
+    if (decision.kind !== 'deny') throw new Error(`esperava recusa para ${command}`);
+    expect(decision.message.length).toBeGreaterThan(0);
+  });
+
+  it.each([
+    'pnpm typecheck',
+    'git status',
+    'git log --oneline -3',
+    'grep -rn kill src',
+    "python3 - <<'EOF'\nimport sqlite3\nEOF",
+  ])('nao confunde com comando comum: %s', (command) => {
+    expect(decide(command).kind).not.toBe('deny');
+  });
+
+  it('a recusa vale tambem no modo somente-leitura, com a instrucao especifica', () => {
+    const decision = decidePermission(
+      { toolName: 'Bash', input: { command: 'git commit -m x' }, requiresUserInteraction: false },
+      root,
+      { readOnly: true },
+    );
+    if (decision.kind !== 'deny') throw new Error('esperava recusa');
+    expect(decision.message).toContain('commito');
+  });
+});

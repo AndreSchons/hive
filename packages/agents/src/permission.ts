@@ -78,6 +78,100 @@ const pathInput = z.object({
   path: z.string().optional(),
 });
 
+const commandInput = z.object({ command: z.string() });
+
+/**
+ * Comandos que nenhum agente roda, nem com a pessoa dizendo "pode". Cada um
+ * aconteceu de verdade, e em todos o "Pode fazer" so podia dar errado:
+ *
+ * - **Parar processo.** `pkill -f electron` para "fechar o app" matou o proprio
+ *   Hive no meio da execucao -- e, de quebra, outro programa da pessoa que tinha
+ *   "electron" na linha de comando. O agente nao tem como saber o que e dele.
+ * - **Mexer no historico do git.** Quem commita e integra e o supervisor, depois
+ *   do portao. Commit do agente so tirava a mensagem do titulo do passo; push,
+ *   reset e companhia mexem no que o supervisor esta prestes a juntar.
+ * - **Capturar a tela.** Pega a tela inteira da pessoa, com o que estiver aberto
+ *   nela, para conferir uma cor que ela ja ve ao vivo.
+ *
+ * A recusa volta para o agente com o que fazer no lugar. Perguntar aqui seria
+ * pedir para quem nao le codigo julgar um `pkill -f`.
+ */
+const FORBIDDEN: readonly { readonly matches: (words: readonly string[]) => boolean; readonly message: string }[] = [
+  {
+    matches: ([program]) => ['kill', 'pkill', 'killall', 'xkill'].includes(program ?? ''),
+    message:
+      'Nao pare processos: voce nao tem como saber quais sao seus, e parar o errado derruba o programa ' +
+      'que esta conduzindo este trabalho. Se algo seu ficou rodando, deixe -- eu encerro quando voce terminar.',
+  },
+  {
+    matches: ([program, ...rest]) =>
+      program === 'git' &&
+      ['commit', 'push', 'reset', 'rebase', 'merge', 'cherry-pick', 'revert', 'am'].includes(gitSubcommand(rest)),
+    message:
+      'Nao mexa no historico do git: quando voce terminar, eu confiro, commito e integro o trabalho. ' +
+      'Deixe as mudancas nos arquivos.',
+  },
+  {
+    // `import` sozinho tambem e a primeira palavra de uma linha de Python num
+    // heredoc; so o do ImageMagick leva `-window`.
+    matches: ([program, ...rest]) =>
+      ['scrot', 'xwd', 'gnome-screenshot', 'grim', 'spectacle'].includes(program ?? '') ||
+      (program === 'import' && rest.includes('-window')),
+    message:
+      'Nao capture a tela: ela e da pessoa, com tudo que estiver aberto nela, e ela ve o resultado ao vivo. ' +
+      'Para conferir, leia o codigo e rode a verificacao do projeto.',
+  },
+];
+
+/** O subcomando do git, pulando as opcoes globais (`-c chave=valor`, `-C pasta`). */
+function gitSubcommand(args: readonly string[]): string {
+  for (let index = 0; index < args.length; index += 1) {
+    const word = args[index] ?? '';
+    if (word === '-c' || word === '-C') index += 1;
+    else if (!word.startsWith('-')) return word;
+  }
+  return '';
+}
+
+/** Prefixos que so mudam como o comando roda, nao qual comando e. */
+const WRAPPERS = new Set(['sudo', 'nohup', 'env', 'exec', 'time', 'command', 'timeout', 'xvfb-run']);
+
+/**
+ * As palavras de cada comando de uma linha de shell, sem os prefixos que nao
+ * mudam qual programa roda (`sudo`, `timeout 30`, `FOO=1`). Nao e um parser de
+ * shell -- e o suficiente para achar o programa de cada trecho, e errar para o
+ * lado de perguntar: o que nao casa aqui continua indo para a pessoa.
+ */
+function commandsOf(line: string): string[][] {
+  return line
+    .split(/&&|\|\||[;|&\n()]/)
+    .map((segment) => segment.trim().split(/\s+/).filter((word) => word.length > 0))
+    .map((words) => {
+      let start = 0;
+      while (start < words.length) {
+        const word = words[start] ?? '';
+        if (/^[A-Za-z_][A-Za-z0-9_]*=/.test(word) || WRAPPERS.has(word) || /^-/.test(word) || /^\d+[smhd]?$/.test(word)) {
+          start += 1;
+        } else break;
+      }
+      return words.slice(start).map((word) => word.replace(/^['"]|['"]$/g, ''));
+    })
+    .filter((words) => words.length > 0);
+}
+
+/** A recusa para um comando proibido, ou nada quando ele pode seguir o caminho normal. */
+function forbiddenCommand(input: unknown): string | undefined {
+  const parsed = commandInput.safeParse(input);
+  if (!parsed.success) return undefined;
+  for (const words of commandsOf(parsed.data.command)) {
+    // `/usr/bin/pkill` e `pkill` sao o mesmo programa.
+    const program = (words[0] ?? '').split('/').at(-1) ?? '';
+    const rule = FORBIDDEN.find((candidate) => candidate.matches([program, ...words.slice(1)]));
+    if (rule !== undefined) return rule.message;
+  }
+  return undefined;
+}
+
 const askInput = z.object({
   questions: z
     .array(
@@ -185,6 +279,11 @@ export function decidePermission(
   if (READ_ONLY.has(toolName) || (request.kind !== undefined && READ_ONLY_KINDS.has(request.kind))) {
     return { kind: 'allow' };
   }
+
+  // Antes do modo somente-leitura e de qualquer pergunta: estes nao rodam em
+  // modo nenhum, e a instrucao especifica ensina mais que a recusa generica.
+  const forbidden = forbiddenCommand(input);
+  if (forbidden !== undefined) return { kind: 'deny', message: forbidden };
 
   // Somente-leitura: ler ja passou acima, e daqui pra baixo tudo escreve, roda
   // ou sai da maquina. Nada disso e trabalho de quem so deveria estar olhando,

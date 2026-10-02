@@ -97,7 +97,7 @@ export class AgentPlanner implements Planner {
     const first = await this.ask(request, buildPlanPrompt(prompt));
     if (first.kind !== 'answer') return first.result;
 
-    const parsed = this.toPlan(request, first.text, revision);
+    const parsed = this.toPlan(request, first.text, revision, first.agentId);
     if (parsed.kind === 'ok') return { status: 'planned', plan: parsed.plan };
 
     // JSON fora do schema e o erro que o proprio modelo conserta quando ve o
@@ -108,7 +108,7 @@ export class AgentPlanner implements Planner {
     );
     if (second.kind !== 'answer') return second.result;
 
-    const retried = this.toPlan(request, second.text, revision);
+    const retried = this.toPlan(request, second.text, revision, second.agentId);
     if (retried.kind === 'ok') return { status: 'planned', plan: retried.plan };
 
     return {
@@ -123,7 +123,7 @@ export class AgentPlanner implements Planner {
     request: PlanRequest,
     prompt: string,
   ): Promise<
-    | { readonly kind: 'answer'; readonly text: string }
+    | { readonly kind: 'answer'; readonly text: string; readonly agentId: AgentId }
     | { readonly kind: 'done'; readonly result: PlanResult }
   > {
     const { adapter, role, emit } = this.options;
@@ -200,7 +200,7 @@ export class AgentPlanner implements Planner {
 
     switch (outcome.status) {
       case 'completed':
-        return { kind: 'answer', text: outcome.summary };
+        return { kind: 'answer', text: outcome.summary, agentId };
       case 'blocked':
         return {
           kind: 'done',
@@ -223,11 +223,18 @@ export class AgentPlanner implements Planner {
     }
   }
 
-  /** Rascunho do modelo -> plano completo. Os ids do sistema entram aqui. */
+  /**
+   * Rascunho do modelo -> plano completo. Os ids do sistema entram aqui.
+   *
+   * `createdBy` e o gerente que **escreveu** este texto. Inventar um id novo
+   * aqui punha no plano um autor que nunca entrou no escritorio, e o feed nao
+   * conseguia ligar o plano ao personagem que o fez.
+   */
   private toPlan(
     request: PlanRequest,
     text: string,
     revision: number,
+    createdBy: AgentId,
   ): { readonly kind: 'ok'; readonly plan: Plan } | { readonly kind: 'bad'; readonly problem: string } {
     const raw = parseJsonLoosely(text);
     if (raw === null) {
@@ -237,7 +244,6 @@ export class AgentPlanner implements Planner {
     const draft = parsePlanDraft(raw);
     if (!draft.ok) return { kind: 'bad', problem: draft.problem };
 
-    const createdBy = newAgentId(this.options.role.id);
     const candidate = {
       id: newPlanId(),
       runId: request.runId,
