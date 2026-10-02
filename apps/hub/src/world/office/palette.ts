@@ -1,12 +1,12 @@
 /**
  * Paleta da direcao visual: ilustracao de escritorio em tres dimensoes.
- * Paredes verde-azuladas, madeira quente, acentos chapados. Tudo que a cena
+ * Paredes roxas, madeira quente, acentos chapados. Tudo que a cena
  * pinta sai daqui.
  */
 
 // Paredes do diorama: a oeste um tom mais claro para dar profundidade.
-export const WALL_NORTH = '#2F6B6B';
-export const WALL_WEST = '#3B7F7C';
+export const WALL_NORTH = '#5B3AC4';
+export const WALL_WEST = '#7C4DFF';
 
 // Madeira dos moveis e o rodape escuro.
 export const WOOD = '#B5743C';
