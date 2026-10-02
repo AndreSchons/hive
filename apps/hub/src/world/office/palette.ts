@@ -1,13 +1,13 @@
 /**
  * Paleta da direcao visual: ilustracao de escritorio em tres dimensoes.
- * Paredes off-white, madeira quente, acentos chapados. Tudo que a cena
+ * Paredes em terracota, madeira quente, acentos chapados. Tudo que a cena
  * pinta sai daqui.
  */
 
 // Paredes do diorama: a oeste um tom mais claro para dar profundidade.
-// Off-white frio/acinzentado para nao se confundir com o fundo creme.
-export const WALL_NORTH = '#D8DADD';
-export const WALL_WEST = '#EEF0F2';
+// Terracota quente: norte mais escuro, oeste mais claro.
+export const WALL_NORTH = '#C8674A';
+export const WALL_WEST = '#D98466';
 
 // Madeira dos moveis e o rodape escuro.
 export const WOOD = '#B5743C';
@@ -48,7 +48,7 @@ export const DARK = '#241F1C';
  * Cor de cada agente. O indice vem do hash do agentId: a mesma execucao
  * sempre pinta os mesmos personagens iguais, em qualquer maquina.
  *
- * Todas contrastam com as paredes off-white de proposito: identificar
+ * Todas contrastam com as paredes em terracota de proposito: identificar
  * quem e quem a distancia e funcao do produto.
  */
 export const AGENT_COLORS = [
